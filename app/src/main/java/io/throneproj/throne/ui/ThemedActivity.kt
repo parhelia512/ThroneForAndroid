@@ -1,0 +1,85 @@
+package io.throneproj.throne.ui
+
+import android.content.res.Configuration
+import android.os.Build
+import android.os.Bundle
+import android.widget.TextView
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.snackbar.Snackbar
+import io.throneproj.throne.R
+import io.throneproj.throne.database.DataStore
+import io.throneproj.throne.utils.Theme
+
+abstract class ThemedActivity : AppCompatActivity {
+    constructor() : super()
+    constructor(contentLayoutId: Int) : super(contentLayoutId)
+
+    var themeResId = 0
+    var uiMode = 0
+    open val isDialog = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        if (!isDialog) {
+            Theme.apply(this)
+        } else {
+            Theme.applyDialog(this)
+        }
+        Theme.applyNightTheme()
+
+        super.onCreate(savedInstanceState)
+
+        uiMode = resources.configuration.uiMode
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            
+            val insetController = WindowCompat.getInsetsController(window, window.decorView)
+            // 三大金刚（系统导航栏）按钮固定为白色（深色款），底色仍为主题 colorPrimaryDark
+            insetController.isAppearanceLightNavigationBars = false
+            insetController.isAppearanceLightStatusBars = 
+                if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode() else false
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            findViewById<AppBarLayout>(R.id.appbar)?.apply {
+                updatePadding(top = bars.top)
+            }
+            insets
+        }
+    }
+
+    override fun setTheme(resId: Int) {
+        super.setTheme(resId)
+
+        themeResId = resId
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        if (newConfig.uiMode != uiMode) {
+            uiMode = newConfig.uiMode
+            ActivityCompat.recreate(this)
+        }
+    }
+
+    fun snackbar(@StringRes resId: Int): Snackbar = snackbar("").setText(resId)
+    fun snackbar(text: CharSequence): Snackbar = snackbarInternal(text).apply {
+        view.findViewById<TextView>(com.google.android.material.R.id.snackbar_text).apply {
+            maxLines = 10
+        }
+    }
+
+    internal open fun snackbarInternal(text: CharSequence): Snackbar = throw NotImplementedError()
+
+}

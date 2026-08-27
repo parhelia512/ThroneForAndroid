@@ -27,7 +27,7 @@ android {
         viewBinding = true
         aidl = true
     }
-    namespace = "io.nekohasekai.sagernet"
+    namespace = "io.throneproj.throne"
     packaging {
         jniLibs {
             useLegacyPackaging = true

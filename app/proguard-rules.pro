@@ -1,8 +1,8 @@
 -repackageclasses ''
 -allowaccessmodification
 
--keep class io.nekohasekai.sagernet.** { *;}
--keep class moe.matsuri.nb4a.** { *;}
+-keep class io.throneproj.throne.** { *;}
+-keep class io.throneproj.throne.** { *;}
 
 # Clean Kotlin
 -assumenosideeffects class kotlin.jvm.internal.Intrinsics {
