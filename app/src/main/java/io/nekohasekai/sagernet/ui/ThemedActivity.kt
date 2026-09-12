@@ -43,9 +43,11 @@ abstract class ThemedActivity : AppCompatActivity {
             val insetController = WindowCompat.getInsetsController(window, window.decorView)
             // 三大金刚（系统导航栏）按钮固定为白色（深色款），底色仍为主题 colorPrimaryDark
             insetController.isAppearanceLightNavigationBars = false
-            // 纯白模式（或纯黑主题非夜间）下状态栏底色为浅色，图标需切换为深色保证可读
+            // Monet 动态取色为浅色主题，浅色状态栏配深色图标；纯白模式（或纯黑主题非夜间）同理
             insetController.isAppearanceLightStatusBars =
-                if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+                    !Theme.usingNightMode()
+                } else if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode()
                 else Theme.isWhiteTheme()
         }
 

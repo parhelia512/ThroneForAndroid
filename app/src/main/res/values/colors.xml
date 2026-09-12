@@ -299,6 +299,8 @@
     <color name="color_white_theme_100">#F5F5F5</color>
     <color name="color_white_theme_300">#9E9E9E</color>
     <color name="color_white_theme_fab">#212121</color>
+    <!-- 纯白主题夜间回退时的选中色/强调色（较 #9E9E9E 压暗） -->
+    <color name="color_white_night_accent">#757575</color>
     <color name="color_white_theme_nav_fill">#E0E0E0</color>
     <color name="card_elevated_white">#F7F7F7</color>
 

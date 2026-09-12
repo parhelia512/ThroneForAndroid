@@ -630,6 +630,14 @@
         <item name="cardElevatedSurfaceColor">@color/card_elevated_verdant_mint</item>
     </style>
 
+    <!-- 纯白主题夜间回退样式：底色/顶栏与纯黑主题一致，但主菜单选中色压暗避免 #9E9E9E 过亮 -->
+    <style name="Theme.SagerNet.White.Night" parent="Theme.SagerNet.Black">
+        <item name="colorAccent">@color/color_white_night_accent</item>
+        <item name="selectedColorPrimary">@color/color_white_night_accent</item>
+        <item name="fabColorBackground">@color/color_white_night_accent</item>
+        <item name="itemShapeFillColor">@color/color_white_night_accent</item>
+    </style>
+
     <style name="Theme.SagerNet.White" parent="Theme.SagerNet">
         <item name="colorPrimary">@color/color_white_theme</item>
         <item name="colorPrimaryDark">@color/color_white_theme_dark</item>
@@ -654,6 +662,13 @@
         <item name="accentOrTextPrimary">?android:textColorPrimary</item>
         <item name="primaryOrTextSecondary">?android:textColorSecondary</item>
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
+    </style>
+
+    <style name="Theme.SagerNet.Dialog.White.Night" parent="Theme.SagerNet.Dialog.Black">
+        <item name="colorAccent">@color/color_white_night_accent</item>
+        <item name="selectedColorPrimary">@color/color_white_night_accent</item>
+        <item name="fabColorBackground">@color/color_white_night_accent</item>
+        <item name="itemShapeFillColor">@color/color_white_night_accent</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.White" parent="Theme.SagerNet.Dialog">
@@ -681,6 +696,12 @@
         <item name="android:colorBackground">@android:color/black</item>
         <item name="colorSurface">@android:color/black</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_amoled</item>
+    </style>
+
+    <!-- 纯白主题夜间回退 + OLED：在 White.Night 基础上把顶栏（colorPrimary）从深灰压到纯黑 -->
+    <style name="Theme.SagerNet.Amoled.White" parent="">
+        <item name="colorPrimary">@android:color/black</item>
+        <item name="colorPrimaryDark">@android:color/black</item>
     </style>
 
     <style name="Theme.SagerNet.Monet" parent="Theme.SagerNet" />

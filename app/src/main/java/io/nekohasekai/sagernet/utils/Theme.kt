@@ -52,6 +52,10 @@ object Theme {
     private fun applyAmoledOverlay(context: Context) {
         if (DataStore.amoledTheme && usingNightMode()) {
             context.theme.applyStyle(R.style.Theme_SagerNet_Amoled, true)
+            // 纯白主题夜间回退纯黑主题，其顶栏（colorPrimary）为深灰，OLED 下叠加压到纯黑
+            if (DataStore.appTheme == WHITE) {
+                context.theme.applyStyle(R.style.Theme_SagerNet_Amoled_White, true)
+            }
         }
     }
 
@@ -98,7 +102,7 @@ object Theme {
             VERDANT_MINT -> R.style.Theme_SagerNet_VerdantMint
             WHITE ->
                 // 纯白主题仅在非夜间模式生效，夜间模式回退纯黑主题避免纯白底色
-                if (usingNightMode()) R.style.Theme_SagerNet_Black else R.style.Theme_SagerNet_White
+                if (usingNightMode()) R.style.Theme_SagerNet_White_Night else R.style.Theme_SagerNet_White
             else -> getTheme(defaultTheme())
         }
     }
@@ -129,13 +133,16 @@ object Theme {
             BLACK -> R.style.Theme_SagerNet_Dialog_Black
             VERDANT_MINT -> R.style.Theme_SagerNet_Dialog_VerdantMint
             WHITE ->
-                if (usingNightMode()) R.style.Theme_SagerNet_Dialog_Black else R.style.Theme_SagerNet_Dialog_White
+                if (usingNightMode()) R.style.Theme_SagerNet_Dialog_White_Night else R.style.Theme_SagerNet_Dialog_White
             else -> getDialogTheme(defaultTheme())
         }
     }
 
-    // 纯白主题是否处于生效状态（夜间模式自动回退纯黑主题）
+    // 纯白主题是否处于生效状态（夜间模式自动回退纯黑主题；系统动态取色 Monet 覆盖时不生效）
     fun isWhiteTheme(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+            return false
+        }
         return DataStore.appTheme == WHITE && !usingNightMode()
     }
 

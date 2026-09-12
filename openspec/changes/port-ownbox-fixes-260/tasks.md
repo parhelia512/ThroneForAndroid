@@ -48,7 +48,8 @@
 - [x] 7.1 `utils/Theme.kt`：新增 `WHITE` 主题常量与 `isWhiteTheme()`/`getPrimaryColor()`；沿用现有 `appTheme` 持久化键（新 ID 入枚举即可）
 - [x] 7.2 `values/themes.xml` 新增纯白主题 style；`ColorPickerPreference` 预设色板加入纯白项（色板无文字，与其他色卡一致，不新增文案）
 - [x] 7.3 `ThemedActivity`（系统栏图标深色）、`ToolbarFragment`（工具栏白底深字深图标）、`MainActivity`（FAB 深色底浅色图标）适配；主题变更生效沿用现有 `needRestart()` 机制
-- [ ] 7.4 提交批次五并推送，触发 CI；真机场景（可后置到 8.2）：非夜间模式选择纯白主题，重启后工具栏/FAB/系统栏呈纯白外观且图标可读；夜间模式下不出现纯白底色
+- [x] 7.4 提交批次五并推送，触发 CI；真机场景（可后置到 8.2）：非夜间模式选择纯白主题，重启后工具栏/FAB/系统栏呈纯白外观且图标可读；夜间模式下不出现纯白底色
+- [x] 7.5 真机反馈修复批次六：①纯白+夜间主菜单选中色由 #9E9E9E 压暗为 #757575（`Theme.SagerNet.White.Night`/`Dialog.White.Night`）；②`Theme.isWhiteTheme()` 在系统动态取色（Monet）覆盖时返回 false，切回 Monet 后工具栏黑字/FAB 深底/浅色状态栏强制外观不再残留（含 `ThemedActivity` 状态栏 Monet 分支）；③纯白+夜间+OLED 顶栏 `colorPrimary` 叠加 `Theme.SagerNet.Amoled.White` 压到纯黑
 
 ## 8. 收尾与规范同步
 
