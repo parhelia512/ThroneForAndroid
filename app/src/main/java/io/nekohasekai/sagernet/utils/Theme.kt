@@ -52,15 +52,21 @@ object Theme {
     private fun applyAmoledOverlay(context: Context) {
         if (DataStore.amoledTheme && usingNightMode()) {
             context.theme.applyStyle(R.style.Theme_SagerNet_Amoled, true)
-            // 纯白主题夜间回退纯黑主题，其顶栏（colorPrimary）为深灰，OLED 下叠加压到纯黑
-            if (DataStore.appTheme == WHITE) {
+            // 纯白主题夜间回退纯黑主题，其顶栏（colorPrimary）为深灰，OLED 下叠加压到纯黑；
+            // Monet 动态取色生效时纯白专属叠加不生效，避免 Monet 配色被压成纯黑
+            if (DataStore.appTheme == WHITE && !usingMonetTheme()) {
                 context.theme.applyStyle(R.style.Theme_SagerNet_Amoled_White, true)
             }
         }
     }
 
+    // 系统动态取色（Monet）是否处于生效状态：生效时一切纯白主题专属适配均不生效
+    fun usingMonetTheme(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme
+    }
+
     fun getTheme(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+        return if (usingMonetTheme()) {
             getTheme(MONET)
         } else {
             getTheme(DataStore.appTheme)
@@ -68,7 +74,7 @@ object Theme {
     }
 
     fun getDialogTheme(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+        return if (usingMonetTheme()) {
             getDialogTheme(MONET)
         } else {
             getDialogTheme(DataStore.appTheme)
@@ -140,7 +146,7 @@ object Theme {
 
     // 纯白主题是否处于生效状态（夜间模式自动回退纯黑主题；系统动态取色 Monet 覆盖时不生效）
     fun isWhiteTheme(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+        if (usingMonetTheme()) {
             return false
         }
         return DataStore.appTheme == WHITE && !usingNightMode()

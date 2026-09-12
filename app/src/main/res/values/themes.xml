@@ -632,8 +632,6 @@
 
     <!-- 纯白主题夜间回退样式：底色/顶栏与纯黑主题一致，但主菜单选中色压暗避免 #9E9E9E 过亮 -->
     <style name="Theme.SagerNet.White.Night" parent="Theme.SagerNet.Black">
-        <!-- DEBUG-BLUE: 若主页顶栏变蓝 → Amoled.White overlay 没到达 MainActivity，顶栏回退到了 White.Night 的 colorPrimary -->
-        <item name="colorPrimary">#0000FF</item>
         <item name="colorAccent">@color/color_white_night_accent</item>
         <item name="selectedColorPrimary">@color/color_white_night_accent</item>
         <item name="fabColorBackground">@color/color_white_night_accent</item>
@@ -696,15 +694,15 @@
     <style name="Theme.SagerNet.Amoled" parent="">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:colorBackground">@android:color/black</item>
-        <!-- DEBUG-GREEN: 若主页顶栏变绿 → 它吃 colorSurface -->
-        <item name="colorSurface">#00FF00</item>
+        <item name="colorSurface">@android:color/black</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_amoled</item>
+        <!-- OLED 纯黑下禁用海拔提亮：否则纯黑表面（fill == colorSurface）会被 elevation overlay 按海拔叠白（如 4dp 工具栏被提亮为 #181818） -->
+        <item name="elevationOverlayEnabled">false</item>
     </style>
 
     <!-- 纯白主题夜间回退 + OLED：在 White.Night 基础上把顶栏（colorPrimary）从深灰压到纯黑 -->
     <style name="Theme.SagerNet.Amoled.White" parent="">
-        <!-- DEBUG-RED: 若主页顶栏变红 → 它吃 colorPrimary 且 overlay 已到达 MainActivity（灰色系 4dp 海拔叠加所致） -->
-        <item name="colorPrimary">#FF0000</item>
+        <item name="colorPrimary">@android:color/black</item>
         <item name="colorPrimaryDark">@android:color/black</item>
     </style>
 

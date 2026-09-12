@@ -80,8 +80,9 @@ class MainActivity : ThemedActivity(),
         }
         if (themeResId !in intArrayOf(
                 R.style.Theme_SagerNet_Black,
-                // 纯白主题同样使用读取 ?itemShapeFillColor 的导航视图，保证选中项底色可见
-                R.style.Theme_SagerNet_White
+                // 纯白主题（含其夜间回退样式）同样使用读取 ?itemShapeFillColor 的导航视图，保证选中项底色可见
+                R.style.Theme_SagerNet_White,
+                R.style.Theme_SagerNet_White_Night
             )
         ) {
             navigation = binding.navView

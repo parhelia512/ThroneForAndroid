@@ -45,7 +45,7 @@ abstract class ThemedActivity : AppCompatActivity {
             insetController.isAppearanceLightNavigationBars = false
             // Monet 动态取色为浅色主题，浅色状态栏配深色图标；纯白模式（或纯黑主题非夜间）同理
             insetController.isAppearanceLightStatusBars =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme) {
+                if (Theme.usingMonetTheme()) {
                     !Theme.usingNightMode()
                 } else if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode()
                 else Theme.isWhiteTheme()
