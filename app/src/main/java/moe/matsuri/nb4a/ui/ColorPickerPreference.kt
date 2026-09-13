@@ -11,6 +11,7 @@ import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.res.TypedArrayUtils
 import androidx.core.graphics.drawable.DrawableCompat
@@ -43,15 +44,20 @@ class ColorPickerPreference
         if (!inited) {
             inited = true
 
-            widgetFrame.addView(
-                getNekoImageViewAtColor(
-                    context.getColorAttr(R.attr.colorPrimary),
-                    48,
-                    0
-                )
-            )
+            val previewColor = context.getColorAttr(R.attr.colorPrimary)
+            val preview = getNekoImageViewAtColor(previewColor, 48, 0)
+            applyWhiteSwatchBorder(preview, previewColor)
+            widgetFrame.addView(preview)
             widgetFrame.visibility = View.VISIBLE
         }
+    }
+
+    private fun applyWhiteSwatchBorder(view: ImageView, color: Int) {
+        // 纯白色卡在白色背景上不可见，补一圈虚线描边
+        if (color != ContextCompat.getColor(context, R.color.color_white_theme)) return
+        view.setBackgroundResource(R.drawable.bg_color_swatch_white_border)
+        val pad = (2 * view.resources.displayMetrics.density).roundToInt()
+        view.setPadding(pad)
     }
 
     fun getNekoImageViewAtColor(color: Int, sizeDp: Int, paddingDp: Int): ImageView {
@@ -93,6 +99,7 @@ class ColorPickerPreference
 
                 val themeId = i
                 val view = getNekoImageViewAtColor(color, 64, 0).apply {
+                    applyWhiteSwatchBorder(this, color)
                     setOnClickListener {
                         persistInt(themeId)
                         dialog.dismiss()

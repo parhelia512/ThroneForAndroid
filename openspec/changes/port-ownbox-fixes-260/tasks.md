@@ -51,6 +51,7 @@
 - [x] 7.4 提交批次五并推送，触发 CI；真机场景（可后置到 8.2）：非夜间模式选择纯白主题，重启后工具栏/FAB/系统栏呈纯白外观且图标可读；夜间模式下不出现纯白底色
 - [x] 7.5 真机反馈修复批次六：①纯白+夜间主菜单选中色由 #9E9E9E 压暗为 #757575（`Theme.SagerNet.White.Night`/`Dialog.White.Night`）；②`Theme.isWhiteTheme()` 在系统动态取色（Monet）覆盖时返回 false，切回 Monet 后工具栏黑字/FAB 深底/浅色状态栏强制外观不再残留（含 `ThemedActivity` 状态栏 Monet 分支）；③纯白+夜间+OLED 顶栏 `colorPrimary` 叠加 `Theme.SagerNet.Amoled.White` 压到纯黑
 - [x] 7.6 真机反馈修复批次六（第二轮）：①主页顶栏 OLED 下呈 #181818——经 debug 配色定位为 colorPrimary 纯黑被 4dp 海拔的 elevation overlay 提亮（OLED 下 colorPrimary==colorSurface==黑，overlay 判定成立），`Theme.SagerNet.Amoled` 全局 `elevationOverlayEnabled=false`；②Monet 门控统一：新增 `Theme.usingMonetTheme()`，`applyAmoledOverlay` 的纯白专属叠加与 `isWhiteTheme()`、`ThemedActivity` 状态栏分支均在 Monet 生效时不生效，修复"纯白+夜间+OLED+系统主题色"进入纯黑底 Monet 按钮的异常态；③`MainActivity` 抽屉导航视图选择数组补 `Theme_SagerNet_White_Night`（7.5 引入 White.Night 后选中项底色丢失的回归）
+- [x] 7.7 真机反馈修复批次六（第三轮）：纯白模式取色板按钮加虚线描边——`ColorPickerPreference` 设置页预览圆点与色板中纯白色卡（`color_white_theme`）在白底上不可见，命中纯白时叠加 `bg_color_swatch_white_border` 灰色虚线圈并内缩图标
 
 ## 8. 收尾与规范同步
 
