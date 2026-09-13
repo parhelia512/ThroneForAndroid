@@ -3,6 +3,8 @@ package moe.matsuri.nb4a.ui
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -55,9 +57,18 @@ class ColorPickerPreference
     private fun applyWhiteSwatchBorder(view: ImageView, color: Int) {
         // 纯白色卡在白色背景上不可见，补一圈虚线描边
         if (color != ContextCompat.getColor(context, R.color.color_white_theme)) return
-        view.setBackgroundResource(R.drawable.bg_color_swatch_white_border)
-        val pad = (2 * view.resources.displayMetrics.density).roundToInt()
-        view.setPadding(pad)
+        val factor = view.resources.displayMetrics.density
+        val ring = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+            setStroke(
+                (2 * factor).roundToInt(), 0xFF9E9E9E.toInt(),
+                (4 * factor).roundToInt(), (3 * factor).roundToInt()
+            )
+        }
+        // 图标矢量内圆直径为视口 2/3，按可见圆边缘内缩边长的 1/6，使虚线贴合色卡
+        val inset = (view.layoutParams.width ?: 0) / 6
+        view.background = InsetDrawable(ring, inset, inset, inset, inset)
     }
 
     fun getNekoImageViewAtColor(color: Int, sizeDp: Int, paddingDp: Int): ImageView {
