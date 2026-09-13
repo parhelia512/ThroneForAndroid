@@ -63,7 +63,7 @@ class ColorPickerPreference
             setColor(color)
             setStroke(
                 (2 * factor).roundToInt(), 0xFF9E9E9E.toInt(),
-                (4 * factor).roundToInt(), (3 * factor).roundToInt()
+                4 * factor, 3 * factor
             )
         }
         // 图标矢量内圆直径为视口 2/3，按可见圆边缘内缩边长的 1/6，使虚线贴合色卡
