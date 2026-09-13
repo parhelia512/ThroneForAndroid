@@ -56,14 +56,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             useSystemTheme.setOnPreferenceChangeListener { _, newValue ->
                 val enabled = newValue as Boolean
                 appTheme.isEnabled = !enabled
-                needRestart()
+                applyThemeInstantly()
                 true
             }
             appTheme.isEnabled = !DataStore.useSystemTheme
         }
 
         appTheme.setOnPreferenceChangeListener { _, _ ->
-            needRestart()
+            applyThemeInstantly()
             true
         }
 
@@ -73,10 +73,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             Theme.applyNightTheme()
             true
         }
-        // AMOLED 纯黑开关：切换后重启以重新叠加/移除 overlay
+        // AMOLED 纯黑开关：切换后重建宿主界面以重新叠加/移除 overlay
         findPreference<SwitchPreference>(Key.AMOLED_THEME)!!
             .setOnPreferenceChangeListener { _, _ ->
-                needRestart()
+                applyThemeInstantly()
                 true
             }
         val appLanguage = findPreference<SimpleMenuPreference>(Key.APP_LANGUAGE)!!
@@ -336,6 +336,17 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 setNegativeButton(android.R.string.cancel, null)
             }.show()
             true
+        }
+    }
+
+    // 主题外观设置即时生效：重建宿主 Activity，onCreate 重新按 DataStore 应用主题与
+    // AMOLED overlay；post 到下一帧执行，避免与偏好变更/对话框关闭的当前事务冲突
+    private fun applyThemeInstantly() {
+        val host = activity ?: return
+        host.window?.decorView?.post {
+            if (!host.isFinishing && !host.isDestroyed) {
+                ActivityCompat.recreate(host)
+            }
         }
     }
 
