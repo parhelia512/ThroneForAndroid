@@ -53,6 +53,7 @@
 - [x] 7.6 真机反馈修复批次六（第二轮）：①主页顶栏 OLED 下呈 #181818——经 debug 配色定位为 colorPrimary 纯黑被 4dp 海拔的 elevation overlay 提亮（OLED 下 colorPrimary==colorSurface==黑，overlay 判定成立），`Theme.SagerNet.Amoled` 全局 `elevationOverlayEnabled=false`；②Monet 门控统一：新增 `Theme.usingMonetTheme()`，`applyAmoledOverlay` 的纯白专属叠加与 `isWhiteTheme()`、`ThemedActivity` 状态栏分支均在 Monet 生效时不生效，修复"纯白+夜间+OLED+系统主题色"进入纯黑底 Monet 按钮的异常态；③`MainActivity` 抽屉导航视图选择数组补 `Theme_SagerNet_White_Night`（7.5 引入 White.Night 后选中项底色丢失的回归）
 - [x] 7.7 真机反馈修复批次六（第三轮）：纯白模式取色板按钮加虚线描边——`ColorPickerPreference` 设置页预览圆点与色板中纯白色卡（`color_white_theme`）在白底上不可见，命中纯白时以 `InsetDrawable` 包裹灰色虚线圆（内缩边长 1/6，贴合图标矢量内圆 2/3 直径的可见边缘）
 - [x] 7.8 主题系统 4 项设置即时生效：`SettingsPreferenceFragment` 中"系统主题色"开关、主题颜色选择器、AMOLED 纯黑开关由 `needRestart()` 改为重建宿主 Activity 即时应用（夜间模式切换沿用 `Theme.applyNightTheme()` 既有即时机制，无需重启提示）；theme-system 规范补充"主题外观设置即时生效"要求
+- [x] 7.9 真机反馈修复批次六（第四轮）：换图标包界面快捷磁贴预览激活态在纯白主题下不可读——①纯白主题（日间）`colorPrimary` 为 #FFFFFF，激活磁贴呈白底深字，改为深灰底（#757575，与纯白夜间压暗强调色一致）+ 白字/白图标；②纯白 + OLED（夜间回退叠加 `Theme.SagerNet.Amoled.White`）下 `colorPrimary` 被压为纯黑呈黑底黑字，同样改用深灰底 + 白字；Monet 动态取色生效时不做上述覆盖；theme-system 规范补充"快捷磁贴预览在纯白主题下可读"场景
 
 ## 8. 收尾与规范同步
 

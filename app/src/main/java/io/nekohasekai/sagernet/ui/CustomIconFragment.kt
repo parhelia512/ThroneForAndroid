@@ -21,7 +21,9 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.utils.CustomIconManager
+import io.nekohasekai.sagernet.utils.Theme
 import android.service.quicksettings.TileService as BaseTileService
 
 class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
@@ -199,11 +201,18 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
         }
 
         if (active) {
-            binding.cardSimulatedTile.setCardBackgroundColor(primaryColor)
-            binding.tvSimulatedTileName.setTextColor(onPrimaryColor)
-            binding.tvSimulatedTileState.setTextColor(onPrimaryColor)
+            // 纯白主题下 colorPrimary 为纯白（#FFFFFF）、夜间回退叠加 OLED 后被压为纯黑，
+            // 两种极端底色都会导致激活态磁贴不可读（白底深字/黑底黑字），
+            // 此时改用深灰底 + 白字，与纯白主题压暗后的强调色保持一致
+            val whiteTileOverride = DataStore.appTheme == Theme.WHITE && !Theme.usingMonetTheme() &&
+                (Theme.isWhiteTheme() || DataStore.amoledTheme)
+            val activeBgColor = if (whiteTileOverride) Color.parseColor("#757575") else primaryColor
+            val activeTextColor = if (whiteTileOverride) Color.WHITE else onPrimaryColor
+            binding.cardSimulatedTile.setCardBackgroundColor(activeBgColor)
+            binding.tvSimulatedTileName.setTextColor(activeTextColor)
+            binding.tvSimulatedTileState.setTextColor(activeTextColor)
             binding.tvSimulatedTileState.setText(R.string.custom_icon_tile_state_active)
-            binding.ivSimulatedTileIcon.imageTintList = ColorStateList.valueOf(onPrimaryColor)
+            binding.ivSimulatedTileIcon.imageTintList = ColorStateList.valueOf(activeTextColor)
         } else {
             // Inactive 状态：仿 Android 真实 QS Tile 关闭状态
             val inactiveBgColor = if (isNight) Color.parseColor("#2D3038") else Color.parseColor("#E2E2E6")
