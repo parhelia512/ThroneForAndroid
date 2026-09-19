@@ -51,7 +51,6 @@
     <string name="version_x">バージョン (%s)</string>
     <string name="app_version">バージョン</string>
     <string name="oss_licenses">オープンソースライセンス</string>
-    <string name="telegram">Telegram 更新チャンネル</string>
     <string name="github">ソースコード</string>
     <string name="project">プロジェクト</string>
     <string name="app_desc">Kotlinで記述されたAndroid用のユニバーサルプロキシツールチェーン。</string>
@@ -61,9 +60,6 @@
     <string name="general_settings">アブリ設定</string>
     <string name="menu_route">ルート</string>
     <string name="uuid">ユーザーID</string>
-    <string name="obfs_param">Obfsパラメータ</string>
-    <string name="obfs">Obfs</string>
-    <string name="protocol_param">プロトコルパラメータ</string>
     <string name="protocol">プロトコル</string>
     <string name="enc_method">暗号化方式</string>
     <string name="password">パスワード</string>
@@ -105,7 +101,6 @@
     <string name="allow_insecure_sum">証明書のチェックを無効にします。この設定を有効にすると、平文と同等の安全性になります。</string>
     <string name="connection_test_available">成功: HTTPS ハンドシェイクに要した時間は %dms です。</string>
     <string name="cag_misc">その他の設定</string>
-    <string name="header_type">ヘッダータイプ</string>
     <string name="key_opt">キー（オプション）</string>
     <string name="network">ネットワーク</string>
     <string name="speed_interval">速度通知のアップデート間隔</string>
@@ -131,11 +126,6 @@
     <string name="ws_path">WebSocket パス</string>
     <string name="http_host">HTTP ホスト</string>
     <string name="http_path">HTTP パス</string>
-    <string name="kcp_seed">mKCP Seed</string>
-    <string name="kcp_header_type">ヘッダータイプ</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">CWND 乗数</string>
     <string name="grpc_service_name">gRPC ServiceName</string>
     <string name="tls">TLS を使用</string>
     <string name="sni">Server Name Indication (SNI)</string>
@@ -271,12 +261,6 @@
     <string name="deduplication">重複排除</string>
     <string name="ignore_battery_optimizations">バッテリー最適化を無視</string>
     <string name="ignore_battery_optimizations_sum">一部の制限を解除</string>
-    <string name="plugin">プラグイン</string>
-    <string name="plugin_configure">設定…</string>
-    <string name="plugin_disabled">無効</string>
-    <string name="plugin_unknown">不明なプラグイン %s</string>
-    <string name="plugin_untrusted">警告: このプラグインは既知の信頼できるソースからのものではないようです。</string>
-    <string name="plugin_auto_connect_unlock_only">このプラグインは自動接続で動作しない可能性があります</string>
     <string name="proxy_cat">サーバー設定</string>
     <string name="ss_cat">Shadowsocks 設定</string>
     <string name="unsaved_changes_prompt">変更が保存されていません。保存しますか？</string>
@@ -318,7 +302,6 @@
     <string name="http_proxy_bypass_dialog_message">1 行に 1 つ。# で始まる行はコメントです。例: *zhihu.com</string>
     <string name="strict_route">厳格なルーティング</string>
     <string name="protocol_settings">プロトコル設定</string>
-    <string name="trojan_provider">Trojan プロバイダー</string>
     <string name="group_basic">基本</string>
     <string name="group_settings">グループ設定</string>
     <string name="subscription">サブスクリプション</string>
@@ -342,13 +325,6 @@
     <string name="update_when_connected_only_sum">IP アドレスの漏洩を防止</string>
     <string name="subscription_user_agent">UserAgent</string>
     <string name="confirm">確認</string>
-    <string name="missing_plugin">プラグインがありません</string>
-    <string name="profile_requiring_plugin">プロファイル %s には %s プラグインのインストールが必要ですが、見つかりませんでした。</string>
-    <string name="action_learn_more">詳細</string>
-    <string name="action_download">ダウンロード</string>
-    <string name="install_from_play_store">Play ストアからインストール</string>
-    <string name="install_from_fdroid">F-Droid からインストール</string>
-    <string name="download">ダウンロード</string>
     <string name="ooc_subscription_token_invalid">無効な OOCv1 トークン</string>
     <string name="update_subscription_warning">プロキシが接続されていません。更新を続行してもよろしいですか？</string>
     <string name="ooc_warning">警告</string>
@@ -381,9 +357,6 @@
     <string name="group_order_origin">元の順</string>
     <string name="group_order_by_name">名前順</string>
     <string name="group_order_by_delay">遅延順</string>
-    <string name="plugin_exists_but_on_shit_system">プロファイル %s には %s プラグインが必要ですが、独自仕様の機器ベンダー (多くは監視資本の巨大企業やマルウェア製造者) が Android を改変したため、プラグインを使用できません。</string>
-    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs (Shadowsocks Android プラグイン)</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (Shadowsocks Android プラグイン)</string>
     <string name="tcp_connections">%d 個の TCP 接続</string>
     <string name="udp_connections">%d 個の UDP 接続</string>
     <string name="copy_label">名前をコピー</string>
@@ -462,7 +435,6 @@
     <string name="please_update_force">お使いのアプリは古すぎます (%s)。%s に動作を停止しました。更新してください！</string>
     <string name="connection_test_delete_unavailable">利用不可をクリア</string>
     <string name="move">移動</string>
-    <string name="exe_prefer_provider">プラグインの優先プロバイダー</string>
     <string name="create_shortcut">ショートカットを作成</string>
     <string name="app_tls_version">サブスクリプションの最小 TLS バージョン</string>
     <string name="hop_interval">ポートホッピング間隔 (秒)</string>

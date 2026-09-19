@@ -2,141 +2,40 @@ package moe.matsuri.nb4a
 
 import android.content.Context
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_NEKO
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.http.HttpBean
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.getFirstPort
-import io.nekohasekai.sagernet.fmt.juicity.JuicityBean
-import io.nekohasekai.sagernet.fmt.mieru.MieruBean
-import io.nekohasekai.sagernet.fmt.naive.NaiveBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
-import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
-import io.nekohasekai.sagernet.fmt.snell.SnellBean
-import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
-import io.nekohasekai.sagernet.fmt.ssh.SSHBean
-import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
-import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
-import io.nekohasekai.sagernet.fmt.tuic.TuicBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.dedupKey
 import io.nekohasekai.sagernet.ktx.getColorAttr
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.config.ConfigBean
+import io.nekohasekai.sagernet.outbound.Outbound
 
-// Settings for all protocols, built-in or plugin
+// Settings for all protocols
 object Protocols {
 
     // Deduplication
 
-    class Deduplication(
-        val bean: AbstractBean, val type: String
-    ) {
+    /** A set / map key: two profiles are duplicates when their stripped JSON links match (desktop Profile.cpp:87-90). */
+    class Deduplication(val outbound: Outbound) {
 
-        fun hash(): String {
-            if (bean is ConfigBean) {
-                return bean.config
-            }
-            // 去重键在服务器地址与最终端口之外纳入协议凭据与关键传输特征，
-            // 节点名不参与哈希：同服务器凭据不同的节点不会被错误合并，
-            // 同名凭据不同的节点也不会被漏合并
-            val finalPort = if (bean is HysteriaBean) {
-                // Hysteria 多端口节点取首个端口作为最终端口
-                getFirstPort(bean.serverPorts ?: "")
-            } else {
-                bean.serverPort
-            }
-            val sb = StringBuilder()
-                .append(bean.serverAddress).append(':').append(finalPort)
-                .append(':').append(type)
-            when (val b = bean) {
-                is TrojanBean -> sb.append(":p=").append(b.password)
-                    .append(":sni=").append(b.sni)
+        constructor(entity: ProxyEntity) : this(entity.outbound)
 
-                is StandardV2RayBean -> sb.append(":u=").append(b.uuid)
-                    .append(":path=").append(b.path)
-                    .append(":sni=").append(b.sni)
-                    .append(":rk=").append(b.realityPubKey)
+        private val key: String = outbound.dedupKey()
 
-                is ShadowsocksBean -> sb.append(":m=").append(b.method)
-                    .append(":p=").append(b.password)
-                    .append(":pl=").append(b.plugin)
+        fun hash(): String = key
 
-                is ShadowsocksRBean -> sb.append(":m=").append(b.method)
-                    .append(":p=").append(b.password)
-                    .append(":pr=").append(b.protocol)
-                    .append(":o=").append(b.obfs)
-
-                is SnellBean -> sb.append(":k=").append(b.psk)
-                    .append(":v=").append(b.version)
-
-                is HysteriaBean -> sb.append(":a=").append(b.authPayloadType)
-                    .append(":").append(b.authPayload)
-                    .append(":o=").append(b.obfuscation)
-
-                is TuicBean -> sb.append(":u=").append(b.uuid)
-                    .append(":t=").append(b.token)
-
-                is JuicityBean -> sb.append(":u=").append(b.uuid)
-                    .append(":p=").append(b.password)
-                    .append(":sni=").append(b.sni)
-
-                is TrojanGoBean -> sb.append(":p=").append(b.password)
-                    .append(":sni=").append(b.sni)
-                    .append(":path=").append(b.path)
-
-                is NaiveBean -> sb.append(":u=").append(b.username)
-                    .append(":p=").append(b.password)
-
-                is AnyTLSBean -> sb.append(":p=").append(b.password)
-                    .append(":sni=").append(b.sni)
-                    .append(":rk=").append(b.realityPubKey)
-
-                is WireGuardBean -> sb.append(":pk=").append(b.privateKey)
-                    .append(":pk=").append(b.peerPublicKey)
-                    .append(":psk=").append(b.peerPreSharedKey)
-                    .append(":la=").append(b.localAddress)
-
-                is SSHBean -> sb.append(":u=").append(b.username)
-                    .append(":at=").append(b.authType)
-                    .append(":k=").append(b.privateKey)
-                    .append(":hk=").append(b.publicKey)
-
-                is MieruBean -> sb.append(":u=").append(b.username)
-                    .append(":p=").append(b.password)
-
-                is HttpBean -> sb.append(":u=").append(b.username)
-                    .append(":p=").append(b.password)
-
-                is SOCKSBean -> sb.append(":u=").append(b.username)
-                    .append(":p=").append(b.password)
-            }
-            return sb.toString()
-        }
-
-        override fun hashCode(): Int {
-            return hash().toByteArray().contentHashCode()
-        }
+        override fun hashCode(): Int = key.hashCode()
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as Deduplication
-
-            return hash() == other.hash()
+            return other is Deduplication && other.key == key
         }
 
     }
 
     // Display
 
-    fun Context.getProtocolColor(type: Int): Int {
-        return when (type) {
-            TYPE_NEKO -> getColorAttr(android.R.attr.textColorPrimary)
-            else -> getColorAttr(R.attr.accentOrTextSecondary)
-        }
+    @Suppress("UNUSED_PARAMETER")
+    fun Context.getProtocolColor(type: String): Int {
+        return getColorAttr(R.attr.accentOrTextSecondary)
     }
 
     // Test

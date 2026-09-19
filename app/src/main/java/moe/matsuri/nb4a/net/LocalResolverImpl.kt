@@ -8,28 +8,19 @@ import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
+import io.throneproj.mobile.ExchangeContext
+import io.throneproj.mobile.LocalDNSTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
-import libcore.ExchangeContext
-import libcore.LocalDNSTransport
 import java.net.InetAddress
 import java.net.UnknownHostException
 
 object LocalResolverImpl : LocalDNSTransport {
 
-    // new local
-
     private const val RCODE_NXDOMAIN = 3
 
     override fun raw(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-    }
-
-    override fun networkHandle(): Long {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return SagerNet.underlyingNetwork?.networkHandle ?: 0
-        }
-        return 0
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -125,7 +116,6 @@ object LocalResolverImpl : LocalDNSTransport {
             }
         } else {
             runOnIoDispatcher {
-                // 老版本系统，继续用阻塞的 InetAddress
                 try {
                     val u = SagerNet.underlyingNetwork
                     val answer = try {

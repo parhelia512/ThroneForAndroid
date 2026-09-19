@@ -1,6 +1,6 @@
 # Throne for Android (Formerly NekoBox for Android)
 
-[![API](https://img.shields.io/badge/API-21%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=21)
+[![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=24)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## 使用前须知
@@ -17,7 +17,7 @@
 
 ## 交流反馈 / Feedback
 
-https://t.me/Matsuridayo
+https://github.com/throneproj/ThroneForAndroid/issues
 
 ## 项目主页 & 文档 / Homepage & Documents
 
@@ -37,22 +37,26 @@ Speed testing supports download + upload, download only, upload only, and simple
 
 * SOCKS (4/4a/5)
 * HTTP(S)
-* SSH
 * Shadowsocks
-* ShadowsocksR
 * VMess
+* VLESS (sing-box 与 Xray / sing-box and Xray, incl. XHTTP, REALITY)
 * Trojan
-* VLESS
-* AnyTLS/AnyReality
-* Snell 1/2/3/4/5/6
-* ShadowTLS
+* Hysteria 1/2 (incl. realm)
 * TUIC
 * Juicity
-* Hysteria 1/2
-* WireGuard
-* Trojan-Go (trojan-go-plugin)
-* NaïveProxy (naive-plugin)
-* Mieru (mieru-plugin)
+* AnyTLS
+* ShadowTLS
+* SSH
+* NaïveProxy
+* Mieru
+* Snell v4/v6
+* WireGuard / AmneziaWG
+* TrustTunnel
+* MASQUE
+* OpenVPN
+* OpenConnect
+* 代理链 / Chain
+* 自定义 JSON / Custom JSON
 
 <details>
 <summary>XHTTP Extra TLS配置示例</summary>
@@ -208,11 +212,6 @@ Speed testing supports download + upload, download only, upload only, and simple
 </code></pre>
 </details>
 
-请到[这里](https://matsuridayo.github.io/nb4a-plugin/)下载插件以获得完整的代理支持.
-
-Please visit [here](https://matsuridayo.github.io/nb4a-plugin/) to download plugins for full proxy
-supports.
-
 ## 支持的订阅格式 / Supported Subscription Format
 
 * 一些广泛使用的格式 (如 Shadowsocks, ClashMeta 和 v2rayN)
@@ -227,10 +226,11 @@ Only resolving outbound, i.e. nodes, is supported. Information such as diversion
 
 ## Credits
 
-Core:
+Core: [ThroneCore](https://github.com/throneproj/Throne), built from the `THRONE_CORE_REF` commit pinned in `nb4a.properties`（核心版本以 `nb4a.properties` 中的 `THRONE_CORE_REF` 为准）:
 
-- [SagerNet/sing-box](https://github.com/SagerNet/sing-box)
-- [Mahdi-zarei/speedtest-go](https://github.com/Mahdi-zarei/speedtest-go)（版本与来源见 [`libcore/DEPENDENCIES.md`](libcore/DEPENDENCIES.md)）
+- [throneproj/sing-box](https://github.com/throneproj/sing-box), a fork of [SagerNet/sing-box](https://github.com/SagerNet/sing-box)
+- [throneproj/Xray-core](https://github.com/throneproj/Xray-core), a fork of [XTLS/Xray-core](https://github.com/XTLS/Xray-core)
+- [Mahdi-zarei/speedtest-go](https://github.com/Mahdi-zarei/speedtest-go)
 
 Android GUI:
 

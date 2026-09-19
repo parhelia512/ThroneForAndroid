@@ -1,7 +1,9 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import io.throneproj.mobile.Instance
+
 class TrafficUpdater(
-    private val box: libcore.BoxInstance,
+    private val box: Instance,
     val items: List<TrafficLooperData>, // contain "bypass"
 ) {
 
@@ -19,6 +21,23 @@ class TrafficUpdater(
         var hasTrafficDelta: Boolean = false,
     )
 
+    // The core reports cumulative bytes per outbound tag; keyed by tag rather than by item because
+    // a selector switch reassigns tags between items while the counters stay with the tag.
+    private val lastTotals = HashMap<String, LongArray>()
+
+    private fun queryDelta(tag: String): LongArray {
+        val txTotal = box.queryOutboundStats(tag, "uplink")
+        val rxTotal = box.queryOutboundStats(tag, "downlink")
+        val last = lastTotals.getOrPut(tag) { LongArray(2) }
+        val delta = longArrayOf(
+            (txTotal - last[0]).coerceAtLeast(0),
+            (rxTotal - last[1]).coerceAtLeast(0),
+        )
+        last[0] = txTotal
+        last[1] = rxTotal
+        return delta
+    }
+
     private fun updateOne(item: TrafficLooperData): TrafficLooperData {
         // last update
         val now = System.currentTimeMillis()
@@ -31,8 +50,7 @@ class TrafficUpdater(
         }
 
         // query
-        val tx = box.queryStats(item.tag, "uplink")
-        val rx = box.queryStats(item.tag, "downlink")
+        val (tx, rx) = queryDelta(item.tag)
 
         // add diff
         item.rx += rx
@@ -69,7 +87,5 @@ class TrafficUpdater(
                 item.hasTrafficDelta = diff.rx != 0L || diff.tx != 0L
             }
         }
-//        Logs.d(JavaUtil.gson.toJson(items))
-//        Logs.d(JavaUtil.gson.toJson(updated))
     }
 }

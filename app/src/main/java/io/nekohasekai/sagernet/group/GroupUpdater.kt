@@ -5,15 +5,9 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.http.HttpBean
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.naive.NaiveBean
-import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
-import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.outbound.Outbound
+import io.nekohasekai.sagernet.outbound.types.Naive
 import kotlinx.coroutines.*
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -37,7 +31,7 @@ abstract class GroupUpdater {
     }
 
     protected suspend fun forceResolve(
-        profiles: List<AbstractBean>, groupId: Long?
+        profiles: List<Outbound>, groupId: Long?
     ) {
         val ipv6Mode = DataStore.ipv6Mode
         val lookupPool = newFixedThreadPoolContext(5, "DNS Lookup")
@@ -50,12 +44,11 @@ abstract class GroupUpdater {
         val ipv6First = ipv6Mode >= IPv6Mode.PREFER
 
         for (profile in profiles) {
-            when (profile) {
-                // SNI rewrite unsupported
-                is NaiveBean -> continue
-            }
+            // SNI rewrite unsupported
+            if (profile is Naive) continue
 
-            if (profile.serverAddress.isIpAddress()) continue
+            val server = profile.server
+            if (server.isEmpty() || server.isIpAddress()) continue
 
             lookupJobs.add(GlobalScope.launch(lookupPool) {
                 try {
@@ -67,16 +60,16 @@ abstract class GroupUpdater {
                     ) {
                         // FakeDNS
                         SagerNet.underlyingNetwork!!
-                            .getAllByName(profile.serverAddress)
+                            .getAllByName(server)
                             .filterNotNull()
                     } else {
                         // System DNS is enough (when VPN connected, it uses v2ray-core)
-                        InetAddress.getAllByName(profile.serverAddress).filterNotNull()
+                        InetAddress.getAllByName(server).filterNotNull()
                     }
                     if (results.isEmpty()) error("empty response")
                     rewriteAddress(profile, results, ipv6First)
                 } catch (e: Exception) {
-                    Logs.d("Lookup ${profile.serverAddress} failed: ${e.readableMessage}", e)
+                    Logs.d("Lookup $server failed: ${e.readableMessage}", e)
                 }
                 if (groupId != null) {
                     progress.progress++
@@ -89,34 +82,25 @@ abstract class GroupUpdater {
         lookupPool.close()
     }
 
+    /** Swaps the host for a literal address; the certificate name must survive, so an empty SNI takes the host first. */
     protected fun rewriteAddress(
-        bean: AbstractBean, addresses: List<InetAddress>, ipv6First: Boolean
+        outbound: Outbound, addresses: List<InetAddress>, ipv6First: Boolean
     ) {
-        val address = addresses.sortedBy { (it is Inet4Address) xor ipv6First }[0].hostAddress
+        val address = addresses.sortedBy { (it is Inet4Address) xor ipv6First }[0].hostAddress ?: return
+        val host = outbound.server
 
-        with(bean) {
-            when (this) {
-                is HttpBean -> {
-                    if (isTLS() && sni.isBlank()) sni = bean.serverAddress
-                }
-                is StandardV2RayBean -> {
-                    when (security) {
-                        "tls" -> if (sni.isBlank()) sni = bean.serverAddress
-                    }
-                }
-                is TrojanBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
-                is TrojanGoBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
-                is HysteriaBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
+        if (outbound.isXray()) {
+            val stream = outbound.getXrayStream()
+            when (stream.security) {
+                "tls" -> if (stream.tls.serverName.isEmpty()) stream.tls.serverName = host
+                "reality" -> if (stream.reality.serverName.isEmpty()) stream.reality.serverName = host
             }
-
-            bean.serverAddress = address
+        } else if (outbound.hasTls()) {
+            val tls = outbound.getTls()
+            if ((tls.enabled || outbound.mustTls()) && tls.server_name.isEmpty()) tls.server_name = host
         }
+
+        outbound.setAddress(address)
     }
 
     companion object {
@@ -131,9 +115,9 @@ abstract class GroupUpdater {
         }
 
         suspend fun executeUpdate(proxyGroup: ProxyGroup, byUser: Boolean): Boolean {
-            // supervisorScope：单个订阅更新失败不取消整批更新
+            // supervisorScope: one failing subscription must not cancel the rest of the batch
             return supervisorScope {
-                // 重复触发同一订阅时安全返回 false，不抛出取消异常
+                // a second trigger for the same subscription returns false instead of throwing
                 if (!updating.add(proxyGroup.id)) return@supervisorScope false
                 GroupManager.postReload(proxyGroup.id)
 
@@ -157,7 +141,7 @@ abstract class GroupUpdater {
                     true
                 } catch (e: Throwable) {
                     Logs.w(e)
-                    // 后台自动更新失败静默（仅记录日志），用户手动触发才报告错误
+                    // a failed background update stays silent (log only); only a user-triggered one reports
                     if (byUser) userInterface?.onUpdateFailure(proxyGroup, e.readableMessage)
                     finishUpdate(proxyGroup)
                     false

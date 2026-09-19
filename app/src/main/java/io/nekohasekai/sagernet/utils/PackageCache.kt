@@ -10,13 +10,11 @@ import io.nekohasekai.sagernet.ktx.listenForPackageChanges
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import moe.matsuri.nb4a.plugin.Plugins
 import java.util.concurrent.atomic.AtomicBoolean
 
 object PackageCache {
 
     lateinit var installedPackages: Map<String, PackageInfo>
-    lateinit var installedPluginPackages: Map<String, PackageInfo>
     lateinit var installedApps: Map<String, ApplicationInfo>
     lateinit var packageMap: Map<String, Int>
     val uidMap = HashMap<Int, HashSet<String>>()
@@ -37,10 +35,7 @@ object PackageCache {
     @SuppressLint("InlinedApi")
     fun reload() {
         val rawPackageInfo = app.packageManager.getInstalledPackages(
-            PackageManager.MATCH_UNINSTALLED_PACKAGES
-                    or PackageManager.GET_PERMISSIONS
-                    or PackageManager.GET_PROVIDERS
-                    or PackageManager.GET_META_DATA
+            PackageManager.MATCH_UNINSTALLED_PACKAGES or PackageManager.GET_PERMISSIONS
         )
 
         installedPackages = rawPackageInfo.filter {
@@ -48,10 +43,6 @@ object PackageCache {
                 "android" -> true
                 else -> it.requestedPermissions?.contains(Manifest.permission.INTERNET) == true
             }
-        }.associateBy { it.packageName }
-
-        installedPluginPackages = rawPackageInfo.filter {
-            Plugins.isExe(it)
         }.associateBy { it.packageName }
 
         val installed = app.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)

@@ -1,21 +1,17 @@
 package io.nekohasekai.sagernet.bg.proto
 
-import io.nekohasekai.sagernet.BuildConfig
-import io.nekohasekai.sagernet.bg.GuardedProcessPool
+import android.os.Parcelable
+import io.nekohasekai.sagernet.bg.CoreServiceClient
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.readableMessage
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import libcore.Libcore
-import libcore.SpeedTestResult
-import libcore.SpeedTestSession
-import moe.matsuri.nb4a.net.LocalResolverImpl
+import kotlinx.parcelize.Parcelize
 import kotlin.coroutines.coroutineContext
 
+@Parcelize
 data class SpeedTestSnapshot(
     val profileId: Long,
     val profileName: String,
@@ -31,7 +27,7 @@ data class SpeedTestSnapshot(
     val error: String = "",
     val cancelled: Boolean = false,
     val done: Boolean = false,
-)
+) : Parcelable
 
 internal fun completedSpeedTestCount(index: Int, total: Int, done: Boolean): Int {
     if (total <= 0) return 0
@@ -92,80 +88,24 @@ class SpeedTestQueueRunner<T>(
     }
 }
 
-class AndroidSpeedTestSession(profile: ProxyEntity) : BoxInstance(profile), SpeedTestNodeSession {
-    @Volatile
-    private var nativeSession: SpeedTestSession? = null
-
-    override fun buildConfig() {
-        config = buildConfig(profile, true)
-    }
-
-    override suspend fun loadConfig() = Unit
+// Main-process session: the measurement itself runs in the :bg CoreService.
+class RemoteSpeedTestSession(private val profile: ProxyEntity) : SpeedTestNodeSession {
 
     override suspend fun run(onSample: (SpeedTestSnapshot) -> Unit): SpeedTestSnapshot {
-        processes = GuardedProcessPool { error ->
-            Logs.w("SpeedTest plugin failed for ${profile.displayName()}: ${error.readableMessage}")
-            nativeSession?.cancel()
-        }
-        init()
-        launchExternal()
-        if (processes.processCount > 0) delay(500)
-        if (BuildConfig.DEBUG) Logs.d(config.config)
-
-        val session = Libcore.newSpeedTestSession(
-            profile.id.toString(),
-            config.config,
-            LocalResolverImpl,
+        return CoreServiceClient.speedTest(
+            profile.id,
             DataStore.speedTestMode,
             DataStore.speedTestTimeoutMs,
-            DataStore.speedTestServerListURL,
-            DataStore.speedTestFallbackServerListURL,
             DataStore.simpleDownloadURL,
+            onSample,
         )
-        nativeSession = session
-        try {
-            session.start()
-            while (true) {
-                coroutineContext.ensureActive()
-                val snapshot = session.result.toSnapshot()
-                onSample(snapshot)
-                if (snapshot.done) return snapshot
-                delay(SAMPLE_INTERVAL_MS)
-            }
-        } catch (e: CancellationException) {
-            session.cancel()
-            throw e
-        }
     }
 
     override fun cancel() {
-        nativeSession?.cancel()
+        runOnDefaultDispatcher {
+            runCatching { CoreServiceClient.stopTests() }.onFailure { Logs.w(it) }
+        }
     }
 
-    override fun close() {
-        runCatching { nativeSession?.close() }.onFailure { Logs.w(it) }
-        nativeSession = null
-        super.close()
-    }
-
-    private fun SpeedTestResult.toSnapshot() = SpeedTestSnapshot(
-        profileId = profile.id,
-        profileName = profile.displayName(),
-        mode = mode,
-        stage = stage,
-        downloadBitsPerSecond = downloadBitsPerSecond,
-        uploadBitsPerSecond = uploadBitsPerSecond,
-        downloadBytes = downloadBytes,
-        uploadBytes = uploadBytes,
-        latencyMs = latencyMs,
-        serverName = serverName.orEmpty(),
-        serverCountry = serverCountry.orEmpty(),
-        error = error.orEmpty(),
-        cancelled = cancelled,
-        done = done,
-    )
-
-    private companion object {
-        const val SAMPLE_INTERVAL_MS = 100L
-    }
+    override fun close() = Unit
 }

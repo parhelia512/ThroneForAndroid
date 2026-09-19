@@ -3,7 +3,6 @@
     <string name="app_desc">La cadena de herramientas proxy universal para Android, escrita en Kotlin.</string>
     <string name="project">Proyecto</string> 
     <string name="github">Código fuente</string> 
-    <string name="telegram">Canal de actualización de Telegram</string> 
     <string name="oss_licenses">Licencias de código abierto</string> 
     <string name="app_version">Versión</string> 
     <string name="version_x">Versión (%s)</string> 
@@ -106,14 +105,10 @@
     <string name="password">Contraseña</string> 
     <string name="enc_method">Método de cifrado</string> 
     <string name="protocol">Protocolo</string> 
-    <string name="protocol_param">Parámetro de protocolo</string> 
-    <string name="obfs">Obfs</string> 
-    <string name="obfs_param">Parámetro obfs</string> 
     <string name="uuid">ID de usuario</string> 
     <string name="alter_id">ID alternativo</string> 
     <string name="security">Cifrado de la capa de transporte</string> 
     <string name="network">Red</string> 
-    <string name="header_type">Tipo de encabezado</string> 
     <string name="ws_host">Host WebSocket</string> 
     <string name="ws_path">Ruta WebSocket</string> 
     <string name="http_host">Host HTTP</string> 
@@ -260,13 +255,6 @@
     <string name="deduplication">Deduplicación</string> 
     <string name="ignore_battery_optimizations">Ignorar optimizaciones de batería</string> 
     <string name="ignore_battery_optimizations_sum">Eliminar algunas restricciones</string> 
-    <!-- plugin --> 
-    <string name="plugin">Complemento</string> 
-    <string name="plugin_configure">Configurar…</string> 
-    <string name="plugin_disabled">Desactivado</string> 
-    <string name="plugin_unknown">Complemento desconocido %s</string> 
-    <string name="plugin_untrusted">Advertencia: este complemento no parece provenir de una fuente confiable conocida.</string> 
-    <string name="plugin_auto_connect_unlock_only">Es posible que este complemento no funcione con Autoconectar</string> 
     <string name="proxy_cat">Ajustes del servidor</string> 
     <string name="ss_cat">Ajustes de Shadowsocks</string> 
     <string name="unsaved_changes_prompt">Cambios no guardados. ¿Quieres guardar?</string> 
@@ -308,7 +296,6 @@
     <string name="mixed_auth_no_auth">Sin configurar (sin autenticación)</string>
     <string name="mixed_auth_enabled_sum">Nombre de usuario: %1$s</string>
     <string name="protocol_settings">Ajustes de protocolo</string>
-    <string name="trojan_provider">Proveedor Trojan</string> 
     <string name="group_basic">Básico</string> 
     <string name="group_settings">Ajustes de grupo</string> 
     <string name="subscription">Suscripción</string> 
@@ -327,13 +314,6 @@
     <string name="update_when_connected_only_sum">Evita la fuga de direcciones IP</string> 
     <string name="subscription_user_agent">Agente de usuario</string> 
     <string name="confirm">Confirmar</string> 
-    <string name="missing_plugin">Complemento faltante</string> 
-    <string name="profile_requiring_plugin">El perfil %s requiere que se instale el complemento %s, pero no se encontró.</string> 
-    <string name="action_learn_more">APRENDER MÁS</string> 
-    <string name="action_download">DESCARGAR</string> 
-    <string name="install_from_play_store">Instalar desde Play Store</string> 
-    <string name="install_from_fdroid">Instalar desde F-Droid</string> 
-    <string name="download">Descargar</string> 
     <string name="ooc_subscription_token" translatable="false">OOCv1 API Token</string> 
     <string name="ooc_subscription_token_invalid">Token OOCv1 no válido</string> 
     <string name="update_subscription_warning">El proxy no está conectado, ¿estás seguro de que deseas continuar con la actualización?</string> 
@@ -365,10 +345,7 @@
     <string name="group_order_origin">Origen</string> 
     <string name="group_order_by_name">Por nombre</string> 
     <string name="group_order_by_delay">Por retraso</string> 
-    <string name="plugin_exists_but_on_shit_system">El perfil %s requiere el complemento %s, pero el proveedor de su equipo patentado (por lo general, los gigantes del capital de vigilancia y el fabricante de malware) manipuló su Android e inutilizó el complemento.</string> 
  
-    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs (complemento de Android Shadowsocks)</string> 
-    <string name="shadowsocks_plugin_v2ray">V2Ray (complemento de Android Shadowsocks)</string> 
  
     <string name="traffic_uplink" translatable="false">%s | %s/s ↑</string> 
     <string name="traffic_downlink" translatable="false">%s | %s/s ↓</string> 

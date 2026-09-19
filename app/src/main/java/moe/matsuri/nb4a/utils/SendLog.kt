@@ -5,13 +5,11 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.use
 import io.nekohasekai.sagernet.utils.CrashHandler
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 
@@ -42,7 +40,7 @@ object SendLog {
         }
 
         logFile.appendText("\n")
-        logFile.appendBytes(getNekoLog(0))
+        logFile.appendBytes(CoreLog.read(0))
 
         context.startActivity(
             Intent.createChooser(
@@ -57,21 +55,4 @@ object SendLog {
         )
     }
 
-    // Get log bytes from neko.log
-    fun getNekoLog(max: Long): ByteArray {
-        return try {
-            val file = File(
-                SagerNet.application.cacheDir,
-                "neko.log"
-            )
-            val len = file.length()
-            val stream = FileInputStream(file)
-            if (max in 1 until len) {
-                stream.skip(len - max) // TODO string?
-            }
-            stream.use { it.readBytes() }
-        } catch (e: Exception) {
-            e.stackTraceToString().toByteArray()
-        }
-    }
 }

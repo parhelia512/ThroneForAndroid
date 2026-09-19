@@ -34,20 +34,17 @@
                         android:id="@+id/action_new_ss"
                         android:title="@string/action_shadowsocks" />
                     <item
-                        android:id="@+id/action_new_ssr"
-                        android:title="@string/action_shadowsocksr" />
-                    <item
                         android:id="@+id/action_new_vmess"
                         android:title="@string/action_vmess" />
                     <item
                         android:id="@+id/action_new_vless"
-                        android:title="VLESS" />
+                        android:title="@string/action_vless" />
+                    <item
+                        android:id="@+id/action_new_xray_vless"
+                        android:title="@string/action_vless_xray" />
                     <item
                         android:id="@+id/action_new_trojan"
                         android:title="@string/action_trojan" />
-                    <item
-                        android:id="@+id/action_new_trojan_go"
-                        android:title="@string/action_trojan_go" />
                     <item
                         android:id="@+id/action_new_mieru"
                         android:title="@string/action_mieru" />
@@ -70,6 +67,9 @@
                         android:id="@+id/action_new_anytls"
                         android:title="@string/action_anytls" />
                     <item
+                        android:id="@+id/action_new_trusttunnel"
+                        android:title="@string/action_trusttunnel" />
+                    <item
                         android:id="@+id/action_new_snell"
                         android:title="@string/action_snell" />
                     <item
@@ -78,6 +78,18 @@
                     <item
                         android:id="@+id/action_new_wg"
                         android:title="@string/action_wireguard" />
+                    <item
+                        android:id="@+id/action_new_masque"
+                        android:title="@string/action_masque" />
+                    <item
+                        android:id="@+id/action_new_openvpn"
+                        android:title="@string/action_openvpn" />
+                    <item
+                        android:id="@+id/action_new_openconnect"
+                        android:title="@string/action_openconnect" />
+                    <item
+                        android:id="@+id/action_new_direct"
+                        android:title="@string/action_direct" />
                     <item
                         android:id="@+id/action_new_config"
                         android:title="@string/custom_config" />

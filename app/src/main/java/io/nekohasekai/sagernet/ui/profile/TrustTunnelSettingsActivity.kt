@@ -1,0 +1,32 @@
+package io.nekohasekai.sagernet.ui.profile
+
+import androidx.preference.PreferenceFragmentCompat
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.outbound.types.TrustTunnel
+
+class TrustTunnelSettingsActivity : BindingSettingsActivity<TrustTunnel>() {
+
+    override fun createEntity() = TrustTunnel()
+    override val preferencesResource = R.xml.trusttunnel_preferences
+
+    init {
+        pbm.text("name")
+        pbm.text("server")
+        pbm.int("serverPort")
+        pbm.text("username")
+        pbm.text("password")
+        pbm.bool("quic")
+        pbm.text("congestion_control")
+        pbm.text("custom_sni")
+        pbm.text("client_random")
+        pbm.bool("health_check")
+        TlsBlock.bind(pbm)
+    }
+
+    override fun PreferenceFragmentCompat.onPreferencesCreated() {
+        portInput("serverPort")
+        passwordSummary("password")
+        TlsBlock.setup(this, mustTls = true)
+    }
+
+}

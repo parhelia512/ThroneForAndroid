@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.*
-import android.app.ActivityManager
 import android.widget.Toast
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.BootReceiver
@@ -14,15 +13,15 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
+import io.nekohasekai.sagernet.bg.proto.urlTestCurrent
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
 import java.net.UnknownHostException
@@ -51,22 +50,20 @@ class BaseService {
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
                 Action.RELOAD -> service.reload()
-                // Action.SWITCH_WAKE_LOCK -> runOnDefaultDispatcher { service.switchWakeLock() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        if (SagerNet.power.isDeviceIdleMode) {
-                            proxy?.box?.sleep()
-                        } else {
-                            proxy?.box?.wake()
-                            if (DataStore.wakeResetConnections) {
-                                Libcore.resetAllConnections(true)
-                            }
+                    val box = proxy?.boxOrNull ?: return@broadcastReceiver
+                    if (SagerNet.power.isDeviceIdleMode) {
+                        box.pause()
+                    } else {
+                        box.wake()
+                        if (DataStore.wakeResetConnections) {
+                            box.resetNetwork()
                         }
                     }
                 }
 
                 Action.RESET_UPSTREAM_CONNECTIONS -> runOnDefaultDispatcher {
-                    Libcore.resetAllConnections(true)
+                    proxy?.boxOrNull?.resetNetwork()
                     runOnMainDispatcher {
                         Util.collapseStatusBar(ctx)
                         Toast.makeText(ctx, "Reset upstream connections done", Toast.LENGTH_SHORT)
@@ -147,13 +144,13 @@ class BaseService {
         }
 
         override fun urlTest(): Int {
-            if (data?.proxy?.box == null) {
-                error("core not started")
-            }
+            val proxy = data?.proxy?.takeIf { it.isInitialized() } ?: error("core not started")
             try {
-                return Libcore.urlTest(
-                    data!!.proxy!!.box, DataStore.connectionTestURL, DataStore.connectionTestTimeout
-                )
+                return runBlocking {
+                    urlTestCurrent(
+                        proxy.box, proxy.core, DataStore.connectionTestURL, DataStore.connectionTestTimeout
+                    )
+                }
             } catch (e: Exception) {
                 error(Protocols.genFriendlyMsg(e.readableMessage))
             }
@@ -162,11 +159,6 @@ class BaseService {
         fun stateChanged(s: State, msg: String?) = launch {
             val profileName = profileName
             broadcast { it.stateChanged(s.ordinal, profileName, msg) }
-        }
-
-        fun missingPlugin(pluginName: String) = launch {
-            val profileName = profileName
-            broadcast { it.missingPlugin(profileName, pluginName) }
         }
 
         override fun close() {
@@ -188,17 +180,6 @@ class BaseService {
             if (DataStore.selectedProxy == 0L) {
                 stopRunner(false, (this as Context).getString(R.string.profile_empty))
             }
-            if (canReloadSelector()) {
-                val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
-                val tag = data.proxy!!.config.profileTagMap[ent?.id] ?: ""
-                if (tag.isNotBlank() && ent != null) {
-                    // select from GUI
-                    data.proxy!!.box.selectOutbound(tag)
-                    // or select from webui
-                    // => selector_OnProxySelected
-                }
-                return
-            }
             val s = data.state
             when {
                 s == State.Stopped -> startRunner()
@@ -207,15 +188,16 @@ class BaseService {
             }
         }
 
-        fun canReloadSelector(): Boolean {
-            if ((data.proxy?.config?.selectorGroupId ?: -1L) < 0) return false
-            val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy) ?: return false
-            val tmpBox = ProxyInstance(ent)
-            tmpBox.buildConfigTmp()
-            if (tmpBox.lastSelectorGroupId == data.proxy?.lastSelectorGroupId) {
-                return true
+        fun onProxySelected(ent: ProxyEntity) {
+            data.proxy?.boxOrNull?.resetNetwork()
+            runOnDefaultDispatcher {
+                data.proxy?.apply {
+                    looper?.selectMain(ent.id)
+                    displayProfileName = ServiceNotification.genTitle(ent)
+                    data.notification?.postNotificationTitle(displayProfileName)
+                }
+                data.binder.broadcast { it.cbSelectorUpdate(ent.id) }
             }
-            return false
         }
 
         suspend fun startProcesses() {
@@ -396,12 +378,8 @@ class BaseService {
         var upstreamInterfaceName: String?
 
         suspend fun preInit() {
-            // 只负责 underlyingNetwork / 网卡名跟踪，供 VpnService.setUnderlyingNetworks。
-            // 「网络变化时重置出站」由 DataStore.networkChangeResetConnections 控制，
-            // 经 NativeInterface → Libcore.setNetworkChangeResetConnections →
-            // interfaceMonitor 是否 callback → 官方 ResetNetwork 生效；
-            // 此处不再叠调 resetAllConnections（避免与内核双路径各拆一次）。
-            // 「唤醒时重置」见 receiver 内 DataStore.wakeResetConnections。
+            // Tracks the underlying network for VpnService.setUnderlyingNetworks only; the
+            // "reset on network change" switch is applied by NativeInterface's monitor callback.
             DefaultNetworkListener.start(this) { network ->
                 if (network == null) return@start
                 SagerNet.connectivity.getLinkProperties(network)?.also { link ->
@@ -454,10 +432,7 @@ class BaseService {
                     addAction(Action.RELOAD)
                     addAction(Intent.ACTION_SHUTDOWN)
                     addAction(Action.CLOSE)
-                    // addAction(Action.SWITCH_WAKE_LOCK)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
-                    }
+                    addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
                     addAction(Action.RESET_UPSTREAM_CONNECTIONS)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -484,15 +459,9 @@ class BaseService {
                 try {
                     data.notification = createNotification(ServiceNotification.genTitle(profile))
 
-                    Executable.killAll()    // clean up old processes
                     preInit()
                     proxy.init()
                     DataStore.currentProfile = profile.id
-
-                    proxy.processes = GuardedProcessPool {
-                        Logs.w(it)
-                        stopRunner(false, it.readableMessage)
-                    }
 
                     startProcesses()
                     data.changeState(State.Connected)
@@ -501,14 +470,9 @@ class BaseService {
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
                 } catch (_: UnknownHostException) {
                     stopRunner(false, getString(R.string.invalid_server))
-                } catch (e: PluginManager.PluginNotFoundException) {
-                    Toast.makeText(this@Interface, e.readableMessage, Toast.LENGTH_SHORT).show()
-                    Logs.w(e)
-                    data.binder.missingPlugin(e.plugin)
-                    stopRunner(false, null)
                 } catch (exc: Throwable) {
+                    // gomobile surfaces Go errors as go.Universe$proxyerror: message only, no stack worth logging
                     if (exc.javaClass.name.endsWith("proxyerror")) {
-                        // error from golang
                         Logs.w(exc.readableMessage)
                     } else {
                         Logs.w(exc)

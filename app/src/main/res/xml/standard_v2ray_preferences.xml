@@ -6,11 +6,11 @@
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
-    <PreferenceCategory app:title="@string/proxy_cat">
-
+    <PreferenceCategory
+        app:title="@string/proxy_cat">
         <EditTextPreference
             app:icon="@drawable/ic_hardware_router"
-            app:key="serverAddress"
+            app:key="server"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
@@ -20,264 +20,305 @@
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_person_24"
-            app:key="username"
-            app:title="@string/username_opt"
-            app:useSimpleSummaryProvider="true" />
+            app:key="uuid"
+            app:title="@string/uuid"
+            app:dialogLayout="@layout/layout_password_dialog" />
         <EditTextPreference
-            app:dialogLayout="@layout/layout_password_dialog"
             app:icon="@drawable/ic_settings_password"
             app:key="password"
-            app:title="@string/password_opt" />
-        <EditTextPreference
-            app:dialogLayout="@layout/layout_password_dialog"
-            app:icon="@drawable/ic_baseline_person_24"
-            app:key="uuid"
-            app:title="@string/uuid" />
+            app:title="@string/password"
+            app:dialogLayout="@layout/layout_password_dialog" />
         <EditTextPreference
             app:icon="@drawable/ic_maps_360"
-            app:key="alterId"
+            app:key="alter_id"
             app:title="@string/alter_id"
+            app:defaultValue="0"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:entries="@array/vmess_encryption_value"
-            app:entryValues="@array/vmess_encryption_value"
             app:icon="@drawable/ic_notification_enhanced_encryption"
-            app:key="encryption"
-            app:title="@string/encryption"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_notification_enhanced_encryption"
-            app:key="vlessEncryption"
-            app:title="@string/vless_encryption"
-            app:dialogMessage="@string/vless_encryption_hint"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:entries="@array/packet_encoding_entry"
-            app:entryValues="@array/int_array_3"
-            app:icon="@drawable/baseline_widgets_24"
-            app:key="packetEncoding"
-            app:title="@string/packet_encoding"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:entries="@array/networks_value"
-            app:entryValues="@array/networks_value"
-            app:icon="@drawable/ic_baseline_compare_arrows_24"
-            app:key="type"
-            app:title="@string/network"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_airplanemode_active_24"
-            app:key="host"
-            app:title="@string/http_host"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_format_align_left_24"
-            app:key="path"
-            app:title="@string/http_path"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="none"
-            app:entries="@array/kcp_headers_value"
-            app:entryValues="@array/kcp_headers_value"
-            app:icon="@drawable/ic_baseline_texture_24"
-            app:key="headerType"
-            app:title="@string/kcp_header_type"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="20"
-            app:entries="@array/kcp_cwnd_multiplier_entry"
-            app:entryValues="@array/kcp_cwnd_multiplier_value"
-            app:icon="@drawable/ic_baseline_speed_24"
-            app:key="kcpCwndMultiplier"
-            app:title="@string/kcp_cwnd_multiplier"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:dialogLayout="@layout/layout_password_dialog"
-            app:icon="@drawable/ic_baseline_format_align_left_24"
-            app:key="mKcpSeed"
-            app:title="@string/kcp_seed"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_tune_24"
-            app:key="kcpMtu"
-            app:title="@string/kcp_mtu"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_speed_24"
-            app:key="kcpTti"
-            app:title="@string/kcp_tti"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:entries="@array/transport_layer_encryption_value"
-            app:entryValues="@array/transport_layer_encryption_value"
-            app:icon="@drawable/ic_baseline_layers_24"
             app:key="security"
-            app:title="@string/security"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="serverWsCategory"
-        app:title="@string/cag_ws">
-        <EditTextPreference
-            app:defaultValue="0"
-            app:icon="@drawable/ic_baseline_compare_arrows_24"
-            app:key="wsMaxEarlyData"
-            app:title="@string/ws_max_early_data"
-            app:useSimpleSummaryProvider="true" />
-
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_stream_24"
-            app:key="earlyDataHeaderName"
-            app:title="@string/early_data_header_name"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="serverXhttpCategory"
-        app:title="@string/xhttp_settings">
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:title="@string/encryption"
+            app:entries="@array/vmess_security_entry"
+            app:entryValues="@array/vmess_security_entry"
             app:defaultValue="auto"
-            app:entries="@array/xhttp_mode_entry"
-            app:entryValues="@array/xhttp_mode_value"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:icon="@drawable/ic_baseline_stream_24"
-            app:key="xhttpMode"
-            app:title="@string/xhttp_mode"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_action_settings"
-            app:key="xhttpExtra"
-            app:title="@string/xhttp_extra"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="serverSecurityCategory"
-        app:title="@string/security_settings">
-        <EditTextPreference
-            app:icon="@drawable/ic_action_copyright"
-            app:key="sni"
-            app:title="@string/sni"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_legend_toggle_24"
-            app:key="alpn"
-            app:title="@string/alpn"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_vpn_key_24"
-            app:key="certificates"
-            app:title="@string/certificates"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreference
-            app:icon="@drawable/ic_notification_enhanced_encryption"
-            app:key="allowInsecure"
-            app:summary="@string/allow_insecure_sum"
-            app:title="@string/allow_insecure" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="serverTlsCamouflageCategory"
-        app:title="@string/tls_camouflage_settings">
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:key="flow"
+            app:title="@string/xtls_flow"
+            app:entries="@array/vless_flow_entry"
+            app:entryValues="@array/vless_flow_value"
             app:defaultValue=""
-            app:entries="@array/utls_fingerprint_entry"
-            app:entryValues="@array/utls_fingerprint_entry"
-            app:icon="@drawable/ic_baseline_fingerprint_24"
-            app:key="utlsFingerprint"
-            app:title="@string/utls_fingerprint"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_vpn_key_24"
-            app:key="realityPubKey"
-            app:title="Reality Public Key"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
-            app:key="realityShortId"
-            app:title="Reality ShortId"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        app:key="serverMuxCategory"
-        app:title="@string/mux_preference">
-        <SwitchPreference
-            app:icon="@drawable/ic_baseline_compare_arrows_24"
-            app:key="enableMux"
-            app:summary="@string/mux_sum"
-            app:title="@string/enable_mux" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="0"
-            app:entries="@array/mux_type"
-            app:entryValues="@array/int_array_3"
-            app:key="muxType"
-            app:title="@string/mux_type"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="0"
-            app:entries="@array/mux_mode"
-            app:entryValues="@array/int_array_2"
-            app:icon="@drawable/ic_baseline_tune_24"
-            app:key="muxMode"
-            app:title="@string/mux_mode"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:defaultValue="8"
-            app:icon="@drawable/ic_baseline_low_priority_24"
-            app:key="muxConcurrency"
-            app:title="@string/mux_concurrency"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:defaultValue="4"
-            app:icon="@drawable/ic_baseline_low_priority_24"
-            app:key="muxMaxConnections"
-            app:title="@string/mux_max_connections"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:defaultValue="4"
-            app:icon="@drawable/ic_baseline_low_priority_24"
-            app:key="muxMinStreams"
-            app:title="@string/mux_min_streams"
+            app:icon="@drawable/baseline_widgets_24"
+            app:key="packet_encoding"
+            app:title="@string/packet_encoding"
+            app:entries="@array/packet_encoding_entry"
+            app:entryValues="@array/packet_encoding_value"
+            app:defaultValue="xudp"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreference
             app:icon="@drawable/baseline_developer_board_24"
-            app:key="muxPadding"
-            app:title="@string/padding" />
+            app:key="global_padding"
+            app:title="@string/vmess_global_padding" />
         <SwitchPreference
-            app:icon="@drawable/ic_baseline_speed_24"
-            app:key="muxBrutal"
-            app:title="@string/mux_brutal" />
-        <EditTextPreference
-            app:defaultValue="100"
-            app:icon="@drawable/ic_baseline_upload_24"
-            app:key="muxBrutalUpMbps"
-            app:title="@string/mux_brutal_up_mbps"
+            app:icon="@drawable/ic_baseline_security_24"
+            app:key="authenticated_length"
+            app:title="@string/vmess_authenticated_length" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="transportCategory"
+        app:title="@string/transport_settings">
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:key="transport.type"
+            app:title="@string/network"
+            app:entries="@array/transport_type_entry"
+            app:entryValues="@array/transport_type_value"
+            app:defaultValue="tcp"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:defaultValue="100"
-            app:icon="@drawable/ic_baseline_download_24"
-            app:key="muxBrutalDownMbps"
-            app:title="@string/mux_brutal_down_mbps"
+            app:icon="@drawable/ic_baseline_airplanemode_active_24"
+            app:key="transport.host"
+            app:title="@string/transport_host"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_format_align_left_24"
+            app:key="transport.path"
+            app:title="@string/transport_path"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_http_24"
+            app:key="transport.method"
+            app:title="@string/transport_method"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_texture_24"
+            app:key="transport.headers"
+            app:title="@string/transport_headers"
+            app:dialogMessage="@string/headers_hint"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_format_align_left_24"
+            app:key="transport.service_name"
+            app:title="@string/grpc_service_name"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:key="transport.max_early_data"
+            app:title="@string/ws_max_early_data"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_stream_24"
+            app:key="transport.early_data_header_name"
+            app:title="@string/early_data_header_name"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="transport.idle_timeout"
+            app:title="@string/transport_idle_timeout"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="transport.ping_timeout"
+            app:title="@string/transport_ping_timeout"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory
-        app:key="serverECHCategory"
-        app:title="ECH">
+        app:key="tlsCategory"
+        app:title="@string/security_settings">
         <SwitchPreference
-            app:icon="@drawable/ic_baseline_security_24"
-            app:key="enableECH"
-            app:title="@string/enable" />
+            app:icon="@drawable/ic_baseline_lock_24"
+            app:key="tls.enabled"
+            app:title="@string/enable_tls" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_nfc_24"
-            app:key="echConfig"
-            app:title="@string/ech_config"
+            app:icon="@drawable/ic_action_copyright"
+            app:key="tls.server_name"
+            app:title="@string/sni"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_fingerprint_24"
+            app:key="tls.disable_sni"
+            app:title="@string/tuic_disable_sni" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_legend_toggle_24"
+            app:key="tls.alpn"
+            app:title="@string/alpn"
+            app:dialogMessage="@string/one_per_line"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:key="tls.insecure"
+            app:title="@string/allow_insecure"
+            app:summary="@string/allow_insecure_sum" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:key="tls.certificate"
+            app:title="@string/certificates"
+            app:dialogMessage="@string/certificate_pem_hint"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_push_pin_24"
+            app:key="tls.certificate_public_key_sha256"
+            app:title="@string/certificate_public_key_sha256"
+            app:dialogMessage="@string/one_per_line"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_shuffle_24"
+            app:key="tls.fragment"
+            app:title="@string/tls_fragment"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="tls.fragment_fallback_delay"
+            app:title="@string/tls_fragment_fallback_delay"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_shuffle_24"
+            app:key="tls.record_fragment"
+            app:title="@string/tls_record_fragment" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_filter_list_24"
+            app:key="tls.spoof_enabled"
+            app:title="@string/tls_spoof"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_domain_24"
-            app:key="echQueryServerName"
+            app:key="tls.spoof"
+            app:title="@string/tls_spoof_server_name"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_tune_24"
+            app:key="tls.spoof_method"
+            app:title="@string/tls_spoof_method"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_tune_24"
+            app:key="tls.tls_tricks"
+            app:title="@string/tls_tricks"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="tlsCamouflageCategory"
+        app:title="@string/tls_camouflage_settings">
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_fingerprint_24"
+            app:key="tls.utls.enabled"
+            app:title="@string/enable_utls" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_fingerprint_24"
+            app:key="tls.utls.fingerPrint"
+            app:title="@string/utls_fingerprint"
+            app:entries="@array/utls_fingerprint_entry"
+            app:entryValues="@array/utls_fingerprint_entry"
+            app:defaultValue=""
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_security_24"
+            app:key="tls.reality.enabled"
+            app:title="@string/enable_reality" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:key="tls.reality.public_key"
+            app:title="@string/reality_public_key"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_texture_24"
+            app:key="tls.reality.short_id"
+            app:title="@string/reality_short_id"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="tlsEchCategory"
+        app:title="@string/ech_settings">
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_security_24"
+            app:key="tls.ech.enabled"
+            app:title="@string/enable_ech" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_nfc_24"
+            app:key="tls.ech.config"
+            app:title="@string/ech_config"
+            app:dialogMessage="@string/one_per_line"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_domain_24"
+            app:key="tls.ech.serverName"
             app:title="@string/ech_query_server_name"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="muxCategory"
+        app:title="@string/mux_preference">
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:key="multiplex.enabled"
+            app:title="@string/enable_mux"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_layers_24"
+            app:key="multiplex.protocol"
+            app:title="@string/mux_type"
+            app:entries="@array/mux_protocol_entry"
+            app:entryValues="@array/mux_protocol_value"
+            app:defaultValue=""
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="multiplex.max_streams"
+            app:title="@string/mux_concurrency"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="multiplex.max_connections"
+            app:title="@string/mux_max_connections"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="multiplex.min_streams"
+            app:title="@string/mux_min_streams"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/baseline_developer_board_24"
+            app:key="multiplex.padding"
+            app:title="@string/padding" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_speed_24"
+            app:key="multiplex.brutal.enabled"
+            app:title="@string/mux_brutal" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_upload_24"
+            app:key="multiplex.brutal.up_mbps"
+            app:title="@string/mux_brutal_up_mbps"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_download_24"
+            app:key="multiplex.brutal.down_mbps"
+            app:title="@string/mux_brutal_down_mbps"
+            app:defaultValue="0"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 

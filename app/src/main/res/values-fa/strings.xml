@@ -5,7 +5,6 @@
     <string name="app_desc">مجموعه ابزار جامع پراکسی برای اندروید، نوشته‌شده با کاتلین.</string>
     <string name="project">پروژه</string>
     <string name="github">کد منبع</string>
-    <string name="telegram">کانال دریافت نسخه‌های به‌روز در تلگرام</string>
     <string name="oss_licenses">مجوزهای متن‌باز</string>
     <string name="app_version">نسخه برنامه</string>
     <string name="version_x">نسخه (%s)</string>
@@ -114,14 +113,10 @@
     <string name="password">Pرمز عبور</string>
     <string name="enc_method">نوع رمزنگاری</string>
     <string name="protocol">دستورالعمل</string>
-    <string name="protocol_param">مؤلفه دستورالعمل</string>
-    <string name="obfs">دستورالعمل درهم‌سازی obfs</string>
-    <string name="obfs_param">مؤلفه Obfs</string>
     <string name="uuid">شناسه کاربری</string>
     <string name="alter_id">شناسه دیگر</string>
     <string name="security">رمزنگاری لایه Transport</string>
     <string name="network">شبکه</string>
-    <string name="header_type">نوع سرآیند</string>
     <string name="ws_host">میزبان WebSocket</string>
     <string name="ws_path">مسیر WebSocket</string>
     <string name="http_host">میزبان HTTP</string>
@@ -212,10 +207,8 @@
     <string name="action_socks" translatable="false">SOCKS</string>
     <string name="action_http" translatable="false">HTTP</string>
     <string name="action_shadowsocks" translatable="false">Shadowsocks</string>
-    <string name="action_shadowsocksr" translatable="false">ShadowsocksR</string>
     <string name="action_vmess" translatable="false">VMess</string>
     <string name="action_trojan" translatable="false">Trojan</string>
-    <string name="action_trojan_go" translatable="false">Trojan Go</string>
     <string name="action_mieru" translatable="false">Mieru</string>
     <string name="action_naive" translatable="false">Naïve</string>
     <string name="action_hysteria" translatable="false">Hysteria</string>
@@ -284,13 +277,6 @@
     <string name="deduplication">حذف موارد تکراری</string>
     <string name="ignore_battery_optimizations">بهینه‌سازی باتری را برای این برنامه غیرفعال کنید</string>
     <string name="ignore_battery_optimizations_sum">چند محدودیت برداشته می‌شود</string>
-    <!-- plugin -->
-    <string name="plugin">افزونه</string>
-    <string name="plugin_configure">پیکربندی...</string>
-    <string name="plugin_disabled">غیرفعال</string>
-    <string name="plugin_unknown">افزونه نامشخص %s</string>
-    <string name="plugin_untrusted">هشدار: به نظر می‌رسد این افزونه از منابع شناخته‌شده نیست و ممکن است ناامن باشد.</string>
-    <string name="plugin_auto_connect_unlock_only">این افزونه ممکن است با اتصال خودکار، کار نکند</string>
     <string name="proxy_cat">تنظیمات سرور</string>
     <string name="ss_cat">تنظیمات سرور</string>
     <string name="unsaved_changes_prompt">تغییرات جدید هنوز ذخیره نشدند، آیا می‌خواهید ذخیره شوند؟</string>
@@ -335,7 +321,6 @@
     <string name="http_proxy_bypass">فهرست دور زدن پروکسی HTTP</string>
     <string name="http_proxy_bypass_dialog_message">در هر خط یک مورد. خطوطی که با # شروع می‌شوند نظر هستند. مثال: *zhihu.com</string>
     <string name="protocol_settings">تنظیمات پروتکل‌ها</string>
-    <string name="trojan_provider">تأمین‌کننده Trojan</string>
     <string name="group_basic">ابتدایی</string>
     <string name="group_settings">تنظیمات گروه</string>
     <string name="subscription">اشتراک</string>
@@ -354,13 +339,6 @@
     <string name="update_when_connected_only_sum">از افشای IP جلوگیری می‌شود.</string>
     <string name="subscription_user_agent">UserAgent</string>
     <string name="confirm">تأیید</string>
-    <string name="missing_plugin">افزونه مورد نیاز یافت‌ نشد</string>
-    <string name="profile_requiring_plugin">پراکسی %s نیاز به نصب افزونه %s دارد، اما پیدا نشد.</string>
-    <string name="action_learn_more">اطلاعات بیشتر</string>
-    <string name="action_download">دانلود</string>
-    <string name="install_from_play_store">نصب از فروشگاه Play</string>
-    <string name="install_from_fdroid">نصب از F-Droid</string>
-    <string name="download">دانلود</string>
     <string name="ooc_subscription_token">مشخصه OOCv1 API</string>
     <string name="ooc_subscription_token_invalid">مشخصه OOCv1 نادرست</string>
     <string name="update_subscription_warning">پروکسی متصل نیست، آیا مطمئن هستید که می خواهید به‌روزرسانی کنید؟</string>
@@ -394,10 +372,7 @@
     <string name="group_order_origin">مبدأ</string>
     <string name="group_order_by_name">به ترتیب نام</string>
     <string name="group_order_by_delay">به میزان تأخیر</string>
-    <string name="plugin_exists_but_on_shit_system">پراکسی %s به افزونه %s نیاز دارد، اما تأمین‌کننده تجهیزات اختصاصی شما(معمولاً سازمان‌های جاسوسی و سازنده بدافزار) اندروید شما را دستکاری کرده و افزونه را غیرقابل استفاده کرده است!</string>
 
-    <string name="shadowsocks_plugin_simple_obfs">Obfs ساده (افزونه اندروید Shadowsocks)</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (افزونه Shadowsocks اندروید)</string>
 
     <string name="traffic_uplink" translatable="false">%s | %s/s ↑</string>
     <string name="traffic_downlink" translatable="false">%s | %s/s ↓</string>
@@ -490,7 +465,6 @@
     <string name="please_update_force">برنامه شما خیلی قدیمی شده است (%s). و در %s کار نمی‌کند. باید نسخه جدید را دانلود کنید!</string>
     <string name="connection_test_delete_unavailable">پاک‌کردن غیرقابل‌دسترس‌ها</string>
     <string name="move">حرکت</string>
-    <string name="exe_prefer_provider">ارائه‌دهنده برگزیده افزونه‌ها</string>
     <string name="create_shortcut">ساخت میانبر</string>
     <string name="app_tls_version">نسخه TLS </string>
     <string name="hop_interval">مدت زمان Port hopping (به ثانیه)</string>
@@ -549,11 +523,6 @@
     <string name="card_style">کارت</string>
     <string name="card_style_classic">کلاسیک</string>
     <string name="card_style_stroke">حاشیه</string>
-    <string name="kcp_seed">mKCP Seed</string>
-    <string name="kcp_header_type">نوع هدر</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">ضریب CWND</string>
     <string name="mux_mode">حالت</string>
     <string name="mux_mode_max_streams">حداکثر جریان‌ها</string>
     <string name="mux_mode_connections">اتصال‌ها</string>

@@ -2,7 +2,7 @@
 
     <EditTextPreference
         app:icon="@drawable/ic_social_emoji_symbols"
-        app:key="profileName"
+        app:key="name"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 

@@ -3,6 +3,8 @@
 
 -keep class io.nekohasekai.sagernet.** { *;}
 -keep class moe.matsuri.nb4a.** { *;}
+# OutboundFactory instantiates the profile types reflectively by class name
+-keep class io.nekohasekai.sagernet.outbound.types.** { *; }
 
 # Clean Kotlin
 -assumenosideeffects class kotlin.jvm.internal.Intrinsics {

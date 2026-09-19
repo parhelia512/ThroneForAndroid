@@ -38,9 +38,6 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutMainBinding
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.KryoConverters
-import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.alert
@@ -48,13 +45,13 @@ import io.nekohasekai.sagernet.ktx.isPlay
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
-import io.nekohasekai.sagernet.ktx.parseProxies
+import io.nekohasekai.sagernet.outbound.Outbound
+import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.MessageStore
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.utils.Theme
-import moe.matsuri.nb4a.utils.Util
 
 class MainActivity : ThemedActivity(),
     SagerConnection.Callback,
@@ -208,7 +205,7 @@ class MainActivity : ThemedActivity(),
         val uri = intent.data ?: return
 
         runOnDefaultDispatcher {
-            if (uri.scheme == "sn" && uri.host == "subscription" || uri.scheme == "clash") {
+            if (uri.scheme == "clash") {
                 importSubscription(uri)
             } else {
                 importProfile(uri)
@@ -227,29 +224,14 @@ class MainActivity : ThemedActivity(),
         val group: ProxyGroup
 
         val url = uri.getQueryParameter("url")
-        if (!url.isNullOrBlank()) {
-            group = ProxyGroup(type = GroupType.SUBSCRIPTION)
-            val subscription = SubscriptionBean()
-            group.subscription = subscription
+        if (url.isNullOrBlank()) return
+        group = ProxyGroup(type = GroupType.SUBSCRIPTION)
+        val subscription = SubscriptionBean()
+        group.subscription = subscription
 
-            // cleartext format
-            subscription.link = url
-            group.name = uri.getQueryParameter("name")
-        } else {
-            val data = uri.encodedQuery.takeIf { !it.isNullOrBlank() } ?: return
-            try {
-                group = KryoConverters.deserialize(
-                    ProxyGroup().apply { export = true }, Util.zlibDecompress(Util.b64Decode(data))
-                ).apply {
-                    export = false
-                }
-            } catch (e: Exception) {
-                onMainDispatcher {
-                    alert(e.readableMessage).show()
-                }
-                return
-            }
-        }
+        // cleartext format
+        subscription.link = url
+        group.name = uri.getQueryParameter("name")
 
         val name = group.name.takeIf { !it.isNullOrBlank() } ?: group.subscription?.link
         ?: group.subscription?.token
@@ -283,7 +265,7 @@ class MainActivity : ThemedActivity(),
 
     suspend fun importProfile(uri: Uri) {
         val profile = try {
-            parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
+            ProfileTextImport.parse(uri.toString()).firstOrNull() ?: error(getString(R.string.no_proxies_found))
         } catch (e: Exception) {
             onMainDispatcher {
                 alert(e.readableMessage).show()
@@ -305,7 +287,7 @@ class MainActivity : ThemedActivity(),
 
     }
 
-    private suspend fun finishImportProfile(profile: AbstractBean) {
+    private suspend fun finishImportProfile(profile: Outbound) {
         val targetId = DataStore.selectedGroupForImport()
 
         ProfileManager.createProfile(targetId, profile)
@@ -315,62 +297,6 @@ class MainActivity : ThemedActivity(),
 
             snackbar(resources.getQuantityString(R.plurals.added, 1, 1)).show()
         }
-    }
-
-    override fun missingPlugin(profileName: String, pluginName: String) {
-        val pluginEntity = PluginEntry.find(pluginName)
-
-        // unknown exe or neko plugin
-        if (pluginEntity == null) {
-            snackbar(getString(R.string.plugin_unknown, pluginName)).show()
-            return
-        }
-
-        // official exe
-
-        MaterialAlertDialogBuilder(this).setTitle(R.string.missing_plugin)
-            .setMessage(
-                getString(
-                    R.string.profile_requiring_plugin, profileName, pluginEntity.displayName
-                )
-            )
-            .setPositiveButton(R.string.action_download) { _, _ ->
-                showDownloadDialog(pluginEntity)
-            }
-            .setNeutralButton(android.R.string.cancel, null)
-            .setNeutralButton(R.string.action_learn_more) { _, _ ->
-                launchCustomTab("https://matsuridayo.github.io/nb4a-plugin/")
-            }
-            .show()
-    }
-
-    private fun showDownloadDialog(pluginEntry: PluginEntry) {
-        var index = 0
-        var playIndex = -1
-        var fdroidIndex = -1
-
-        val items = mutableListOf<String>()
-        if (pluginEntry.downloadSource.playStore) {
-            items.add(getString(R.string.install_from_play_store))
-            playIndex = index++
-        }
-        if (pluginEntry.downloadSource.fdroid) {
-            items.add(getString(R.string.install_from_fdroid))
-            fdroidIndex = index++
-        }
-
-        items.add(getString(R.string.download))
-        val downloadIndex = index
-
-        MaterialAlertDialogBuilder(this).setTitle(pluginEntry.name)
-            .setItems(items.toTypedArray()) { _, which ->
-                when (which) {
-                    playIndex -> launchCustomTab("https://play.google.com/store/apps/details?id=${pluginEntry.packageName}")
-                    fdroidIndex -> launchCustomTab("https://f-droid.org/packages/${pluginEntry.packageName}/")
-                    downloadIndex -> launchCustomTab(pluginEntry.downloadSource.downloadLink)
-                }
-            }
-            .show()
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
@@ -443,7 +369,7 @@ class MainActivity : ThemedActivity(),
             R.id.nav_tools -> displayFragment(ToolsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())
             R.id.nav_faq -> {
-                launchCustomTab("https://matsuridayo.github.io/")
+                launchCustomTab("https://throneproj.github.io")
                 return false
             }
 

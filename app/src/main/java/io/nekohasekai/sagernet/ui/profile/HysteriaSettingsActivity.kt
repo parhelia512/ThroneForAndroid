@@ -1,141 +1,80 @@
 package io.nekohasekai.sagernet.ui.profile
 
-import android.os.Bundle
-import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreference
-import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.ktx.applyDefaultValues
-import moe.matsuri.nb4a.ui.SimpleMenuPreference
+import io.nekohasekai.sagernet.outbound.types.Hysteria
 
-class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
+/** Hysteria v1 and v2 on one screen; the version menu gates the version-specific fields and the v2 realm block. */
+class HysteriaSettingsActivity : BindingSettingsActivity<Hysteria>() {
 
-    override fun createEntity() = HysteriaBean().applyDefaultValues()
+    override fun createEntity() = Hysteria().apply { protocol_version = "2" }
+    override val preferencesResource = R.xml.hysteria_preferences
 
-    override fun HysteriaBean.init() {
-        DataStore.profileName = name
-        DataStore.protocolVersion = protocolVersion
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPorts = serverPorts
-        DataStore.serverObfs = obfuscation
-        DataStore.serverAuthType = authPayloadType
-        DataStore.serverProtocolInt = protocol
-        DataStore.serverPassword = authPayload
-        DataStore.serverSNI = sni
-        DataStore.serverALPN = alpn
-        DataStore.serverCertificates = caText
-        DataStore.serverAllowInsecure = allowInsecure
-        DataStore.serverUploadSpeed = uploadMbps
-        DataStore.serverDownloadSpeed = downloadMbps
-        DataStore.serverStreamReceiveWindow = streamReceiveWindow
-        DataStore.serverConnectionReceiveWindow = connectionReceiveWindow
-        DataStore.serverDisableMtuDiscovery = disableMtuDiscovery
-        DataStore.serverHopInterval = hopInterval
+    init {
+        pbm.text("name")
+        pbm.text("protocol_version")
+        pbm.text("server")
+        pbm.int("serverPort")
+        pbm.text("server_ports")
+        pbm.text("hop_interval")
+        pbm.text("hop_interval_max")
+        pbm.text("auth_type")
+        pbm.text("auth")
+        pbm.text("password")
+        pbm.text("obfs_type")
+        pbm.text("obfs")
+        pbm.int("up_mbps")
+        pbm.int("down_mbps")
+        pbm.int("recv_window_conn")
+        pbm.int("recv_window")
+        pbm.bool("disable_mtu_discovery")
+        pbm.int("min_packet_size")
+        pbm.int("max_packet_size")
+        pbm.text("bbr_profile")
+        pbm.bool("disable_chrome_parrot")
+        pbm.bool("realm_enabled")
+        pbm.text("realm_server_url")
+        pbm.text("realm_token")
+        pbm.text("realm_id")
+        pbm.text("realm_stun_servers")
+        pbm.int("realm_ip_version")
+        pbm.bool("realm_port_mapping")
+        pbm.text("realm_port_mapping_timeout")
+        pbm.text("realm_port_mapping_lifetime")
+        TlsBlock.bind(pbm)
+        QuicBlock.bind(pbm)
     }
 
-    override fun HysteriaBean.serialize() {
-        name = DataStore.profileName
-        protocolVersion = DataStore.protocolVersion
-        serverAddress = DataStore.serverAddress
-        serverPorts = DataStore.serverPorts
-        obfuscation = DataStore.serverObfs
-        authPayloadType = DataStore.serverAuthType
-        authPayload = DataStore.serverPassword
-        protocol = DataStore.serverProtocolInt
-        sni = DataStore.serverSNI
-        alpn = DataStore.serverALPN
-        caText = DataStore.serverCertificates
-        allowInsecure = DataStore.serverAllowInsecure
-        uploadMbps = DataStore.serverUploadSpeed
-        downloadMbps = DataStore.serverDownloadSpeed
-        streamReceiveWindow = DataStore.serverStreamReceiveWindow
-        connectionReceiveWindow = DataStore.serverConnectionReceiveWindow
-        disableMtuDiscovery = DataStore.serverDisableMtuDiscovery
-        hopInterval = DataStore.serverHopInterval
-    }
+    private val v1Only = arrayOf("auth_type", "auth", "recv_window_conn", "recv_window", "disable_mtu_discovery")
+    private val v2Only = arrayOf(
+        "password", "obfs_type", "hop_interval_max", "min_packet_size", "max_packet_size", "bbr_profile",
+        "disable_chrome_parrot",
+    )
+    private val realmFields = arrayOf(
+        "realm_server_url", "realm_token", "realm_id", "realm_stun_servers", "realm_ip_version", "realm_port_mapping",
+        "realm_port_mapping_timeout", "realm_port_mapping_lifetime",
+    )
 
-    override fun PreferenceFragmentCompat.createPreferences(
-        savedInstanceState: Bundle?,
-        rootKey: String?,
-    ) {
-        addPreferencesFromResource(R.xml.hysteria_preferences)
+    override fun PreferenceFragmentCompat.onPreferencesCreated() {
+        portInput("serverPort")
+        numberInput("up_mbps", "down_mbps", "recv_window_conn", "recv_window", "min_packet_size", "max_packet_size")
+        passwordSummary("auth", "password", "obfs", "realm_token")
+        multilineInput("server_ports", "realm_stun_servers")
 
-        val authType = findPreference<SimpleMenuPreference>(Key.SERVER_AUTH_TYPE)!!
-        val authPayload = findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!
-        authPayload.isVisible = authType.value != "${HysteriaBean.TYPE_NONE}"
-        authType.setOnPreferenceChangeListener { _, newValue ->
-            authPayload.isVisible = newValue != "${HysteriaBean.TYPE_NONE}"
-            true
+        val realm = findPreference<PreferenceCategory>("hysteriaRealmCategory")
+        fun applyVersion(version: String) {
+            val v2 = version == "2"
+            setVisible(!v2, *v1Only)
+            setVisible(v2, *v2Only)
+            realm?.isVisible = v2
         }
+        onMenu("protocol_version") { applyVersion(it) }
+        onMenu("auth_type") { setVisible(it.isNotEmpty(), "auth") }
+        onSwitch("realm_enabled") { setVisible(it, *realmFields) }
 
-        val protocol = findPreference<SimpleMenuPreference>(Key.SERVER_PROTOCOL)!!
-        val alpn = findPreference<EditTextPreference>(Key.SERVER_ALPN)!!
-
-        fun updateVersion(v: Int) {
-            if (v == 2) {
-                authPayload.isVisible = true
-                //
-                authType.isVisible = false
-                protocol.isVisible = false
-                alpn.isVisible = false
-                //
-                findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.isVisible =
-                    false
-                findPreference<EditTextPreference>(Key.SERVER_CONNECTION_RECEIVE_WINDOW)!!.isVisible =
-                    false
-                findPreference<SwitchPreference>(Key.SERVER_DISABLE_MTU_DISCOVERY)!!.isVisible =
-                    false
-                //
-                authPayload.title = resources.getString(R.string.password)
-            } else {
-                authType.isVisible = true
-                authPayload.isVisible = true
-                protocol.isVisible = true
-                alpn.isVisible = true
-                //
-                findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.isVisible =
-                    true
-                findPreference<EditTextPreference>(Key.SERVER_CONNECTION_RECEIVE_WINDOW)!!.isVisible =
-                    true
-                findPreference<SwitchPreference>(Key.SERVER_DISABLE_MTU_DISCOVERY)!!.isVisible =
-                    true
-                //
-                authPayload.title = resources.getString(R.string.hysteria_auth_payload)
-            }
-        }
-        findPreference<SimpleMenuPreference>(Key.PROTOCOL_VERSION)!!.setOnPreferenceChangeListener { _, newValue ->
-            updateVersion(newValue.toString().toIntOrNull() ?: 1)
-            true
-        }
-        updateVersion(DataStore.protocolVersion)
-
-        findPreference<EditTextPreference>(Key.SERVER_UPLOAD_SPEED)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_DOWNLOAD_SPEED)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_CONNECTION_RECEIVE_WINDOW)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-
-        findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.apply {
-            summaryProvider = PasswordSummaryProvider
-        }
-        findPreference<EditTextPreference>(Key.SERVER_OBFS)!!.apply {
-            summaryProvider = PasswordSummaryProvider
-        }
-
-        findPreference<EditTextPreference>(Key.SERVER_HOP_INTERVAL)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
+        TlsBlock.setup(this, mustTls = true)
+        QuicBlock.setup(this)
     }
 
 }

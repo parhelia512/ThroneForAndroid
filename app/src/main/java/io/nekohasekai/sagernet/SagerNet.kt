@@ -16,7 +16,7 @@ import android.os.UserManager
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
-import go.Seq
+import io.nekohasekai.sagernet.bg.CoreRuntime
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.Logs
@@ -27,12 +27,8 @@ import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.*
 import kotlinx.coroutines.DEBUG_PROPERTY_NAME
 import kotlinx.coroutines.DEBUG_PROPERTY_VALUE_ON
-import libcore.Libcore
-import moe.matsuri.nb4a.NativeInterface
-import moe.matsuri.nb4a.net.LocalResolverImpl
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.cleanWebview
-import java.io.File
 import androidx.work.Configuration as WorkConfiguration
 
 class SagerNet : Application(),
@@ -44,9 +40,6 @@ class SagerNet : Application(),
         application = this
     }
 
-    private val nativeInterface = NativeInterface()
-
-    val externalAssets: File by lazy { getExternalFilesDir(null) ?: filesDir }
     val process: String = JavaUtil.getProcessName()
     private val isMainProcess = process == BuildConfig.APPLICATION_ID
     val isBgProcess = process.endsWith(":bg")
@@ -57,35 +50,10 @@ class SagerNet : Application(),
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
 
         if (isMainProcess || isBgProcess) {
-            externalAssets.mkdirs()
-            // 官方内核在 PlatformLogWriter != nil 时会为每个 box 强制创建 CacheFile，
-            // 无显式 path 时共用工作目录（no_backup）下的 cache.db。主进程批量测速的
-            // 并发 TestInstance 曾共享该文件导致 bbolt freelist 损坏（"page already freed"
-            // panic 在异步 batch goroutine 中无法 recover → SIGABRT 闪退），且损坏文件
-            // 能正常打开、提交时才崩，官方 Open 阶段的校验发现不了。
-            // 现测试实例已从 Go 侧彻底不创建 cache（libcore NewTestSingBoxInstance），
-            // 这里在进程启动、尚无 box 打开时清扫存量损坏文件及历史残留，实现老用户自愈。
-            runCatching {
-                File(noBackupFilesDir, "cache.db").delete()
-                noBackupFilesDir.listFiles { file -> file.name.startsWith("urltest_") }
-                    ?.forEach { it.delete() }
-            }
-            Seq.setContext(this)
-            Libcore.initCore(
-                process,
-                cacheDir.absolutePath + "/",
-                filesDir.absolutePath + "/",
-                externalAssets.absolutePath + "/",
-                DataStore.logBufSize,
-                DataStore.logLevel > 0,
-                nativeInterface, nativeInterface, LocalResolverImpl
-            )
-
             if (isBgProcess) {
-                // 常驻注册默认网络监听：预热 DefaultNetworkListener 的 network 缓存，
-                // 使本进程 box 的接口监视器 Start 即同步拿到默认接口
-                // （主进程已在下方 isMainProcess 分支做同样的事；
-                //  竞态背景见 NativeInterface.startDefaultInterfaceMonitor 批注）。
+                // The core (and its JNI library) is loaded in the :bg process only.
+                CoreRuntime.setup(this)
+                // Warm the default-network cache so a box's interface monitor gets its interface synchronously.
                 runOnDefaultDispatcher {
                     DefaultNetworkListener.start(this@SagerNet) {
                         underlyingNetwork = it
@@ -137,12 +105,6 @@ class SagerNet : Application(),
         return WorkConfiguration.Builder()
             .setDefaultProcessName("${BuildConfig.APPLICATION_ID}:bg")
             .build()
-    }
-
-    override fun onTrimMemory(level: Int) {
-        super.onTrimMemory(level)
-
-        Libcore.forceGc()
     }
 
     @SuppressLint("InlinedApi")

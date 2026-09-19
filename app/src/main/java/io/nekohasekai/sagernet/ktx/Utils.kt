@@ -42,6 +42,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.MessageStore
 import io.nekohasekai.sagernet.ui.ThemedActivity
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -370,6 +371,15 @@ fun <T> Continuation<T>.tryResume(value: T) {
 fun <T> Continuation<T>.tryResumeWithException(exception: Throwable) {
     try {
         resumeWith(Result.failure(exception))
+    } catch (ignored: IllegalStateException) {
+    }
+}
+
+// CancellableContinuation's internal tryResume member shadows the extensions above.
+fun <T> CancellableContinuation<T>.completeWith(result: Result<T>) {
+    if (!isActive) return
+    try {
+        resumeWith(result)
     } catch (ignored: IllegalStateException) {
     }
 }

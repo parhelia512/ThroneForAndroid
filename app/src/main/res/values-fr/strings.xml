@@ -7,7 +7,6 @@
     <string name="share_qr_nfc">Code QR</string>
     <string name="deprecated">Obsolète</string>
     <string name="insecure">Non sûr</string>
-    <string name="plugin">Greffon</string>
     <string name="ignore_battery_optimizations_sum">Retirer certaines restrictions</string>
     <string name="ignore_battery_optimizations">Ignorer l\'optimisation de la batterie</string>
     <string name="apply">Appliquer</string>
@@ -23,12 +22,7 @@
     <string name="enable_log">Activer la journalisation</string>
     <string name="delete_group_prompt">Êtes-vous sûr(e) de vouloir supprimer ce groupe \?</string>
     <string name="subscription">Abonnement</string>
-    <string name="profile_requiring_plugin">%s nécessite l\'installation du greffon %s, mais il n\'a pas été trouvé.</string>
-    <string name="missing_plugin">Greffon manquant</string>
     <string name="confirm">Confirmer</string>
-    <string name="action_download">TÉLÉCHARGER</string>
-    <string name="action_learn_more">EN SAVOIR PLUS</string>
-    <string name="download">Télécharger</string>
     <string name="apps_message">%d applications</string>
     <string name="select_apps">Sélectionnez les applications</string>
     <string name="apps">Applications</string>
@@ -67,7 +61,6 @@
     <string name="version_x">Version (%s)</string>
     <string name="app_version">Version</string>
     <string name="oss_licenses">Licences à code source ouvert</string>
-    <string name="telegram">Canal de mise à jour Telegram</string>
     <string name="github">Code source</string>
     <string name="project">Projet</string>
     <string name="app_desc">La chaîne d\'outils proxy universelle pour Android, écrite en Kotlin.</string>
@@ -94,7 +87,6 @@
     <string name="menu_log">Journaux</string>
     <string name="experimental_settings">Expérimental</string>
     <string name="error_title">Erreur</string>
-    <string name="plugin_unknown">Greffon %s inconnu</string>
     <string name="clear_traffic_statistics">Effacer les statistiques du trafic</string>
     <string name="ws_browser_forwarding">Transfert de Navigateur</string>
     <string name="group_filter">Filtre</string>
@@ -119,7 +111,6 @@
     <string name="route_block">Bloquer</string>
     <string name="action_export">Exporter</string>
     <string name="route_asset_status">Version locale : %s</string>
-    <string name="plugin_disabled">Désactivé</string>
     <string name="connection_test_testing">Essai…</string>
     <string name="action_export_clipboard">Exporter dans le presse-papiers</string>
     <string name="dns_routing_message">Résoler les domaines dans les routes de contournement avec DNS Direct. Soyez conscient des fuites DNS potentielles</string>
@@ -202,7 +193,6 @@
         <item quantity="other">%d éléments supprimés</item>
     </plurals>
     <string name="ooc_warning">Notice</string>
-    <string name="install_from_fdroid">Installer depuis F-Droid</string>
     <string name="subscription_update_message">Mise à jour de %s…</string>
     <string name="group_order">Ordre</string>
     <string name="group_order_origin">Origine</string>
@@ -224,9 +214,7 @@
     <string name="only">Seulement</string>
     <string name="route_rules_official">Officiel</string>
     <string name="connecting">Connexion…</string>
-    <string name="plugin_configure">Configurer…</string>
     <string name="ss_cat">Préférences Shadowsocks</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (greffon Android pour Shadowsocks)</string>
     <string name="group_order_by_name">Par nom</string>
     <string name="wireguard_local_address">Adresse locale</string>
     <string name="proxy_cat">Préférences du serveur</string>
@@ -238,7 +226,6 @@
     <string name="subscription_settings">Préférences de souscription</string>
     <string name="group_type">Type du groupe</string>
     <string name="subscription_type">Type de souscription</string>
-    <string name="install_from_play_store">Installer depuis le Play Store</string>
     <string name="subscription_used">%s utilisé</string>
     <string name="group_order_by_delay">Par délai</string>
     <string name="route_bypass_ip">Règle IP pour %s</string>
@@ -248,7 +235,6 @@
     <string name="connection_test_refused">Connexion refusée</string>
     <string name="open_app">Ouvrir l\'appli</string>
     <string name="open_settings">Ouvrir les préférences</string>
-    <string name="header_type">Type d\'entête</string>
     <string name="group_settings">Préférences de groupe</string>
     <string name="protocol_settings">Préférences du protocole</string>
     <string name="route_bypass_domain">Règle de domaine pour %s</string>
@@ -292,7 +278,6 @@
     <string name="no_proxies_found_in_clipboard">Aucun proxy trouve dans le presse-papiers</string>
     <string name="not_connected">Non connecté</string>
     <string name="connection_test">Test de connexion</string>
-    <string name="trojan_provider">Fournisseur de torjan</string>
     <string name="ooc_subscription_token_invalid">Jeton OOCv1 invalide</string>
     <string name="update_when_connected_only">Mettre à jour que quand connecté</string>
     <string name="auto_update_delay">Délai de mise à jour automatique (en minutes)</string>

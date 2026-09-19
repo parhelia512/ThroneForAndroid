@@ -1,69 +1,40 @@
 package io.nekohasekai.sagernet.ui.profile
 
-import android.os.Bundle
-import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
-import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.outbound.types.Naive
 
-class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
+class NaiveSettingsActivity : BindingSettingsActivity<Naive>() {
 
-    override fun createEntity() = NaiveBean()
+    override fun createEntity() = Naive()
+    override val preferencesResource = R.xml.naive_preferences
 
-    override fun NaiveBean.init() {
-        DataStore.profileName = name
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPort = serverPort
-        DataStore.serverUsername = username
-        DataStore.serverPassword = password
-        DataStore.serverProtocol = proto
-        DataStore.serverSNI = sni
-        DataStore.serverCertificates = certificates
-        DataStore.serverHeaders = extraHeaders
-        DataStore.serverInsecureConcurrency = insecureConcurrency
-        DataStore.profileCacheStore.putBoolean("sUoT", sUoT)
+    init {
+        pbm.text("name")
+        pbm.text("server")
+        pbm.int("serverPort")
+        pbm.text("username")
+        pbm.text("password")
+        pbm.bool("quic")
+        pbm.text("congestion_control")
+        pbm.text("extra_headers")
+        pbm.int("insecure_concurrency")
+        pbm.bool("uot")
+        // naive reads only server name, certificates, ECH and the fragment flag of the TLS block
+        pbm.text("tls.server_name")
+        pbm.text("tls.certificate")
+        pbm.tri("tls.fragment", "tls.fragment_unspecified")
+        pbm.bool("tls.ech.enabled")
+        pbm.text("tls.ech.config")
+        pbm.text("tls.ech.serverName")
     }
 
-    override fun NaiveBean.serialize() {
-        name = DataStore.profileName
-        serverAddress = DataStore.serverAddress
-        serverPort = DataStore.serverPort
-        username = DataStore.serverUsername
-        password = DataStore.serverPassword
-        proto = DataStore.serverProtocol
-        sni = DataStore.serverSNI
-        certificates = DataStore.serverCertificates
-        extraHeaders = DataStore.serverHeaders.replace("\r\n", "\n")
-        insecureConcurrency = DataStore.serverInsecureConcurrency
-        sUoT = DataStore.profileCacheStore.getBoolean("sUoT")
-    }
-
-    override fun PreferenceFragmentCompat.createPreferences(
-        savedInstanceState: Bundle?,
-        rootKey: String?,
-    ) {
-        addPreferencesFromResource(R.xml.naive_preferences)
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.apply {
-            summaryProvider = PasswordSummaryProvider
-        }
-        findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-    }
-
-    override fun finish() {
-        if (DataStore.profileName == "喵要打开隐藏功能") {
-            DataStore.isExpert = true
-        } else if (DataStore.profileName == "喵要关闭隐藏功能") {
-            DataStore.isExpert = false
-        }
-        super.finish()
+    override fun PreferenceFragmentCompat.onPreferencesCreated() {
+        portInput("serverPort")
+        numberInput("insecure_concurrency")
+        passwordSummary("password")
+        multilineInput("extra_headers", "tls.certificate", "tls.ech.config")
+        onSwitch("tls.ech.enabled") { setVisible(it, "tls.ech.config", "tls.ech.serverName") }
     }
 
 }

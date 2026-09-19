@@ -5,12 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.matrix.roomigrant.GenerateRoomMigrations
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.fmt.gson.GsonConverters
 import java.io.File
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class],
-    version = 9,
+    version = 10,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -28,14 +28,32 @@ import kotlinx.coroutines.launch
         AutoMigration(from = 8, to = 9),
     ]
 )
-@TypeConverters(value = [KryoConverters::class, GsonConverters::class])
+@TypeConverters(value = [SubscriptionConverters::class])
 @GenerateRoomMigrations
 abstract class SagerDatabase : RoomDatabase() {
 
     companion object {
 
+        /** 9 -> 10: the profile table is rebuilt around (type, outboundJson); groups, rules and settings are untouched. */
+        val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `proxy_entities`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `proxy_entities` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`groupId` INTEGER NOT NULL, `type` TEXT NOT NULL, `outboundJson` TEXT NOT NULL, " +
+                        "`userOrder` INTEGER NOT NULL, `tx` INTEGER NOT NULL, `rx` INTEGER NOT NULL, " +
+                        "`status` INTEGER NOT NULL, `ping` INTEGER NOT NULL, `uuid` TEXT NOT NULL, `error` TEXT, " +
+                        "`speedTestMode` TEXT NOT NULL DEFAULT '', " +
+                        "`speedTestDownloadBitsPerSecond` INTEGER NOT NULL DEFAULT 0, " +
+                        "`speedTestUploadBitsPerSecond` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `groupId` ON `proxy_entities` (`groupId`)")
+            }
+        }
+
         private fun buildProfileDatabase(): SagerDatabase =
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
+                .addMigrations(MIGRATION_9_10)
 //                .addMigrations(*SagerDatabase_Migrations.build())
                 .setJournalMode(JournalMode.TRUNCATE)
                 .allowMainThreadQueries()

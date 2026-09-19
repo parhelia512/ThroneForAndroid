@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.ListListener
-import libcore.Libcore
+import moe.matsuri.nb4a.utils.CoreLog
 import moe.matsuri.nb4a.utils.SendLog
 
 class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
@@ -64,7 +64,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
     private fun reloadSession() {
         val span = SpannableString(
-            String(SendLog.getNekoLog(50 * 1024))
+            String(CoreLog.read(50 * 1024))
         )
         var offset = 0
         for (line in span.lines()) {
@@ -87,7 +87,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             R.id.action_clear_logcat -> {
                 runOnDefaultDispatcher {
                     try {
-                        Libcore.nekoLogClear()
+                        CoreLog.clear()
                         Runtime.getRuntime().exec("/system/bin/logcat -c")
                     } catch (e: Exception) {
                         onMainDispatcher {
@@ -105,7 +105,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             R.id.action_send_logcat -> {
                 val context = requireContext()
                 runOnDefaultDispatcher {
-                    SendLog.sendLog(context, "NB4A")
+                    SendLog.sendLog(context, "Throne")
                 }
             }
 

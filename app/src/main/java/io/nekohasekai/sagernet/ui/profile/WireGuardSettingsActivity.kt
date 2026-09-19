@@ -1,56 +1,54 @@
 package io.nekohasekai.sagernet.ui.profile
 
-import android.os.Bundle
-import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import moe.matsuri.nb4a.proxy.PreferenceBinding
-import moe.matsuri.nb4a.proxy.PreferenceBindingManager
-import moe.matsuri.nb4a.proxy.Type
+import io.nekohasekai.sagernet.outbound.types.WireGuard
 
-class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
+/** WireGuard / AmneziaWG: the endpoint lives in `peer.*`, the interface in the top-level fields. */
+class WireGuardSettingsActivity : BindingSettingsActivity<WireGuard>() {
 
-    override fun createEntity() = WireGuardBean()
+    override fun createEntity() = WireGuard()
+    override val preferencesResource = R.xml.wireguard_preferences
 
-    private val pbm = PreferenceBindingManager()
-    private val name = pbm.add(PreferenceBinding(Type.Text, "name"))
-    private val serverAddress = pbm.add(PreferenceBinding(Type.Text, "serverAddress"))
-    private val serverPort = pbm.add(PreferenceBinding(Type.TextToInt, "serverPort"))
-    private val localAddress = pbm.add(PreferenceBinding(Type.Text, "localAddress"))
-    private val privateKey = pbm.add(PreferenceBinding(Type.Text, "privateKey"))
-    private val peerPublicKey = pbm.add(PreferenceBinding(Type.Text, "peerPublicKey"))
-    private val peerPreSharedKey = pbm.add(PreferenceBinding(Type.Text, "peerPreSharedKey"))
-    private val mtu = pbm.add(PreferenceBinding(Type.TextToInt, "mtu"))
-    private val reserved = pbm.add(PreferenceBinding(Type.Text, "reserved"))
-    private val listenPort = pbm.add(PreferenceBinding(Type.TextToInt, "listenPort"))
-    private val persistentKeepaliveInterval =
-        pbm.add(PreferenceBinding(Type.TextToInt, "persistentKeepaliveInterval"))
-
-    override fun WireGuardBean.init() {
-        pbm.writeToCacheAll(this)
+    init {
+        pbm.text("name")
+        pbm.text("peer.address")
+        pbm.int("peer.port")
+        pbm.text("address")
+        pbm.text("private_key")
+        pbm.text("peer.public_key")
+        pbm.text("peer.pre_shared_key")
+        pbm.text("peer.reserved")
+        pbm.text("peer.persistent_keepalive")
+        pbm.int("mtu")
+        pbm.bool("system")
+        pbm.int("worker_count")
+        pbm.text("udp_timeout")
+        pbm.bool("enable_amnezia")
+        for (field in listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4")) pbm.int(field)
+        for (field in listOf(
+            "h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5", "header_protection_key", "content_padding_addition",
+            "rekey_after_time", "rekey_timeout", "reject_after_time", "keepalive_timeout", "max_handshake_attempts",
+        )) pbm.text(field)
+        pbm.bool("random_trailers")
+        pbm.bool("disable_cookies")
     }
 
-    override fun WireGuardBean.serialize() {
-        pbm.fromCacheAll(this)
-    }
+    override fun PreferenceFragmentCompat.onPreferencesCreated() {
+        portInput("peer.port")
+        numberInput("mtu", "worker_count", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4")
+        passwordSummary("private_key", "peer.pre_shared_key")
+        multilineInput("address", "peer.reserved")
 
-    override fun PreferenceFragmentCompat.createPreferences(
-        savedInstanceState: Bundle?,
-        rootKey: String?,
-    ) {
-        addPreferencesFromResource(R.xml.wireguard_preferences)
-        pbm.setPreferenceFragment(this)
-
-        (serverPort.preference as EditTextPreference)
-            .setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
-        (privateKey.preference as EditTextPreference).summaryProvider = PasswordSummaryProvider
-        (mtu.preference as EditTextPreference).setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        (listenPort.preference as EditTextPreference)
-            .setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
-        (persistentKeepaliveInterval.preference as EditTextPreference)
-            .setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
+        val amnezia = findPreference<PreferenceCategory>("amneziaCategory")
+        onSwitch("enable_amnezia") { on ->
+            if (amnezia == null) return@onSwitch
+            for (i in 0 until amnezia.preferenceCount) {
+                val child = amnezia.getPreference(i)
+                if (child.key != "enable_amnezia") child.isVisible = on
+            }
+        }
     }
 
 }

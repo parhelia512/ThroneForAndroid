@@ -3,7 +3,6 @@ package moe.matsuri.nb4a.utils
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Base64
-import libcore.StringBox
 import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -195,13 +194,6 @@ object Util {
             collapse.invoke(statusBarManager)
         } catch (_: Exception) {
         }
-    }
-
-    fun getStringBox(b: StringBox?): String {
-        if (b != null && b.value != null) {
-            return b.value
-        }
-        return ""
     }
 
     fun decodeFilename(headerValue: String): String {

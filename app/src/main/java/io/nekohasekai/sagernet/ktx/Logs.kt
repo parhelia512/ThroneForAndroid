@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import io.nekohasekai.sagernet.database.DataStore
-import libcore.Libcore
+import moe.matsuri.nb4a.utils.CoreLog
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -12,18 +12,15 @@ object Logs {
         return stackTrace[4].className.substringAfterLast(".")
     }
 
-    // 级别语义与 ConfigBuilder 的 sing-box log.level 映射一致：
-    // 0=panic 1=warn 2=info 3=debug 4=trace。
-    // 本通道（Kotlin -> JNI nekoLogPrintln -> Go std log）官方不过滤，
-    // 必须在源头按 DataStore.logLevel 门控，否则 warn 档也会冒出 debug 日志。
-    // 读取失败（如 DataStore 未就绪）时放行，避免吞掉关键日志。
+    // Levels follow the sing-box log.level mapping: 0=panic 1=warn 2=info 3=debug 4=trace.
+    // Gated at the source; an unreadable DataStore (JVM tests) lets the line through.
     private fun enabled(required: Int): Boolean {
         return runCatching { DataStore.logLevel >= required }.getOrDefault(true)
     }
 
-    // JNI 通道在 JVM 单元测试环境不可用，输出失败时静默忽略，不影响业务流程
+    // No app context in JVM unit tests: a failed write is ignored.
     private fun printLog(line: String) {
-        runCatching { Libcore.nekoLogPrintln(line) }
+        runCatching { CoreLog.write(line) }
     }
 
     fun d(message: String) {

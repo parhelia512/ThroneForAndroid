@@ -9,7 +9,6 @@
 <string name="abc_toolbar_collapse_description">Свернуть</string>
 <string name="acquire_wake_lock">Использовать WakeLock</string>
 <string name="acquire_wake_lock_summary">Сохранять CPU включенным</string>
-<string name="action_download">СКАЧАТЬ</string>
 <string name="action_export">Экспортировать</string>
 <string name="action_export_clipboard">Экспорт в буфер обмена</string>
 <string name="action_export_err">Не удалось экспортировать.</string>
@@ -21,7 +20,6 @@
 <string name="scanner_toggle_flashlight">Переключить фонарик</string>
 <string name="scanner_select_image">Выбрать изображение</string>
 <string name="action_import_msg">Успешно импортировано!</string>
-<string name="action_learn_more">УЗНАТЬ БОЛЬШЕ</string>
 <string name="action_switch">Переключить</string>
 <string name="add_profile">Добавить профиль</string>
 <string name="add_profile_methods_manual_settings">Ручные настройки</string>
@@ -142,7 +140,6 @@
 <string name="domain_strategy_for_direct">Правило домена для Прямого</string>
 <string name="domain_strategy_for_remote">Правило домена для Удаленного</string>
 <string name="domain_strategy_for_server">Правило домена для Адреса сервера</string>
-<string name="download">Скачать</string>
 <string name="early_data_header_name">Имя заголовка ранних данных</string>
 <string name="ech_config">Конфигурация ECH</string>
 <string name="edit">Редактировать</string>
@@ -214,7 +211,6 @@
 <string name="group_update">Обновить</string>
 <string name="group_updated">%s: обновлено %d прокси</string>
 <string name="grpc_service_name">Имя службы gRPC</string>
-<string name="header_type">Тип заголовка</string>
 <string name="hop_interval">Интервал переключения портов(второй)</string>
 <string name="http_host">HTTP-хост</string>
 <string name="http_path">HTTP-путь</string>
@@ -233,8 +229,6 @@
 <string name="ignore_battery_optimizations_sum">Снять некоторые ограничения</string>
 <string name="inbound_settings">Входящие настройки</string>
 <string name="insecure">Ненадежный</string>
-<string name="install_from_fdroid">Установить с F-Droid</string>
-<string name="install_from_play_store">Установить из Play Store</string>
 <string name="invalid_backup_file">Недействительный файл резервной копии</string>
 <string name="invalid_server">Неверное имя сервера</string>
 <string name="invert_selections">Инвертировать выбранное</string>
@@ -263,7 +257,6 @@
 <string name="metered">Подсказка о соединении с лимитным тарифным планом</string>
 <string name="metered_summary">Подсказывать системе, что VPN следует рассматривать как сеть с лимитным тарифным планом</string>
 <string name="minimize">Свернуть</string>
-<string name="missing_plugin">Отсутствующий плагин</string>
 <string name="move">Переместить</string>
 <string name="mtrl_badge_numberless_content_description">Новое уведомление</string>
 <string name="mtrl_checkbox_state_description_checked">Флажок установлен.</string>
@@ -307,8 +300,6 @@
 <string name="no_statistics">Статистики пока нет</string>
 <string name="not_connected">Не подключен</string>
 <string name="not_set">Не указано</string>
-<string name="obfs">Obfs</string>
-<string name="obfs_param">Параметры Obfs</string>
 <string name="off">Выключенный</string>
 <string name="on">Включено</string>
 <string name="only">Исключительно</string>
@@ -319,13 +310,6 @@
 <string name="password">Пароль</string>
 <string name="password_opt">Пароль (необязательно)</string>
 <string name="password_toggle_content_description">Показать пароль</string>
-<string name="plugin">Плагин</string>
-<string name="plugin_auto_connect_unlock_only">Этот плагин может не работать с автоподключением</string>
-<string name="plugin_configure">Настроить…</string>
-<string name="plugin_disabled">Отключено</string>
-<string name="plugin_exists_but_on_shit_system">Профиль %s требует плагин %s, но поставщик вашего проприетарного оборудования (обычно это большие компании, занимающиеся слежкой и производители вредоносного ПО) изменил ваш Android, сделав плагин непригодным для использования.</string>
-<string name="plugin_unknown">Неизвестный плагин %s</string>
-<string name="plugin_untrusted">Предупреждение: похоже, что этот плагин не из известного надежного источника.</string>
 <string name="port_http">Порт прокси HTTP</string>
 <string name="port_local_dns">Локальный порт DNS</string>
 <string name="port_proxy">Порт прокси SOCKS5</string>
@@ -343,12 +327,10 @@
 <string name="profile_import">Импортировать профиль</string>
 <string name="profile_import_message">Подтвердите, что хотите импортировать профиль %s?</string>
 <string name="profile_name">Имя профиля</string>
-<string name="profile_requiring_plugin">Профиль %s требует установки подключаемого модуля %s, но он не найден.</string>
 <string name="profile_traffic_statistics">Статистика трафика профиля</string>
 <string name="profile_traffic_statistics_summary">Когда отключено, использованный трафик не будет отображаться</string>
 <string name="project">Проект</string>
 <string name="protocol">Протокол</string>
-<string name="protocol_param">Параметры протокола</string>
 <string name="protocol_settings">Настройки протокола</string>
 <string name="protocol_version">Версия протокола</string>
 <string name="proxied_apps">Режим VPN для приложений</string>
@@ -411,8 +393,6 @@
 <string name="service_vpn">VPN-сервис</string>
 <string name="set_panel_url">Установить URL панель</string>
 <string name="settings">Настройки</string>
-<string name="shadowsocks_plugin_simple_obfs">Simple Obfs (плагин Shadowsocks для Android)</string>
-<string name="shadowsocks_plugin_v2ray">V2Ray (плагин Shadowsocks для Android)</string>
 <string name="share">Поделиться</string>
 <string name="share_qr_nfc">QR-код</string>
 <string name="share_subscription">Поделиться подпиской</string>
@@ -456,7 +436,6 @@
 <string name="subscriptions">Подписки</string>
 <string name="tcp_connections">%d TCP-соединений</string>
 <string name="tcp_keep_alive_interval">Интервал доставки пакетов TCP keep-alive</string>
-<string name="telegram">Канал обновлений в Telegram</string>
 <string name="test_concurrency">Число параллельных подключений</string>
 <string name="theme">Тема</string>
 <string name="tile_title">Переключатель</string>
@@ -464,7 +443,6 @@
 <string name="tls_camouflage_settings">Настройки защиты TLS</string>
 <string name="tools_network">Сеть</string>
 <string name="traffic_sniffing">Включить анализ трафика</string>
-<string name="trojan_provider">Провайдер Trojan</string>
 <string name="tuic_congestion_controller">Контроллер перегрузки</string>
 <string name="tuic_disable_sni">Отключить SNI</string>
 <string name="tuic_reduce_rtt">Включить 0-RTT QUIC-соединение</string>
@@ -521,11 +499,6 @@
     <string name="connection_test_error_status_code">Код ошибки: #%d</string>
     <string name="require_transproxy">Включить входящий Transproxy</string>
     <string name="transproxy_mode">Режим Transproxy</string>
-    <string name="kcp_seed">mKCP Seed</string>
-    <string name="kcp_header_type">Тип заголовка</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">Множитель CWND</string>
     <string name="mux_mode">Режим</string>
     <string name="mux_mode_max_streams">Макс. потоков</string>
     <string name="mux_mode_connections">Соединения</string>
@@ -582,7 +555,6 @@
     <string name="pinned_certchain_sha256">SHA256 закреплённого сертификата</string>
     <string name="please_update">Ваше приложение слишком старое (%s). И перестанет работать %s. Пожалуйста, обновите!</string>
     <string name="please_update_force">Ваше приложение слишком старое (%s). И перестало работать %s. Пожалуйста, обновите!</string>
-    <string name="exe_prefer_provider">Предпочитаемый поставщик плагина</string>
     <string name="save">Сохранить</string>
     <string name="resolve_server">Разрешать адрес сервера согласно политике IPv6</string>
     <string name="ech_settings">Настройки ECH</string>

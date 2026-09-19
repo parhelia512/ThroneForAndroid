@@ -52,10 +52,10 @@ import io.nekohasekai.sagernet.SpeedTestDirection
 import io.nekohasekai.sagernet.SpeedTestOutcome
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.bg.proto.AndroidSpeedTestSession
+import io.nekohasekai.sagernet.bg.CoreServiceClient
+import io.nekohasekai.sagernet.bg.proto.RemoteSpeedTestSession
 import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner
 import io.nekohasekai.sagernet.bg.proto.SpeedTestSnapshot
-import io.nekohasekai.sagernet.bg.proto.UrlTest
 import io.nekohasekai.sagernet.bg.proto.completedSpeedTestCount
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
@@ -66,17 +66,12 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressListBinding
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
-import io.nekohasekai.sagernet.group.RawUpdater
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.FixedGridLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.SubscriptionFoundException
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.deduplicateProxies
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.getColour
@@ -90,22 +85,33 @@ import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.tryToShow
-import io.nekohasekai.sagernet.plugin.PluginManager
+import io.nekohasekai.sagernet.outbound.Outbound
+import io.nekohasekai.sagernet.ui.profile.AnyTLSSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.CustomSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.DirectSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.HttpSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.HysteriaSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.JuicitySettingsActivity
+import io.nekohasekai.sagernet.ui.profile.MasqueSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.MieruSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.NaiveSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.OpenConnectSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.OpenVpnSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.ProfileConfigExport
+import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
 import io.nekohasekai.sagernet.ui.profile.SSHSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.ShadowsocksRSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.ShadowTLSSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SnellSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SocksSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.TrojanGoSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.TrustTunnelSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TrojanSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TuicSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.VlessSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.XrayVlessSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.profileSettingsIntent
 import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
@@ -123,9 +129,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.Protocols.getProtocolColor
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
-import moe.matsuri.nb4a.proxy.config.ConfigSettingActivity
-import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import okhttp3.internal.closeQuietly
 import java.util.concurrent.ConcurrentHashMap
@@ -478,17 +481,16 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
                                     .let(cursor::getString)
                             }
-                    val proxies = mutableListOf<AbstractBean>()
+                    val proxies = mutableListOf<Outbound>()
                     if (fileName != null && fileName.endsWith(".zip")) {
-                        // try parse wireguard zip
+                        // a zip of profile files (e.g. WireGuard / OpenVPN exports), one document per entry
                         val zip =
                             ZipInputStream(requireContext().contentResolver.openInputStream(file)!!)
                         while (true) {
                             val entry = zip.nextEntry ?: break
                             if (entry.isDirectory) continue
                             val fileText = zip.bufferedReader().readText()
-                            RawUpdater.parseRaw(fileText, entry.name)
-                                ?.let { pl -> proxies.addAll(pl) }
+                            proxies.addAll(ProfileTextImport.parse(fileText))
                             zip.closeEntry()
                         }
                         zip.closeQuietly()
@@ -497,14 +499,15 @@ class ConfigurationFragment @JvmOverloads constructor(
                             requireContext().contentResolver.openInputStream(file)!!.use {
                                 it.bufferedReader().readText()
                             }
-                        RawUpdater.parseRaw(fileText, fileName ?: "")
-                            ?.let { pl -> proxies.addAll(pl) }
+                        ProfileTextImport.subscriptionLink(fileText)?.let { link ->
+                            (requireActivity() as MainActivity).importSubscription(link.toUri())
+                            return@runOnDefaultDispatcher
+                        }
+                        proxies.addAll(ProfileTextImport.parse(fileText))
                     }
                     if (proxies.isEmpty()) onMainDispatcher {
                         snackbar(getString(R.string.no_proxies_found_in_file)).show()
                     } else import(proxies)
-                } catch (e: SubscriptionFoundException) {
-                    (requireActivity() as MainActivity).importSubscription(e.link.toUri())
                 } catch (e: Exception) {
                     Logs.w(e)
                     onMainDispatcher {
@@ -514,14 +517,17 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
         }
 
-    suspend fun import(proxies: List<AbstractBean>) {
+    suspend fun import(proxies: List<Outbound>) {
         val targetId = DataStore.selectedGroupForImport()
         // 仅当目标分组或当前分组的订阅显式启用去重时才去重，
         // 避免剪贴板/文件导入被无条件强制合并
         val targetGroup = SagerDatabase.groupDao.getById(targetId)
         val shouldDeduplicate = targetGroup?.subscription?.deduplication == true ||
                 DataStore.currentGroup().subscription?.deduplication == true
-        val toImport = if (shouldDeduplicate) proxies.deduplicateProxies() else proxies
+        val toImport = if (shouldDeduplicate) {
+            val existing = SagerDatabase.proxyDao.getByGroup(targetId).map { it.dedupKey() }
+            ProfileTextImport.deduplicate(proxies, existing)
+        } else proxies
         for (proxy in toImport) {
             ProfileManager.createProfile(targetId, proxy)
         }
@@ -536,6 +542,10 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     }
 
+    private fun newProfile(activity: Class<*>) {
+        startActivity(Intent(requireActivity(), activity))
+    }
+
     override fun onMenuItemClick(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_scan_qr_code -> {
@@ -548,32 +558,25 @@ class ConfigurationFragment @JvmOverloads constructor(
                     snackbar(getString(R.string.clipboard_empty)).show()
                 } else runOnDefaultDispatcher {
                     try {
-                        val proxies = RawUpdater.parseRaw(text)
-                        if (proxies.isNullOrEmpty()) {
+                        val subscription = ProfileTextImport.subscriptionLink(text)
+                        if (subscription != null) {
+                            val subscriptionLink =
+                                Uri.parse(subscription).getQueryParameter("url") ?: subscription
                             onMainDispatcher {
-                                snackbar(getString(R.string.no_proxies_found_in_clipboard)).show()
-                            }
-                        } else {
-                            import(proxies)
-                        }
-                    } catch (e: SubscriptionFoundException) {
-                        onMainDispatcher {
-                            if (e.link.startsWith("sn://")) {
-                                (requireActivity() as MainActivity).importSubscription(e.link.toUri())
-                            } else {
-                                val subscriptionLink = Uri.parse(e.link).getQueryParameter("url") ?: e.link
-
-                                val group = ProxyGroup(type = GroupType.SUBSCRIPTION)
-                                val subscription = SubscriptionBean()
-                                group.subscription = subscription
-                                subscription.link = subscriptionLink
-                                subscription.autoUpdate = false
-                                group.name = ""
                                 startActivity(Intent(requireContext(), GroupSettingsActivity::class.java).apply {
                                     putExtra(GroupSettingsActivity.EXTRA_FROM_CLIPBOARD, true)
                                     putExtra(GroupSettingsActivity.EXTRA_GROUP_SUBSCRIPTION_LINK, subscriptionLink)
                                 })
                             }
+                            return@runOnDefaultDispatcher
+                        }
+                        val proxies = ProfileTextImport.parse(text)
+                        if (proxies.isEmpty()) {
+                            onMainDispatcher {
+                                snackbar(getString(R.string.no_proxies_found_in_clipboard)).show()
+                            }
+                        } else {
+                            import(proxies)
                         }
                     } catch (e: Exception) {
                         Logs.w(e)
@@ -588,87 +591,30 @@ class ConfigurationFragment @JvmOverloads constructor(
                 startFilesForResult(importFile, "*/*")
             }
 
-            R.id.action_new_socks -> {
-                startActivity(Intent(requireActivity(), SocksSettingsActivity::class.java))
-            }
-
-            R.id.action_new_http -> {
-                startActivity(Intent(requireActivity(), HttpSettingsActivity::class.java))
-            }
-
-            R.id.action_new_ss -> {
-                startActivity(Intent(requireActivity(), ShadowsocksSettingsActivity::class.java))
-            }
-
-            R.id.action_new_ssr -> {
-                startActivity(Intent(requireActivity(), ShadowsocksRSettingsActivity::class.java))
-            }
-
-            R.id.action_new_vmess -> {
-                startActivity(Intent(requireActivity(), VMessSettingsActivity::class.java))
-            }
-
-            R.id.action_new_vless -> {
-                startActivity(Intent(requireActivity(), VMessSettingsActivity::class.java).apply {
-                    putExtra("vless", true)
-                })
-            }
-
-            R.id.action_new_trojan -> {
-                startActivity(Intent(requireActivity(), TrojanSettingsActivity::class.java))
-            }
-
-            R.id.action_new_trojan_go -> {
-                startActivity(Intent(requireActivity(), TrojanGoSettingsActivity::class.java))
-            }
-
-            R.id.action_new_mieru -> {
-                startActivity(Intent(requireActivity(), MieruSettingsActivity::class.java))
-            }
-
-            R.id.action_new_naive -> {
-                startActivity(Intent(requireActivity(), NaiveSettingsActivity::class.java))
-            }
-
-            R.id.action_new_hysteria -> {
-                startActivity(Intent(requireActivity(), HysteriaSettingsActivity::class.java))
-            }
-
-            R.id.action_new_tuic -> {
-                startActivity(Intent(requireActivity(), TuicSettingsActivity::class.java))
-            }
-
-            R.id.action_new_juicity -> {
-                startActivity(Intent(requireActivity(), JuicitySettingsActivity::class.java))
-            }
-
-            R.id.action_new_ssh -> {
-                startActivity(Intent(requireActivity(), SSHSettingsActivity::class.java))
-            }
-
-            R.id.action_new_snell -> {
-                startActivity(Intent(requireActivity(), SnellSettingsActivity::class.java))
-            }
-
-            R.id.action_new_wg -> {
-                startActivity(Intent(requireActivity(), WireGuardSettingsActivity::class.java))
-            }
-
-            R.id.action_new_shadowtls -> {
-                startActivity(Intent(requireActivity(), ShadowTLSSettingsActivity::class.java))
-            }
-
-            R.id.action_new_anytls -> {
-                startActivity(Intent(requireActivity(), AnyTLSSettingsActivity::class.java))
-            }
-
-            R.id.action_new_config -> {
-                startActivity(Intent(requireActivity(), ConfigSettingActivity::class.java))
-            }
-
-            R.id.action_new_chain -> {
-                startActivity(Intent(requireActivity(), ChainSettingsActivity::class.java))
-            }
+            R.id.action_new_socks -> newProfile(SocksSettingsActivity::class.java)
+            R.id.action_new_http -> newProfile(HttpSettingsActivity::class.java)
+            R.id.action_new_ss -> newProfile(ShadowsocksSettingsActivity::class.java)
+            R.id.action_new_vmess -> newProfile(VMessSettingsActivity::class.java)
+            R.id.action_new_vless -> newProfile(VlessSettingsActivity::class.java)
+            R.id.action_new_xray_vless -> newProfile(XrayVlessSettingsActivity::class.java)
+            R.id.action_new_trojan -> newProfile(TrojanSettingsActivity::class.java)
+            R.id.action_new_mieru -> newProfile(MieruSettingsActivity::class.java)
+            R.id.action_new_naive -> newProfile(NaiveSettingsActivity::class.java)
+            R.id.action_new_hysteria -> newProfile(HysteriaSettingsActivity::class.java)
+            R.id.action_new_tuic -> newProfile(TuicSettingsActivity::class.java)
+            R.id.action_new_juicity -> newProfile(JuicitySettingsActivity::class.java)
+            R.id.action_new_ssh -> newProfile(SSHSettingsActivity::class.java)
+            R.id.action_new_snell -> newProfile(SnellSettingsActivity::class.java)
+            R.id.action_new_wg -> newProfile(WireGuardSettingsActivity::class.java)
+            R.id.action_new_shadowtls -> newProfile(ShadowTLSSettingsActivity::class.java)
+            R.id.action_new_anytls -> newProfile(AnyTLSSettingsActivity::class.java)
+            R.id.action_new_trusttunnel -> newProfile(TrustTunnelSettingsActivity::class.java)
+            R.id.action_new_direct -> newProfile(DirectSettingsActivity::class.java)
+            R.id.action_new_masque -> newProfile(MasqueSettingsActivity::class.java)
+            R.id.action_new_openvpn -> newProfile(OpenVpnSettingsActivity::class.java)
+            R.id.action_new_openconnect -> newProfile(OpenConnectSettingsActivity::class.java)
+            R.id.action_new_config -> newProfile(CustomSettingsActivity::class.java)
+            R.id.action_new_chain -> newProfile(ChainSettingsActivity::class.java)
 
             R.id.action_update_subscription -> {
                 val group = DataStore.currentGroup()
@@ -760,10 +706,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                 runOnDefaultDispatcher {
                     val profiles = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
                     val toClear = mutableListOf<ProxyEntity>()
-                    val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
+                    val uniqueProxies = HashSet<String>()
                     for (pf in profiles) {
-                        val proxy = Protocols.Deduplication(pf.requireBean(), pf.displayType())
-                        if (!uniqueProxies.add(proxy)) {
+                        if (!uniqueProxies.add(pf.dedupKey())) {
                             toClear += pf
                         }
                     }
@@ -880,7 +825,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         speedTestDialog = dialog
 
         val runner = SpeedTestQueueRunner(
-            sessionFactory = ::AndroidSpeedTestSession,
+            sessionFactory = ::RemoteSpeedTestSession,
             failureSnapshot = { profile, error ->
                 SpeedTestSnapshot(
                     profileId = profile.id,
@@ -1119,7 +1064,6 @@ class ConfigurationFragment @JvmOverloads constructor(
         if (DataStore.runningTest) return else DataStore.runningTest = true
         val test = TestDialog()
         val dialog = test.builder.show()
-        val testJobs = mutableListOf<Job>()
         val group = DataStore.currentGroup()
         Logs.d(
             "URLTestTrace batch=start groupId=${group.id} group=${group.name} " +
@@ -1128,45 +1072,40 @@ class ConfigurationFragment @JvmOverloads constructor(
                     "currentProfile=${DataStore.currentProfile} network=${SagerNet.underlyingNetwork}"
         )
 
+        // The probe boxes live in the :bg CoreService; this side only renders the results.
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
             test.proxyN = profilesList.size
-            val profiles = ConcurrentLinkedQueue(profilesList)
+            val profiles = profilesList.associateBy { it.id }
             Logs.d("URLTestTrace batch=loaded profiles=${profilesList.size}")
-            repeat(DataStore.connectionTestConcurrent) { workerId ->
-                testJobs.add(launch(Dispatchers.IO) {
-                    val urlTest = UrlTest() // note: this is NOT in bg process
-                    while (isActive) {
-                        val profile = profiles.poll() ?: break
-                        profile.status = 0
-                        Logs.d(
-                            "URLTestTrace batch=dispatch worker=$workerId profileId=${profile.id} " +
-                                    "profile=${profile.displayName()} isCurrent=${profile.id == DataStore.currentProfile}"
+            try {
+                CoreServiceClient.urlTest(
+                    profilesList.map { it.id }.toLongArray(),
+                    DataStore.connectionTestURL,
+                    DataStore.connectionTestTimeout,
+                    DataStore.connectionTestConcurrent,
+                ) { profileId, latencyMs, error ->
+                    val profile = profiles[profileId] ?: return@urlTest
+                    if (error.isEmpty()) {
+                        profile.status = 1
+                        profile.ping = latencyMs
+                        Logs.d("URLTest ${profile.displayName()}: done, ping=${latencyMs}ms")
+                    } else {
+                        profile.status = 3
+                        profile.error = error
+                        Logs.w(
+                            "URLTestTrace batch=result profileId=$profileId " +
+                                    "profile=${profile.displayName()} failed error=$error"
                         )
-
-                        try {
-                            val result = urlTest.doTest(profile)
-                            profile.status = 1
-                            profile.ping = result
-                            Logs.d("URLTest ${profile.displayName()}: done, ping=${result}ms")
-                        } catch (e: PluginManager.PluginNotFoundException) {
-                            profile.status = 2
-                            profile.error = e.readableMessage
-                        } catch (e: Exception) {
-                            profile.status = 3
-                            profile.error = e.readableMessage
-                            Logs.w(
-                                "URLTestTrace batch=result worker=$workerId profileId=${profile.id} " +
-                                        "profile=${profile.displayName()} failed error=${e.readableMessage}"
-                            )
-                        }
-
-                        test.update(profile)
                     }
-                })
+                    test.update(profile)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+                onMainDispatcher { snackbar(e.readableMessage).show() }
             }
-
-            testJobs.joinAll()
             Logs.d("URLTestTrace batch=finished profiles=${profilesList.size}")
 
             runOnMainDispatcher {
@@ -1178,7 +1117,6 @@ class ConfigurationFragment @JvmOverloads constructor(
             dialog.dismiss()
             runOnDefaultDispatcher {
                 mainJob.cancel()
-                testJobs.forEach { it.cancel() }
                 test.results.forEach {
                     try {
                         ProfileManager.updateProfile(it)
@@ -1708,9 +1646,8 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             private fun hasMiddleRow(p: ProxyEntity): Boolean {
                 val showTraffic = p.rx + p.tx != 0L
-                val bean = p.requireBean()
-                val address = if (alwaysShowAddress && bean.name.isNotBlank()) {
-                    bean.displayAddress()
+                val address = if (alwaysShowAddress && p.outbound.name.isNotBlank()) {
+                    p.displayAddress()
                 } else ""
                 return !((!showTraffic || p.status <= 0) && address.isBlank())
             }
@@ -2039,14 +1976,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                         profile.copy(
                             tx = cachedProfile.tx,
                             rx = cachedProfile.rx,
-                        ).also { it.dirty = profile.dirty }
+                        )
                     } else {
                         profile
                     }
                     val contentChanged = !noTraffic ||
                             cachedProfile == null ||
                             cachedProfile != updatedProfile ||
-                            cachedProfile.dirty != updatedProfile.dirty ||
                             cachedProfile.displayName() != updatedProfile.displayName()
                     configurationList[profile.id] = updatedProfile
                     if (noTraffic && !contentChanged) return@post
@@ -2169,21 +2105,17 @@ class ConfigurationFragment @JvmOverloads constructor(
                 popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
 
                 when {
-                    !proxyEntity.haveStandardLink() -> {
+                    proxyEntity.isChain() -> {
+                        popup.menu.removeItem(R.id.action_group_qr)
+                        popup.menu.removeItem(R.id.action_group_clipboard)
+                    }
+
+                    proxyEntity.exportLink().isEmpty() -> {
                         popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
                         popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
                             R.id.action_standard_clipboard
                         )
                     }
-
-                    !proxyEntity.haveLink() -> {
-                        popup.menu.removeItem(R.id.action_group_qr)
-                        popup.menu.removeItem(R.id.action_group_clipboard)
-                    }
-                }
-
-                if (proxyEntity.nekoBean != null) {
-                    popup.menu.removeItem(R.id.action_group_configuration)
                 }
 
                 popup.setOnMenuItemClickListener(this)
@@ -2224,7 +2156,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 editButton.setOnClickListener {
                     val proxyEntity = entity
                     it.context.startActivity(
-                        proxyEntity.settingIntent(
+                        proxyEntity.profileSettingsIntent(
                             it.context, proxyGroup.type == GroupType.SUBSCRIPTION
                         )
                     )
@@ -2237,7 +2169,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
                 shareLayout.setOnClickListener {
                     val proxyEntity = entity
-                    if (!select && proxyEntity.type != ProxyEntity.TYPE_CHAIN) {
+                    if (!select && !proxyEntity.isChain()) {
                         showShareMenu(it, proxyEntity)
                     }
                 }
@@ -2301,7 +2233,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     when (menuItem.itemId) {
                         R.id.action_edit -> {
                             anchor.context.startActivity(
-                                proxyEntity.settingIntent(
+                                proxyEntity.profileSettingsIntent(
                                     anchor.context, proxyGroup.type == GroupType.SUBSCRIPTION
                                 )
                             )
@@ -2428,9 +2360,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 val pf = parentFragment as? ConfigurationFragment ?: return
 
                 entity = proxyEntity
-                val bean = proxyEntity.requireBean()
 
-                profileName.text = bean.displayName()
+                profileName.text = proxyEntity.displayName()
                 profileType.text = proxyEntity.displayType()
                 profileType.setTextColor(requireContext().getProtocolColor(proxyEntity.type))
 
@@ -2448,8 +2379,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                     )
                 }
 
-                var address = if (pf.alwaysShowAddress && bean.name.isNotBlank()) {
-                    bean.displayAddress()
+                var address = if (pf.alwaysShowAddress && proxyEntity.outbound.name.isNotBlank()) {
+                    proxyEntity.displayAddress()
                 } else ""
                 if (showTraffic && address.length >= 30) {
                     address = address.substring(0, 27) + "..."
@@ -2467,7 +2398,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
                 bindTestResult(proxyEntity, showTraffic, speedTestText)
 
-                val selectOrChain = select || proxyEntity.type == ProxyEntity.TYPE_CHAIN
+                val selectOrChain = select || proxyEntity.isChain()
                 val isDoubleColumn = layoutManager is FixedGridLayoutManager
                 
                 if (isDoubleColumn) {
@@ -2482,12 +2413,6 @@ class ConfigurationFragment @JvmOverloads constructor(
                     doubleColumnMenuButton.isGone = true
                 }
 
-                proxyEntity.nekoBean?.apply {
-                    if (!isDoubleColumn) {
-                        shareLayout.isGone = true
-                    }
-                }
-
                 val selected = pf.isSelectedProfile(proxyEntity.id)
                 val started =
                     selected && DataStore.serviceState.started && pf.isCurrentProfile(proxyEntity.id)
@@ -2495,7 +2420,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 removeButton.isEnabled = !started
                 applySelected(selected)
 
-                if (!(select || proxyEntity.type == ProxyEntity.TYPE_CHAIN)) {
+                if (!selectOrChain) {
                     shareLayer.setBackgroundColor(Color.TRANSPARENT)
                     shareButton.setImageResource(R.drawable.ic_social_share)
                     shareButton.setColorFilter(Color.GRAY)
@@ -2559,18 +2484,16 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             override fun onMenuItemClick(item: MenuItem): Boolean {
                 try {
-                    currentName = entity.displayName()!!
+                    currentName = entity.displayName()
                     when (item.itemId) {
-                        R.id.action_standard_qr -> showCode(entity.toStdLink())
-                        R.id.action_standard_clipboard -> export(entity.toStdLink())
-                        R.id.action_universal_qr -> showCode(entity.requireBean().toUniversalLink())
-                        R.id.action_universal_clipboard -> export(
-                            entity.requireBean().toUniversalLink()
-                        )
+                        R.id.action_standard_qr -> showCode(entity.exportLink())
+                        R.id.action_standard_clipboard -> export(entity.exportLink())
+                        R.id.action_universal_qr -> showCode(entity.exportJsonLink())
+                        R.id.action_universal_clipboard -> export(entity.exportJsonLink())
 
-                        R.id.action_config_export_clipboard -> export(entity.exportConfig().first)
+                        R.id.action_config_export_clipboard -> export(ProfileConfigExport.export(entity).first)
                         R.id.action_config_export_file -> {
-                            val cfg = entity.exportConfig()
+                            val cfg = ProfileConfigExport.export(entity)
                             DataStore.serverConfig = cfg.first
                             startFilesForResult(
                                 (parentFragment as ConfigurationFragment).exportConfig, cfg.second

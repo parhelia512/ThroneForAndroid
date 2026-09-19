@@ -3,7 +3,6 @@
     <string name="version_x">Sürüm (%s)</string>
     <string name="app_version">Sürüm</string>
     <string name="oss_licenses">Açık kaynak lisansları</string>
-    <string name="telegram">Telegram güncelleme kanalı</string>
     <string name="github">Kaynak kodu</string>
     <string name="project">Proje</string>
     <string name="app_desc">Android için Kotlin ile yazılmış evrensel vekil sunucu araç zinciri.</string>
@@ -103,12 +102,9 @@
     <string name="http_host">HTTP Sunucu</string>
     <string name="ws_path">WebSocket Konumu</string>
     <string name="ws_host">WebSocket Sunucusu</string>
-    <string name="header_type">Başlık Türü</string>
     <string name="network">Ağ</string>
     <string name="security">Taşıma katmanı şifrelemesi</string>
     <string name="uuid">Kullanıcı ID</string>
-    <string name="obfs_param">Şaşırtmaca Parametresi</string>
-    <string name="protocol_param">Protokol Parametresi</string>
     <string name="protocol">Protokol</string>
     <string name="enc_method">Şifreleme Metodu</string>
     <string name="password">Parola</string>
@@ -142,8 +138,6 @@
     <string name="route_opt_bypass_lan">Yerel Ağı Atlat</string>
     <string name="route_bypass">Atlat</string>
     <string name="route_need_vpn">%s yönlendirme kuralı VPN\'in etkin olmasına bağlıdır ve bu nedenle görmezden gelindi.</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (Shadowsocks Android Eklentisi)</string>
-    <string name="shadowsocks_plugin_simple_obfs">Basit Şaşırtmaca (Shadowsocks Android Eklentisi)</string>
     <string name="hysteria_connection_receive_window">QUIC Bağlantı Alım Penceresi</string>
     <string name="hysteria_stream_receive_window">QUIC Akış Alım Penceresi</string>
     <string name="force_resolve_sum">Güncelleme yaparken bütün alan adlarının IP adreslerini çöz. Mümkünse sunucu ve SNI otomatik olarak eklenir</string>
@@ -158,7 +152,6 @@
     <string name="config_settings">Yapılandırma Ayarları</string>
     <string name="chain_settings">Zincir Ayarları</string>
     <string name="proxy_chain">Vekil Sunucu Zinciri</string>
-    <string name="plugin_configure">Yapılandır…</string>
     <string name="custom_config">Kişisel Yapılandırma</string>
     <string name="route_for">%s için kural</string>
     <string name="app_no_launcher">Bu uygulama herhangi bir arayüze sahip değil.</string>
@@ -172,7 +165,6 @@
     <string name="copy_label">İsmi Kopyala</string>
     <string name="udp_connections">%d UDP bağlantı</string>
     <string name="tcp_connections">%d TCP bağlantı</string>
-    <string name="plugin_exists_but_on_shit_system">Profil %s %s eklentisine ihtiyaç duyuyor, ancak kapalı kaynak ekipman sağlayıcınız (genellikle sermaye devleri ve kötü amaçlı yazılım geliştiricileri) Android ile oynamış ve eklenti bu yüzden kullanılamıyor.</string>
     <string name="group_order_by_delay">Gecikme</string>
     <string name="group_order_by_name">İsim</string>
     <string name="group_order_origin">Köken</string>
@@ -199,13 +191,6 @@
     <string name="ooc_warning">Uyarı</string>
     <string name="update_subscription_warning">Vekil sunucu bağlanmadı, güncellemeye devam etmek istediğinize emin misiniz\?</string>
     <string name="ooc_subscription_token_invalid">OOCv1 Anahtarı Geçersiz</string>
-    <string name="download">İndir</string>
-    <string name="install_from_fdroid">F-Droid\'den Kur</string>
-    <string name="install_from_play_store">Play Store\'dan Kur</string>
-    <string name="action_download">İNDİR</string>
-    <string name="action_learn_more">DAHA FAZLASINI ÖĞREN</string>
-    <string name="profile_requiring_plugin">Profil %s %s eklentisinin kurulmasını gerektirir ama kurulu değil.</string>
-    <string name="missing_plugin">Eksik Eklenti</string>
     <string name="confirm">Doğrula</string>
     <string name="subscription_user_agent">Kullanıcı Kimliği</string>
     <string name="update_when_connected_only_sum">IP adresinin sızdırılmasını önle</string>
@@ -223,7 +208,6 @@
     <string name="subscription">Abonelik</string>
     <string name="group_settings">Grup Ayarları</string>
     <string name="group_basic">Basit</string>
-    <string name="trojan_provider">Trojan Sağlayıcısı</string>
     <string name="protocol_settings">Protokol Ayarları</string>
     <string name="mixed_auth_config">Kimlik doğrulamayı yapılandır</string>
     <string name="mixed_auth_username_hint">Kullanıcı adı (ikisi de boş bırakılırsa kimlik doğrulama yok)</string>
@@ -259,11 +243,6 @@
     <string name="unsaved_changes_prompt">Değişiklikler kaydedilmedi. Kaydetmek ister misiniz\?</string>
     <string name="ss_cat">Shadowsocks Ayarları</string>
     <string name="proxy_cat">Sunucu Ayarları</string>
-    <string name="plugin_auto_connect_unlock_only">Bu eklenti Otomatik Bağlan ile çalışmayabilir</string>
-    <string name="plugin_untrusted">Uyarı: Bu eklenti bilinen güvenilir bir kaynaktan geliyora benzemiyor.</string>
-    <string name="plugin_unknown">Bilinmeyen eklenti %s</string>
-    <string name="plugin_disabled">Devre Dışı</string>
-    <string name="plugin">Eklenti</string>
     <string name="ignore_battery_optimizations_sum">Bazı kısıtlamaları kaldır</string>
     <string name="ignore_battery_optimizations">Pil optimizasyonlarını devre dışı bırak</string>
     <string name="deduplication">Tekilleştirme</string>
@@ -351,7 +330,6 @@
     <string name="route_asset_status">Yerel sürüm: %s</string>
     <string name="route_rules_official">Resmi</string>
     <string name="alter_id">Alternatif ID</string>
-    <string name="obfs">Şaşırtmaca</string>
     <string name="tcp_keep_alive_interval">TCP aktif paket teslim koruma aralığı</string>
     <string name="route_not_asset">Varlık dosyası değil: .db beklendi ama %s</string>
     <string name="route_rules_provider">Rota Varlıkları Sağlayıcısı</string>

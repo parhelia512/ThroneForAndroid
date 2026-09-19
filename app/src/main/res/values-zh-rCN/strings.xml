@@ -3,7 +3,6 @@
     <string name="app_desc">适用于 Android 之通用代理工具, 使用 Kotlin 编写。</string>
     <string name="project">项目</string>
     <string name="github">源代码</string>
-    <string name="telegram">Telegram 更新频道</string>
     <string name="oss_licenses">开放源代码协议</string>
     <string name="app_version">版本</string>
     <string name="logcat">导出调试信息</string>
@@ -77,14 +76,10 @@
     <string name="password">密码</string>
     <string name="enc_method">加密方式</string>
     <string name="protocol">协议</string>
-    <string name="protocol_param">协议参数</string>
-    <string name="obfs">混淆</string>
-    <string name="obfs_param">混淆参数</string>
     <string name="uuid">用户ID</string>
     <string name="alter_id">替代 ID</string>
     <string name="security">传输层加密</string>
     <string name="network">传输协议</string>
-    <string name="header_type">伪装类型</string>
     <string name="tls">使用 TLS</string>
     <string name="sni">服务器名称指示</string>
     <string name="encryption">加密</string>
@@ -166,13 +161,6 @@
     <string name="cleartext_http_warning">纯文本 HTTP 流量并不安全</string>
     <string name="error_title">错误</string>
     <string name="no_proxies_found">未在此链接内找到服务器配置</string>
-    <!-- plugin -->
-    <string name="plugin">插件</string>
-    <string name="plugin_configure">设置…</string>
-    <string name="plugin_disabled">已停用</string>
-    <string name="plugin_unknown">未知插件: %s</string>
-    <string name="plugin_untrusted">请注意: 此插件的不来自可靠的来源.</string>
-    <string name="plugin_auto_connect_unlock_only">此插件可能不支持自动连接</string>
     <string name="proxy_cat">服务器设置</string>
     <string name="unsaved_changes_prompt">是否要保存修改？</string>
     <string name="yes">是</string>
@@ -203,10 +191,6 @@
     <string name="ws_path">WebSocket 路径</string>
     <string name="http_host">HTTP 主机</string>
     <string name="http_path">HTTP 路径</string>
-    <string name="kcp_header_type">伪装头类型</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">拥塞窗口倍数</string>
     <string name="show_bottom_bar">像 SagerNet 一样显示底栏</string>
     <string name="utls_fingerprint">uTLS 指纹</string>
     <string name="grpc_service_name">gRPC 服务名称</string>
@@ -317,7 +301,6 @@
     <string name="http_proxy_bypass_dialog_message">一行一个，# 开头代表注释。示例：*zhihu.com</string>
     <string name="strict_route">严格路由</string>
     <string name="protocol_settings">协议设置</string>
-    <string name="trojan_provider">Trojan 提供程序</string>
     <string name="group_basic">基本</string>
     <string name="group_settings">分组设置</string>
     <string name="subscription">订阅</string>
@@ -341,13 +324,6 @@
     <string name="update_when_connected_only_sum">防止 IP 地址泄漏</string>
     <string name="subscription_user_agent">用户代理</string>
     <string name="confirm">确认</string>
-    <string name="missing_plugin">缺少插件</string>
-    <string name="profile_requiring_plugin">配置 %s 需要插件 %s, 但找不到.</string>
-    <string name="action_learn_more">了解更多</string>
-    <string name="action_download">下载</string>
-    <string name="install_from_play_store">从 Play Store 安装</string>
-    <string name="install_from_fdroid">从 F-Droid 安装</string>
-    <string name="download">下载</string>
     <string name="ooc_subscription_token_invalid">无效的 OOCv1 Token</string>
     <string name="ooc_warning">警告</string>
     <string name="ooc_missing_protocol">该订阅要求 %s 协议支持, 但找不到. 不支持的配置将被忽略.</string>
@@ -392,10 +368,6 @@
     <string name="group_order_origin">原始</string>
     <string name="group_order_by_name">以名称</string>
     <string name="group_order_by_delay">以延时</string>
-    <string name="plugin_exists_but_on_shit_system">配置 %s 需要插件
-        %s，但你的专有设备供应商（通常也是监视资本主义巨头和恶意软件制造商）篡改了你的安卓系统，使该插件无法使用。</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray （Shadowsocks Android 插件）</string>
-    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs （Shadowsocks Android 插件）</string>
     <string name="menu_traffic">流量</string>
     <string name="route_for">%s 路由</string>
     <string name="app_no_launcher">该应用没有界面。</string>
@@ -476,7 +448,6 @@
     <string name="move">移动</string>
     <string name="subscription_expire">过期: %s</string>
     <string name="update_all_subscription">更新所有订阅</string>
-    <string name="exe_prefer_provider">首选插件提供者</string>
     <string name="create_shortcut">创建快捷方式</string>
     <string name="app_tls_version">订阅最低 TLS 版本</string>
     <string name="hop_interval">端口跳跃间隔(秒)</string>

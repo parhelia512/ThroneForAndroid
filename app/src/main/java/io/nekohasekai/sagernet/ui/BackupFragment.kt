@@ -16,7 +16,6 @@ import com.jakewharton.processphoenix.ProcessPhoenix
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.bg.Executable
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
@@ -527,6 +526,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
+    companion object {
+        const val BACKUP_VERSION = 2
+    }
+
     fun Parcelable.toBase64Str(): String {
         val parcel = Parcel.obtain()
         writeToParcel(parcel, 0)
@@ -543,24 +546,24 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         setting: Boolean
     ): ByteArray {
         val out = JSONObject().apply {
-            put("version", 1)
+            put("version", BACKUP_VERSION)
             if (profile) {
                 put("profiles", JSONArray().apply {
                     SagerDatabase.proxyDao.getAll().forEach {
-                        put(it.toBase64Str())
+                        put(profileToJson(it))
                     }
                 })
 
                 put("groups", JSONArray().apply {
                     SagerDatabase.groupDao.allGroups().forEach {
-                        put(it.toBase64Str())
+                        put(groupToJson(it))
                     }
                 })
             }
             if (rule) {
                 put("rules", JSONArray().apply {
                     SagerDatabase.rulesDao.allRules().forEach {
-                        put(it.toBase64Str())
+                        put(ruleToJson(it))
                     }
                 })
             }
@@ -578,17 +581,17 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             ByteArrayOutputStream().use { bos ->
                 ZipOutputStream(bos).use { zos ->
                     zos.setLevel(Deflater.BEST_COMPRESSION)
-                    
+
                     val entry = ZipEntry("throne_backup.json").apply {
                         method = ZipEntry.DEFLATED
                     }
-                    
+
                     // 写入数据
                     zos.putNextEntry(entry)
                     val bytes = jsonContent.toByteArray(Charsets.UTF_8)
                     zos.write(bytes)
                     zos.closeEntry()
-                    
+
                     // 确保所有数据都被写入和压缩
                     zos.finish()
                 }
@@ -597,6 +600,161 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         } else {
             // 本地导出和分享功能使用 JSON 格式
             jsonContent.toByteArray()
+        }
+    }
+
+    // Backup format 2: profiles, groups and rules are plain JSON objects (the profile payload is the desktop's
+    // ExportToJson text); settings stay marshalled KeyValuePair parcels. Format 1 (Kryo beans) is not restorable.
+
+    private fun profileToJson(entity: ProxyEntity): JSONObject = JSONObject().apply {
+        put("id", entity.id)
+        put("groupId", entity.groupId)
+        put("type", entity.type)
+        put("outboundJson", entity.outboundJson)
+        put("userOrder", entity.userOrder)
+        put("tx", entity.tx)
+        put("rx", entity.rx)
+        put("status", entity.status)
+        put("ping", entity.ping)
+        put("uuid", entity.uuid)
+        put("error", entity.error)
+        put("speedTestMode", entity.speedTestMode)
+        put("speedTestDownloadBitsPerSecond", entity.speedTestDownloadBitsPerSecond)
+        put("speedTestUploadBitsPerSecond", entity.speedTestUploadBitsPerSecond)
+    }
+
+    private fun profileFromJson(obj: JSONObject): ProxyEntity = ProxyEntity(
+        id = obj.optLong("id"),
+        groupId = obj.optLong("groupId"),
+        type = obj.optString("type"),
+        outboundJson = obj.optString("outboundJson"),
+        userOrder = obj.optLong("userOrder"),
+        tx = obj.optLong("tx"),
+        rx = obj.optLong("rx"),
+        status = obj.optInt("status"),
+        ping = obj.optInt("ping"),
+        uuid = obj.optString("uuid"),
+        error = if (obj.isNull("error")) null else obj.optString("error"),
+        speedTestMode = obj.optString("speedTestMode"),
+        speedTestDownloadBitsPerSecond = obj.optLong("speedTestDownloadBitsPerSecond"),
+        speedTestUploadBitsPerSecond = obj.optLong("speedTestUploadBitsPerSecond"),
+    )
+
+    private fun groupToJson(group: ProxyGroup): JSONObject = JSONObject().apply {
+        put("id", group.id)
+        put("userOrder", group.userOrder)
+        put("ungrouped", group.ungrouped)
+        put("name", group.name)
+        put("type", group.type)
+        put("order", group.order)
+        put("isSelector", group.isSelector)
+        put("frontProxy", group.frontProxy)
+        put("landingProxy", group.landingProxy)
+        group.subscription?.let { sub ->
+            put("subscription", JSONObject().apply {
+                put("type", sub.type)
+                put("link", sub.link)
+                put("token", sub.token)
+                put("forceResolve", sub.forceResolve)
+                put("deduplication", sub.deduplication)
+                put("updateWhenConnectedOnly", sub.updateWhenConnectedOnly)
+                put("customUserAgent", sub.customUserAgent)
+                put("autoUpdate", sub.autoUpdate)
+                put("autoUpdateDelay", sub.autoUpdateDelay)
+                put("lastUpdated", sub.lastUpdated)
+                put("filterMode", sub.filterMode)
+                put("filterRegex", sub.filterRegex)
+                put("serverDnsResolver", sub.serverDnsResolver)
+                put("bytesUsed", sub.bytesUsed)
+                put("bytesRemaining", sub.bytesRemaining)
+                put("username", sub.username)
+                put("expiryDate", sub.expiryDate)
+                put("protocols", JSONArray(sub.protocols ?: emptyList<String>()))
+                put("subscriptionUserinfo", sub.subscriptionUserinfo)
+            })
+        }
+    }
+
+    private fun groupFromJson(obj: JSONObject): ProxyGroup = ProxyGroup(
+        id = obj.optLong("id"),
+        userOrder = obj.optLong("userOrder"),
+        ungrouped = obj.optBoolean("ungrouped"),
+        name = if (obj.isNull("name")) null else obj.optString("name"),
+        type = obj.optInt("type"),
+        order = obj.optInt("order"),
+        isSelector = obj.optBoolean("isSelector"),
+        frontProxy = obj.optLong("frontProxy", -1L),
+        landingProxy = obj.optLong("landingProxy", -1L),
+    ).apply {
+        val subObj = obj.optJSONObject("subscription") ?: return@apply
+        subscription = SubscriptionBean().apply {
+            initializeDefaultValues()
+            if (!subObj.isNull("type")) type = subObj.optInt("type")
+            if (!subObj.isNull("link")) link = subObj.optString("link")
+            if (!subObj.isNull("token")) token = subObj.optString("token")
+            if (!subObj.isNull("forceResolve")) forceResolve = subObj.optBoolean("forceResolve")
+            if (!subObj.isNull("deduplication")) deduplication = subObj.optBoolean("deduplication")
+            if (!subObj.isNull("updateWhenConnectedOnly")) updateWhenConnectedOnly = subObj.optBoolean("updateWhenConnectedOnly")
+            if (!subObj.isNull("customUserAgent")) customUserAgent = subObj.optString("customUserAgent")
+            if (!subObj.isNull("autoUpdate")) autoUpdate = subObj.optBoolean("autoUpdate")
+            if (!subObj.isNull("autoUpdateDelay")) autoUpdateDelay = subObj.optInt("autoUpdateDelay")
+            if (!subObj.isNull("lastUpdated")) lastUpdated = subObj.optInt("lastUpdated")
+            if (!subObj.isNull("filterMode")) filterMode = subObj.optInt("filterMode")
+            if (!subObj.isNull("filterRegex")) filterRegex = subObj.optString("filterRegex")
+            if (!subObj.isNull("serverDnsResolver")) serverDnsResolver = subObj.optString("serverDnsResolver")
+            if (!subObj.isNull("bytesUsed")) bytesUsed = subObj.optLong("bytesUsed")
+            if (!subObj.isNull("bytesRemaining")) bytesRemaining = subObj.optLong("bytesRemaining")
+            if (!subObj.isNull("username")) username = subObj.optString("username")
+            if (!subObj.isNull("expiryDate")) expiryDate = subObj.optInt("expiryDate")
+            subObj.optJSONArray("protocols")?.let { arr ->
+                protocols = (0 until arr.length()).map { arr.optString(it) }
+            }
+            if (!subObj.isNull("subscriptionUserinfo")) subscriptionUserinfo = subObj.optString("subscriptionUserinfo")
+        }
+    }
+
+    private fun ruleToJson(rule: RuleEntity): JSONObject = JSONObject().apply {
+        put("id", rule.id)
+        put("name", rule.name)
+        put("config", rule.config)
+        put("userOrder", rule.userOrder)
+        put("enabled", rule.enabled)
+        put("domains", rule.domains)
+        put("ip", rule.ip)
+        put("port", rule.port)
+        put("sourcePort", rule.sourcePort)
+        put("network", rule.network)
+        put("source", rule.source)
+        put("protocol", rule.protocol)
+        put("ruleset", rule.ruleset)
+        put("outbound", rule.outbound)
+        put("packages", JSONArray(rule.packages.toList()))
+    }
+
+    private fun ruleFromJson(obj: JSONObject): RuleEntity = RuleEntity(
+        id = obj.optLong("id"),
+        name = obj.optString("name"),
+        config = obj.optString("config"),
+        userOrder = obj.optLong("userOrder"),
+        enabled = obj.optBoolean("enabled"),
+        domains = obj.optString("domains"),
+        ip = obj.optString("ip"),
+        port = obj.optString("port"),
+        sourcePort = obj.optString("sourcePort"),
+        network = obj.optString("network"),
+        source = obj.optString("source"),
+        protocol = obj.optString("protocol"),
+        ruleset = obj.optString("ruleset"),
+        outbound = obj.optLong("outbound"),
+        packages = obj.optJSONArray("packages")?.let { arr -> (0 until arr.length()).map { arr.optString(it) }.toSet() }
+            ?: emptySet(),
+    )
+
+    /** The objects of a format-2 array; a format-1 (Kryo) array holds base64 strings and cannot be restored. */
+    private fun objectsOf(content: JSONObject, key: String): List<JSONObject> {
+        val array = content.getJSONArray(key)
+        return (0 until array.length()).map {
+            array.optJSONObject(it) ?: throw IllegalStateException(getString(R.string.backup_version_unsupported))
         }
     }
 
@@ -787,43 +945,17 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         content: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean
     ) {
         if (profile && content.has("profiles")) {
-            val profiles = mutableListOf<ProxyEntity>()
-            val jsonProfiles = content.getJSONArray("profiles")
-            for (i in 0 until jsonProfiles.length()) {
-                val data = Util.b64Decode(jsonProfiles[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                profiles.add(ProxyEntity.CREATOR.createFromParcel(parcel))
-                parcel.recycle()
-            }
+            val profiles = objectsOf(content, "profiles").map { profileFromJson(it) }
+            val groups = if (content.has("groups")) objectsOf(content, "groups").map { groupFromJson(it) } else emptyList()
             SagerDatabase.proxyDao.reset()
             SagerDatabase.proxyDao.insert(profiles)
-
-            val groups = mutableListOf<ProxyGroup>()
-            val jsonGroups = content.getJSONArray("groups")
-            for (i in 0 until jsonGroups.length()) {
-                val data = Util.b64Decode(jsonGroups[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                groups.add(ProxyGroup.CREATOR.createFromParcel(parcel))
-                parcel.recycle()
+            if (groups.isNotEmpty()) {
+                SagerDatabase.groupDao.reset()
+                SagerDatabase.groupDao.insert(groups)
             }
-            SagerDatabase.groupDao.reset()
-            SagerDatabase.groupDao.insert(groups)
         }
         if (rule && content.has("rules")) {
-            val rules = mutableListOf<RuleEntity>()
-            val jsonRules = content.getJSONArray("rules")
-            for (i in 0 until jsonRules.length()) {
-                val data = Util.b64Decode(jsonRules[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                rules.add(ParcelizeBridge.createRule(parcel))
-                parcel.recycle()
-            }
+            val rules = objectsOf(content, "rules").map { ruleFromJson(it) }
             SagerDatabase.rulesDao.reset()
             SagerDatabase.rulesDao.insert(rules)
         }

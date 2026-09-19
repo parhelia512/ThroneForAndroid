@@ -11,6 +11,10 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
 
+/**
+ * Opens the JSON editor on a profile-cache entry: the preference's own key by default (`serverConfig` when it has
+ * none), or a configuration-store key through [useConfigStore]. The summary is the line count of that entry.
+ */
 class EditConfigPreference : Preference {
 
     constructor(
@@ -24,12 +28,14 @@ class EditConfigPreference : Preference {
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
     constructor(context: Context) : super(context)
 
-    init {
-        intent = Intent(context, ConfigEditActivity::class.java)
-    }
-
-    var configKey = Key.SERVER_CONFIG
+    var configKey = key ?: Key.SERVER_CONFIG
     var useConfigStore = false
+
+    init {
+        intent = Intent(context, ConfigEditActivity::class.java).apply {
+            putExtra("key", configKey)
+        }
+    }
 
     fun useConfigStore(key: String) {
         try {
@@ -46,7 +52,7 @@ class EditConfigPreference : Preference {
 
     override fun getSummary(): CharSequence {
         val config =
-            (if (useConfigStore) DataStore.configurationStore.getString(configKey) else DataStore.serverConfig)
+            (if (useConfigStore) DataStore.configurationStore.getString(configKey) else DataStore.profileCacheStore.getString(configKey))
                 ?: ""
         return if (config.isBlank()) {
             return app.resources.getString(androidx.preference.R.string.not_set)

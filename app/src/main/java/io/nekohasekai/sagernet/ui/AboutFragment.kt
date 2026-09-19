@@ -31,16 +31,12 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.plugin.PluginManager.loadString
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.ListListener
-import libcore.Libcore
-import moe.matsuri.nb4a.plugin.Plugins
 import androidx.core.net.toUri
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
-import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
 
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
@@ -150,42 +146,10 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         .addItem(
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_baseline_layers_24)
-                                .text(getString(R.string.version_x, "sing-box"))
-                                .subText(Libcore.versionBox())
+                                .text(getString(R.string.version_x, "ThroneCore"))
+                                .subText(BuildConfig.THRONE_CORE_REF)
                                 .setOnClickAction { }
                                 .build())
-                        .apply {
-                            PackageCache.awaitLoadSync()
-                            for ((_, pkg) in PackageCache.installedPluginPackages) {
-                                try {
-                                    val pluginId =
-                                        pkg.providers?.get(0)?.loadString(Plugins.METADATA_KEY_ID)
-                                    if (pluginId.isNullOrBlank()) continue
-                                    addItem(
-                                        MaterialAboutActionItem.Builder()
-                                            .icon(R.drawable.ic_baseline_nfc_24)
-                                            .text(
-                                                getString(
-                                                    R.string.version_x,
-                                                    pluginId
-                                                ) + " (${Plugins.displayExeProvider(pkg.packageName)})"
-                                            )
-                                            .subText("v" + pkg.versionName)
-                                            .setOnClickAction {
-                                                startActivity(Intent().apply {
-                                                    action =
-                                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                                                    data = Uri.fromParts(
-                                                        "package", pkg.packageName, null
-                                                    )
-                                                })
-                                            }
-                                            .build())
-                                } catch (e: Exception) {
-                                    Logs.w(e)
-                                }
-                            }
-                        }
                         .apply {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                 val pm = app.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -226,10 +190,10 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         .addItem(
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_qu_shadowsocks_foreground)
-                                .text(R.string.telegram)
+                                .text(R.string.project_website)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
-                                        "https://t.me/MatsuriDayo"
+                                        "https://throneproj.github.io"
                                     )
                                 }
                                 .build())
@@ -294,14 +258,9 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
         fun checkUpdate() {
             runOnIoDispatcher {
                 try {
-                    val client = Libcore.newHttpClient().apply {
-                        modernTLS()
-                        tryProxyOutbound()
-                    }
-                    val response = client.newRequest().apply {
-                        setURL("https://api.github.com/repos/throneproj/ThroneForAndroid/releases/latest")
-                    }.execute()
-                    val release = JSONObject(Util.getStringBox(response.contentString))
+                    val response =
+                        fetchText("https://api.github.com/repos/throneproj/ThroneForAndroid/releases/latest")
+                    val release = JSONObject(response.body)
                     val releaseName = release.getString("name")
                     val releaseUrl = release.getString("html_url")
                     // Release name is the git tag, e.g. "v1.4.2-m20-10".

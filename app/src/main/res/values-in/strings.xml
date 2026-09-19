@@ -10,7 +10,6 @@
     <string name="disable_mixed_inbound_proxy_toast">Penonaktifan hanya berlaku dalam mode TUN; port yang sedang didengarkan: %1$d</string>
     <string name="group_status_proxies_subscription">%d Proksi | Diperbarui pada %s</string>
     <string name="group_status_proxies">%d Proksi</string>
-    <string name="protocol_param">Param Protokol</string>
     <string name="protocol">Protokol</string>
     <string name="enc_method">Metode Enkrip</string>
     <string name="password">Kata sandi</string>
@@ -101,7 +100,6 @@
     <string name="version_x">Versi (%s)</string>
     <string name="app_version">Versi</string>
     <string name="oss_licenses">Lisensi sumber terbuka</string>
-    <string name="telegram">Channel Telegram</string>
     <string name="github">Kode sumber</string>
     <string name="project">Proyek</string>
     <string name="app_desc">Peranti proxy universal untuk Android, ditulis dalam Kotlin.</string>
@@ -155,8 +153,6 @@
     <string name="tls">Pakai TLS</string>
     <string name="network">Jaringan</string>
     <string name="uuid">ID Pengguna</string>
-    <string name="obfs_param">Obfs Param</string>
-    <string name="obfs">Obfs</string>
     <string name="menu_traffic">Trafik</string>
     <string name="circular_reference">Referensi melingkar</string>
     <string name="config_settings">Pengaturan Konfigurasi</string>
@@ -202,7 +198,6 @@
     <string name="http_host">HTTP Host</string>
     <string name="ws_path">Jalur Soket Web</string>
     <string name="ws_host">Host Soket Web</string>
-    <string name="header_type">Jenis Tajuk</string>
     <string name="security">Enkripsi lapisan transportasi</string>
     <string name="alter_id">Ubah ID</string>
     <string name="preview_hint_dont_show_again">Jangan tampilkan lagi</string>

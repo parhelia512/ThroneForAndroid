@@ -22,7 +22,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.databinding.LayoutScannerBinding
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
 import io.nekohasekai.sagernet.ktx.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -101,8 +101,15 @@ class ScannerActivity : ThemedActivity(),
         runOnDefaultDispatcher {
             try {
                 val text = result?.text ?: throw Exception("QR code not found")
-                val results = RawUpdater.parseRaw(text)
-                if (!results.isNullOrEmpty()) {
+                ProfileTextImport.subscriptionLink(text)?.let { link ->
+                    startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
+                        action = Intent.ACTION_VIEW
+                        data = link.toUri()
+                    })
+                    return@runOnDefaultDispatcher
+                }
+                val results = ProfileTextImport.parse(text)
+                if (results.isNotEmpty()) {
                     val currentGroupId = DataStore.selectedGroupForImport()
                     if (DataStore.selectedGroup != currentGroupId) {
                         DataStore.selectedGroup = currentGroupId
@@ -117,11 +124,6 @@ class ScannerActivity : ThemedActivity(),
                         Toast.makeText(app, R.string.action_import_err, Toast.LENGTH_SHORT).show()
                     }
                 }
-            } catch (e: SubscriptionFoundException) {
-                startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
-                    action = Intent.ACTION_VIEW
-                    data = e.link.toUri()
-                })
             } catch (e: Throwable) {
                 Logs.w(e)
                 onMainDispatcher {

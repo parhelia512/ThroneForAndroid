@@ -3,10 +3,9 @@ package io.nekohasekai.sagernet.database
 import android.database.sqlite.SQLiteCantOpenDatabaseException
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
-import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import java.io.IOException
 import java.sql.SQLException
 import java.util.*
@@ -72,12 +71,10 @@ object ProfileManager {
         }
     }
 
-    suspend fun createProfile(groupId: Long, bean: AbstractBean): ProxyEntity {
-        bean.applyDefaultValues()
-
+    suspend fun createProfile(groupId: Long, outbound: Outbound): ProxyEntity {
         val profile = ProxyEntity(groupId = groupId).apply {
             id = 0
-            putBean(bean)
+            putOutbound(outbound)
             userOrder = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
         }
         profile.id = SagerDatabase.proxyDao.addProxy(profile)

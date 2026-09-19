@@ -2,23 +2,23 @@
 
     <EditTextPreference
         app:icon="@drawable/ic_social_emoji_symbols"
-        app:key="profileName"
+        app:key="name"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
-    <PreferenceCategory app:title="@string/proxy_cat">
+    <PreferenceCategory
+        app:title="@string/proxy_cat">
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="2"
-            app:entries="@array/socks_versions"
-            app:entryValues="@array/int_array_3"
             app:icon="@drawable/ic_baseline_nfc_24"
-            app:key="serverProtocol"
-            app:title="@string/app_version"
+            app:key="version"
+            app:title="@string/protocol_version"
+            app:entries="@array/socks_version_entry"
+            app:entryValues="@array/socks_version_value"
+            app:defaultValue="5"
             app:useSimpleSummaryProvider="true" />
-
         <EditTextPreference
             app:icon="@drawable/ic_hardware_router"
-            app:key="serverAddress"
+            app:key="server"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
@@ -28,19 +28,18 @@
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_person_24"
-            app:key="serverUsername"
+            app:key="username"
             app:title="@string/username_opt"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:dialogLayout="@layout/layout_password_dialog"
             app:icon="@drawable/ic_settings_password"
-            app:key="serverPassword"
-            app:title="@string/password_opt" />
+            app:key="password"
+            app:title="@string/password_opt"
+            app:dialogLayout="@layout/layout_password_dialog" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:key="uot"
+            app:title="@string/udp_over_tcp" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="sing-box server">
-        <SwitchPreference
-            app:key="sUoT"
-            app:title="UDP over TCP" />
-    </PreferenceCategory>
 </PreferenceScreen>

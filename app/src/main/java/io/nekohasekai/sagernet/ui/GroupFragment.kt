@@ -20,7 +20,6 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
-import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.ListListener
@@ -164,7 +163,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             if (data != null) {
                 runOnDefaultDispatcher {
                     val profiles = SagerDatabase.proxyDao.getByGroup(selectedGroup.id)
-                    val links = profiles.joinToString("\n") { it.toStdLink(compact = true) }
+                    val links = profiles.joinToString("\n") { it.exportLink().ifEmpty { it.exportJsonLink() } }
                     try {
                         // 宿主缺失时逐级回退（Fragment context → 前台 Activity → 应用级 Context）
                         val resolverContext =
@@ -367,19 +366,18 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
             when (item.itemId) {
                 R.id.action_universal_qr -> {
-                    QRCodeDialog(
-                        proxyGroup.toUniversalLink(), proxyGroup.displayName()
-                    ).showAllowingStateLoss(parentFragmentManager)
+                    val link = proxyGroup.subscription?.link ?: return true
+                    QRCodeDialog(link, proxyGroup.displayName()).showAllowingStateLoss(parentFragmentManager)
                 }
 
                 R.id.action_universal_clipboard -> {
-                    export(proxyGroup.toUniversalLink())
+                    export(proxyGroup.subscription?.link ?: return true)
                 }
 
                 R.id.action_export_clipboard -> {
                     runOnDefaultDispatcher {
                         val profiles = SagerDatabase.proxyDao.getByGroup(selectedGroup.id)
-                        val links = profiles.joinToString("\n") { it.toStdLink(compact = true) }
+                        val links = profiles.joinToString("\n") { it.exportLink().ifEmpty { it.exportJsonLink() } }
                         onMainDispatcher {
                             SagerNet.trySetPrimaryClip(links)
                             snackbar(getString(R.string.copy_toast_msg)).show()

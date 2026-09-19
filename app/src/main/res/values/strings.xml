@@ -5,7 +5,6 @@
     <string name="app_desc">The universal proxy toolchain for Android, written in Kotlin.</string>
     <string name="project">Project</string>
     <string name="github">Source code</string>
-    <string name="telegram">Telegram update channel</string>
     <string name="oss_licenses">Open source licenses</string>
     <string name="app_version">Version</string>
     <string name="version_x">Version (%s)</string>
@@ -154,23 +153,14 @@
     <string name="password">Password</string>
     <string name="enc_method">Encrypt Method</string>
     <string name="protocol">Protocol</string>
-    <string name="protocol_param">Protocol Param</string>
-    <string name="obfs">Obfs</string>
-    <string name="obfs_param">Obfs Param</string>
     <string name="uuid">User ID</string>
     <string name="alter_id">Alter ID</string>
     <string name="security">Transport layer encryption</string>
     <string name="network">Network</string>
-    <string name="header_type">Header Type</string>
     <string name="ws_host">WebSocket Host</string>
     <string name="ws_path">WebSocket Path</string>
     <string name="http_host">HTTP Host</string>
     <string name="http_path">HTTP Path</string>
-    <string name="kcp_seed">mKCP Seed</string>
-    <string name="kcp_header_type">Header Type</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">CWND Multiplier</string>
     <string name="grpc_service_name">gRPC ServiceName</string>
     <string name="tls">Use TLS</string>
     <string name="sni">Server Name Indication</string>
@@ -269,10 +259,8 @@
     <string name="action_socks" translatable="false">SOCKS</string>
     <string name="action_http" translatable="false">HTTP</string>
     <string name="action_shadowsocks" translatable="false">Shadowsocks</string>
-    <string name="action_shadowsocksr" translatable="false">ShadowsocksR</string>
     <string name="action_vmess" translatable="false">VMess</string>
     <string name="action_trojan" translatable="false">Trojan</string>
-    <string name="action_trojan_go" translatable="false">Trojan Go</string>
     <string name="action_mieru" translatable="false">Mieru</string>
     <string name="action_naive" translatable="false">Naïve</string>
     <string name="action_anytls" translatable="false">AnyTLS</string>
@@ -344,14 +332,6 @@
     <string name="deduplication">Deduplication</string>
     <string name="ignore_battery_optimizations">Ignore battery optimizations</string>
     <string name="ignore_battery_optimizations_sum">Remove some restrictions</string>
-    <!-- plugin -->
-    <string name="plugin">Plugin</string>
-    <string name="plugin_configure">Configure…</string>
-    <string name="plugin_disabled">Disabled</string>
-    <string name="plugin_unknown">Unknown plugin %s</string>
-    <string name="plugin_untrusted">Warning: This plugin does not seem to come from a known trusted
-        source.</string>
-    <string name="plugin_auto_connect_unlock_only">This plugin might not work with Auto Connect</string>
     <string name="proxy_cat">Server Settings</string>
     <string name="ss_cat">Shadowsocks Settings</string>
     <string name="unsaved_changes_prompt">Changes not saved. Do you want to save?</string>
@@ -399,7 +379,6 @@
     <string name="http_proxy_bypass_dialog_message">One per line. Lines starting with # are comments. Example: *zhihu.com</string>
     <string name="strict_route">Strict Route</string>
     <string name="protocol_settings">Protocol Settings</string>
-    <string name="trojan_provider">Trojan Provider</string>
     <string name="group_basic">Basic</string>
     <string name="group_settings">Group Settings</string>
     <string name="subscription">Subscription</string>
@@ -424,14 +403,6 @@
     <string name="update_when_connected_only_sum">Prevent IP address leakage</string>
     <string name="subscription_user_agent">UserAgent</string>
     <string name="confirm">Confirm</string>
-    <string name="missing_plugin">Missing Plugin</string>
-    <string name="profile_requiring_plugin">Profile %s requires the %s plugin to be installed, but
-        it was not found.</string>
-    <string name="action_learn_more">LEARN MORE</string>
-    <string name="action_download">DOWNLOAD</string>
-    <string name="install_from_play_store">Install from Play Store</string>
-    <string name="install_from_fdroid">Install from F-Droid</string>
-    <string name="download">Download</string>
     <string name="ooc_subscription_token" translatable="false">OOCv1 API Token</string>
     <string name="ooc_subscription_token_invalid">Invalid OOCv1 Token</string>
     <string name="update_subscription_warning">Proxy is not connected, are you sure you want to
@@ -472,12 +443,6 @@
     <string name="group_order_origin">Origin</string>
     <string name="group_order_by_name">By Name</string>
     <string name="group_order_by_delay">By Delay</string>
-    <string name="plugin_exists_but_on_shit_system">Profile %s requires the %s plugin, but your
-        proprietary equipment vendor (usually surveillance capital giants and malware maker)
-        tampered with your Android, making the plugin unusable.</string>
-
-    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs (Shadowsocks Android Plugin)</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (Shadowsocks Android Plugin)</string>
 
     <string name="traffic_uplink" translatable="false">%s | %s/s ↑</string>
     <string name="traffic_downlink" translatable="false">%s | %s/s ↓</string>
@@ -590,7 +555,6 @@
         Please update!</string>
     <string name="connection_test_delete_unavailable">Clear unavailable</string>
     <string name="move">Move</string>
-    <string name="exe_prefer_provider">Plugin Preferred Provider</string>
     <string name="create_shortcut">Create Shortcut</string>
     <string name="app_tls_version">Subscription Min TLS Version</string>
     <string name="hop_interval">Port Hopping Interval(second)</string>
@@ -748,4 +712,153 @@
     <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
     <string name="custom_icon_error_security">Security verification failed: %s</string>
     <string name="custom_icon_requirement_tip">Icon pack must be a ZIP archive containing 512x512 icon.png and tile.png.</string>
+
+    <!-- profile editors (WP-U) -->
+    <string name="udp_over_tcp">UDP over TCP</string>
+    <string name="enable_tls">Enable TLS</string>
+    <string name="one_per_line">One per line</string>
+    <string name="certificate_pem_hint">PEM text; one certificate per block</string>
+    <string name="certificate_public_key_sha256">Certificate public key SHA256</string>
+    <string name="tls_fragment">TLS Client Hello fragment</string>
+    <string name="tls_fragment_fallback_delay">Fragment fallback delay</string>
+    <string name="tls_record_fragment">TLS record fragment</string>
+    <string name="tls_spoof">TLS spoof</string>
+    <string name="tls_spoof_server_name">Spoof server name</string>
+    <string name="tls_spoof_method">Spoof method</string>
+    <string name="tls_tricks">TLS tricks</string>
+    <string name="enable_utls">Enable uTLS</string>
+    <string name="enable_reality">Enable Reality</string>
+    <string name="reality_public_key">Reality public key</string>
+    <string name="reality_short_id">Reality short ID</string>
+    <string name="vmess_global_padding">Global padding</string>
+    <string name="vmess_authenticated_length">Authenticated length</string>
+    <string name="transport_settings">Transport Settings</string>
+    <string name="transport_host">Host</string>
+    <string name="transport_path">Path</string>
+    <string name="transport_method">HTTP method</string>
+    <string name="transport_headers">Headers</string>
+    <string name="headers_hint">One line per header name followed by one line with its value</string>
+    <string name="transport_idle_timeout">Idle timeout</string>
+    <string name="transport_ping_timeout">Ping timeout</string>
+    <string name="ws_heartbeat_period">Heartbeat period</string>
+    <string name="httpupgrade_settings">HTTPUpgrade Settings</string>
+    <string name="grpc_settings">gRPC Settings</string>
+    <string name="grpc_authority">Authority</string>
+    <string name="grpc_multi_mode">Multi mode</string>
+    <string name="xhttp_padding_bytes">Padding bytes</string>
+    <string name="xhttp_no_grpc_header">No gRPC header</string>
+    <string name="xhttp_no_sse_header">No SSE header</string>
+    <string name="xhttp_sc_max_each_post_bytes">Max bytes per POST</string>
+    <string name="xhttp_sc_min_posts_interval_ms">Min POST interval (ms)</string>
+    <string name="xhttp_sc_max_buffered_posts">Max buffered POSTs</string>
+    <string name="xhttp_sc_stream_up_server_secs">Stream-up server seconds</string>
+    <string name="xhttp_xmux_max_concurrency">XMUX max concurrency</string>
+    <string name="xhttp_xmux_max_connections">XMUX max connections</string>
+    <string name="xhttp_xmux_c_max_reuse_times">XMUX max reuse times</string>
+    <string name="xhttp_xmux_h_max_request_times">XMUX max request times</string>
+    <string name="xhttp_xmux_h_max_reusable_secs">XMUX max reusable seconds</string>
+    <string name="xhttp_xmux_h_keep_alive_period">XMUX keep-alive period</string>
+    <string name="xhttp_download_settings">Download settings (JSON)</string>
+    <string name="xray_pinned_peer_cert_sha256">Pinned peer certificate SHA256</string>
+    <string name="xray_verify_peer_cert_by_name">Verify peer certificate by name</string>
+    <string name="reality_settings">Reality Settings</string>
+    <string name="reality_spider_x">SpiderX</string>
+    <string name="xray_mux_concurrency">Concurrency</string>
+    <string name="xray_mux_xudp_concurrency">XUDP concurrency</string>
+    <string name="ss_plugin">SIP003 plugin</string>
+    <string name="ss_plugin_opts">Plugin options</string>
+    <string name="hysteria_server_ports">Port hopping ranges</string>
+    <string name="port_ranges_hint">One range per line, e.g. 20000-30000</string>
+    <string name="hysteria_hop_interval_max">Port hopping interval max</string>
+    <string name="hysteria_obfs_type">Obfuscation type</string>
+    <string name="hysteria_min_packet_size">Min packet size</string>
+    <string name="hysteria_max_packet_size">Max packet size</string>
+    <string name="hysteria_bbr_profile">BBR profile</string>
+    <string name="hysteria_disable_chrome_parrot">Disable Chrome parrot</string>
+    <string name="hysteria_realm">Realm (NAT traversal)</string>
+    <string name="hysteria_realm_enabled">Enable realm</string>
+    <string name="hysteria_realm_server_url">Realm server URL</string>
+    <string name="hysteria_realm_token">Realm token</string>
+    <string name="hysteria_realm_id">Realm ID</string>
+    <string name="hysteria_realm_stun_servers">STUN servers</string>
+    <string name="hysteria_realm_ip_version">IP version</string>
+    <string name="hysteria_realm_port_mapping">Port mapping</string>
+    <string name="hysteria_realm_port_mapping_timeout">Port mapping timeout</string>
+    <string name="hysteria_realm_port_mapping_lifetime">Port mapping lifetime</string>
+    <string name="quic_settings">QUIC Settings</string>
+    <string name="quic_idle_timeout">Idle timeout</string>
+    <string name="quic_keep_alive_period">Keep-alive period</string>
+    <string name="quic_max_concurrent_streams">Max concurrent streams</string>
+    <string name="quic_initial_packet_size">Initial packet size</string>
+    <string name="tuic_udp_over_stream">UDP over stream</string>
+    <string name="tuic_heartbeat">Heartbeat</string>
+    <string name="anytls_idle_session_check_interval">Idle session check interval</string>
+    <string name="anytls_idle_session_timeout">Idle session timeout</string>
+    <string name="anytls_min_idle_session">Min idle sessions</string>
+    <string name="ssh_host_key">Host keys</string>
+    <string name="ssh_host_key_algorithms">Host key algorithms</string>
+    <string name="ssh_client_version">Client version</string>
+    <string name="use_quic">Use QUIC</string>
+    <string name="congestion_control">Congestion control</string>
+    <string name="mieru_server_ports">Port ranges</string>
+    <string name="port_ranges_comma_hint">Comma separated, e.g. 9000-9010,9020-9030</string>
+    <string name="mieru_multiplexing">Multiplexing</string>
+    <string name="mieru_traffic_pattern">Traffic pattern</string>
+    <string name="wireguard_reserved">Reserved</string>
+    <string name="reserved_hint">Three numbers, one per line</string>
+    <string name="wireguard_system">System interface</string>
+    <string name="wireguard_worker_count">Worker count</string>
+    <string name="wireguard_udp_timeout">UDP timeout</string>
+    <string name="amnezia_settings">AmneziaWG Settings</string>
+    <string name="amnezia_enable">Enable AmneziaWG</string>
+    <string name="amnezia_header_protection_key">Header protection key</string>
+    <string name="amnezia_content_padding_addition">Content padding addition</string>
+    <string name="amnezia_rekey_after_time">Rekey after time</string>
+    <string name="amnezia_rekey_timeout">Rekey timeout</string>
+    <string name="amnezia_reject_after_time">Reject after time</string>
+    <string name="amnezia_keepalive_timeout">Keepalive timeout</string>
+    <string name="amnezia_max_handshake_attempts">Max handshake attempts</string>
+    <string name="amnezia_random_trailers">Random trailers</string>
+    <string name="amnezia_disable_cookies">Disable cookies</string>
+    <string name="trusttunnel_custom_sni">Custom SNI</string>
+    <string name="trusttunnel_client_random">Client random</string>
+    <string name="trusttunnel_health_check">Health check</string>
+    <string name="dial_settings">Dial Settings</string>
+    <string name="dial_bind_interface">Bind interface</string>
+    <string name="dial_inet4_bind_address">IPv4 bind address</string>
+    <string name="dial_inet6_bind_address">IPv6 bind address</string>
+    <string name="dial_connect_timeout">Connect timeout</string>
+    <string name="dial_tcp_fast_open">TCP Fast Open</string>
+    <string name="dial_tcp_multi_path">TCP Multi Path</string>
+    <string name="dial_udp_fragment">UDP fragment</string>
+    <string name="dial_reuse_addr">Reuse address</string>
+    <string name="masque_http_version">HTTP version</string>
+    <string name="masque_disable_version_fallback">Disable version fallback</string>
+    <string name="raw_json_summary">Edit every field of this profile as JSON</string>
+    <string name="raw_json">Raw JSON</string>
+    <string name="openvpn_static_challenge">Static challenge</string>
+    <string name="openvpn_ca_certificate">CA certificate</string>
+    <string name="client_certificate">Client certificate</string>
+    <string name="client_key">Client key</string>
+    <string name="openconnect_server_path">Server path</string>
+    <string name="openconnect_flavor">Flavor</string>
+    <string name="openconnect_auth_group">Auth group</string>
+    <string name="custom_config_type">Config type</string>
+    <string name="action_vless">VLESS</string>
+    <string name="action_vless_xray">VLESS (Xray)</string>
+    <string name="action_trusttunnel">TrustTunnel</string>
+    <string name="action_direct">Direct</string>
+    <string name="action_masque">MASQUE</string>
+    <string name="action_openvpn">OpenVPN</string>
+    <string name="action_openconnect">OpenConnect</string>
+    <string name="throne_link">Throne link</string>
+    <string name="edit_as_json">Edit as JSON</string>
+    <string name="raw_json_invalid">The JSON is not a valid profile of this type</string>
+    <string name="project_website">Project website</string>
+    <string name="tri_state_default">Keep default</string>
+    <string name="tri_state_on">On</string>
+    <string name="tri_state_off">Off</string>
+    <string name="mux_protocol_default">Default</string>
+    <string name="backup_version_unsupported">This backup was written by an older version and cannot be restored</string>
+    <string name="share_subscription_link">Subscription link</string>
 </resources>

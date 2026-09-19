@@ -1,21 +1,24 @@
 package io.nekohasekai.sagernet.bg
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.IpPrefix
 import android.net.ProxyInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.fmt.LOCALHOST
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.VpnRequestActivity
-import io.nekohasekai.sagernet.utils.Subnet
+import io.throneproj.mobile.Mobile
+import io.throneproj.mobile.RoutePrefix
+import io.throneproj.mobile.RoutePrefixIterator
+import io.throneproj.mobile.StringIterator
+import io.throneproj.mobile.TunOptions
+import java.net.InetAddress
 import android.net.VpnService as BaseVpnService
 
 class VpnService : BaseVpnService(),
@@ -112,131 +115,89 @@ class VpnService : BaseVpnService(),
         override fun getLocalizedMessage() = getString(R.string.reboot_required)
     }
 
-    fun startVpn(tunOptionsJson: String, tunPlatformOptionsJson: String): Int {
-//        Logs.d(tunOptionsJson)
-//        Logs.d(tunPlatformOptionsJson)
-//        val tunOptions = JSONObject(tunOptionsJson)
-
-        // address & route & MTU ...... use NB4A GUI config
-        val builder = Builder().setConfigureIntent(SagerNet.configureIntent(this))
+    // The generated tun inbound is the only source of truth for the interface layout.
+    fun openTun(options: TunOptions): Int {
+        if (prepare(this) != null) error("android: missing VPN permission")
+        val builder = Builder()
+            .setConfigureIntent(SagerNet.configureIntent(this))
             .setSession(getString(R.string.app_name))
-            .setMtu(DataStore.mtu)
-        // address
-        builder.addAddress(PRIVATE_VLAN4_CLIENT, 30)
-        // 即使禁用 IPv6 也常驻 v6 虚拟地址：让系统完整接管 IPv6 流量进入 tun，
-        // 避免未添加 v6 配置时流量经物理网卡旁路泄露
-        builder.addAddress(PRIVATE_VLAN6_CLIENT, 126)
-        builder.addDnsServer(PRIVATE_VLAN4_ROUTER)
+            .setMtu(options.getMTU())
 
-        // route
-        if (DataStore.bypassLan) {
-            resources.getStringArray(R.array.bypass_private_route).forEach {
-                val subnet = Subnet.fromString(it)!!
-                builder.addRoute(subnet.address.hostAddress!!, subnet.prefixSize)
+        options.getInet4Address().forEach { builder.addAddress(it.address(), it.prefix()) }
+        options.getInet6Address().forEach { builder.addAddress(it.address(), it.prefix()) }
+
+        if (options.getAutoRoute()) {
+            if (options.getDNSMode().value != Mobile.DNSModeDisabled) {
+                options.getDNSServerAddress().toList().forEach { builder.addDnsServer(it) }
             }
-            builder.addRoute(PRIVATE_VLAN4_ROUTER, 32)
-            builder.addRoute(FAKEDNS_VLAN4_CLIENT, 15)
-            // https://issuetracker.google.com/issues/149636790
-            // 禁用 IPv6 时同样常驻 v6 路由（公网段 + ULA 段），由内核策略拒绝 v6 流量
-            builder.addRoute("2000::", 3)
-            builder.addRoute("fc00::", 7)
-        } else {
-            builder.addRoute("0.0.0.0", 0)
-            builder.addRoute("::", 0)
-            builder.addRoute("fc00::", 7)
-        }
-
-        updateUnderlyingNetwork(builder)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(metered)
-
-        // app route
-        val packageName = packageName
-        val proxyApps = DataStore.proxyApps
-        var bypass = DataStore.bypass
-        val workaroundSYSTEM = false /* DataStore.tunImplementation == TunImplementation.SYSTEM */
-        val needBypassRootUid = workaroundSYSTEM || data.proxy!!.config.trafficMap.values.any {
-            it[0].hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP
-        }
-
-        if (proxyApps || needBypassRootUid) {
-            val individual = mutableSetOf<String>()
-            val allApps by lazy {
-                packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS).filter {
-                    when (it.packageName) {
-                        packageName -> false
-                        "android" -> true
-                        else -> it.requestedPermissions?.contains(Manifest.permission.INTERNET) == true
-                    }
-                }.map {
-                    it.packageName
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val inet4RouteAddress = options.getInet4RouteAddress()
+                if (inet4RouteAddress.hasNext()) {
+                    inet4RouteAddress.forEach { builder.addRoute(it.address(), it.prefix()) }
+                } else {
+                    builder.addRoute("0.0.0.0", 0)
                 }
-            }
-            if (proxyApps) {
-                individual.addAll(DataStore.individual.split('\n').filter { it.isNotBlank() })
-                if (bypass && needBypassRootUid) {
-                    val individualNew = allApps.toMutableList()
-                    individualNew.removeAll(individual)
-                    individual.clear()
-                    individual.addAll(individualNew)
-                    bypass = false
+                val inet6RouteAddress = options.getInet6RouteAddress()
+                if (inet6RouteAddress.hasNext()) {
+                    inet6RouteAddress.forEach { builder.addRoute(it.address(), it.prefix()) }
+                } else {
+                    builder.addRoute("::", 0)
+                }
+                options.getInet4RouteExcludeAddress().forEach {
+                    builder.excludeRoute(IpPrefix(InetAddress.getByName(it.address()), it.prefix()))
+                }
+                options.getInet6RouteExcludeAddress().forEach {
+                    builder.excludeRoute(IpPrefix(InetAddress.getByName(it.address()), it.prefix()))
                 }
             } else {
-                individual.addAll(allApps)
-                bypass = false
+                // Builder.excludeRoute only exists from API 33; below that the core pre-splits
+                // "everything minus the excludes" into plain ranges that replace the default routes.
+                options.getInet4RouteRange().forEach { builder.addRoute(it.address(), it.prefix()) }
+                options.getInet6RouteRange().forEach { builder.addRoute(it.address(), it.prefix()) }
             }
+        }
 
-            val added = mutableListOf<String>()
-
-            individual.apply {
-                // Allow Matsuri itself using VPN.
-                remove(packageName)
-                if (!bypass) add(packageName)
-            }.forEach {
+        val includePackage = options.getIncludePackage()
+        if (includePackage.hasNext()) {
+            includePackage.toList().forEach {
                 try {
-                    if (bypass) {
-                        builder.addDisallowedApplication(it)
-                    } else {
-                        builder.addAllowedApplication(it)
-                    }
-                    added.add(it)
-                } catch (ex: PackageManager.NameNotFoundException) {
-                    Logs.w(ex)
+                    builder.addAllowedApplication(it)
+                } catch (_: PackageManager.NameNotFoundException) {
                 }
             }
-
-            if (bypass) {
-                Logs.d("Add bypass: ${added.joinToString(", ")}")
-            } else {
-                Logs.d("Add allow: ${added.joinToString(", ")}")
+        }
+        val excludePackage = options.getExcludePackage()
+        if (excludePackage.hasNext()) {
+            excludePackage.toList().forEach {
+                try {
+                    builder.addDisallowedApplication(it)
+                } catch (_: PackageManager.NameNotFoundException) {
+                }
             }
         }
 
-        // 混合入站存在时始终向系统追加 HTTP 代理（Android 10+）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !DataStore.mixedInboundDisabled) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.isHTTPProxyEnabled()) {
             builder.setHttpProxy(
                 ProxyInfo.buildDirectProxy(
-                    LOCALHOST,
-                    DataStore.mixedPort,
-                    DataStore.httpProxyBypass.lines().mapNotNull { line ->
-                        line.trim().takeIf { it.isNotBlank() && !it.startsWith("#") }
-                    },
+                    options.getHTTPProxyServer(),
+                    options.getHTTPProxyServerPort(),
+                    options.getHTTPProxyBypassDomain().toList().filter { it.isNotBlank() },
                 )
             )
         }
 
+        updateUnderlyingNetwork(builder)
         metered = DataStore.meteredNetwork
-        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(metered)
-        conn = builder.establish() ?: throw NullConnectionException()
-
-        return conn!!.fd
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(metered)
+        val connection = builder.establish() ?: throw NullConnectionException()
+        conn = connection
+        return connection.fd
     }
 
     fun updateUnderlyingNetwork(builder: Builder? = null) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-            SagerNet.underlyingNetwork?.let {
-                builder?.setUnderlyingNetworks(arrayOf(SagerNet.underlyingNetwork))
-                    ?: setUnderlyingNetworks(arrayOf(SagerNet.underlyingNetwork))
-            }
+        SagerNet.underlyingNetwork?.let {
+            builder?.setUnderlyingNetworks(arrayOf(SagerNet.underlyingNetwork))
+                ?: setUnderlyingNetworks(arrayOf(SagerNet.underlyingNetwork))
         }
     }
 
@@ -247,4 +208,14 @@ class VpnService : BaseVpnService(),
         super.onDestroy()
         data.binder.close()
     }
+}
+
+private inline fun RoutePrefixIterator.forEach(block: (RoutePrefix) -> Unit) {
+    while (hasNext()) block(next())
+}
+
+private fun StringIterator.toList(): List<String> {
+    val values = ArrayList<String>()
+    while (hasNext()) values.add(next())
+    return values
 }

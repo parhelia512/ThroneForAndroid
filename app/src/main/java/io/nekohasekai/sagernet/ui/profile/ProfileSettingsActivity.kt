@@ -12,8 +12,6 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
-import androidx.activity.result.component1
-import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
@@ -26,25 +24,39 @@ import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
-import com.github.shadowsocks.plugin.Empty
-import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
+import io.nekohasekai.sagernet.widget.AlertDialogFragment
+import io.nekohasekai.sagernet.widget.Empty
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import io.nekohasekai.sagernet.*
+import io.nekohasekai.sagernet.GroupType
+import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.QuickToggleShortcut
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import io.nekohasekai.sagernet.ktx.toStringPretty
+import io.nekohasekai.sagernet.outbound.Outbound
+import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.widget.ListListener
 import kotlinx.parcelize.Parcelize
+import org.json.JSONObject
 import kotlin.properties.Delegates
 
+/**
+ * The profile editor: the entity's [Outbound] is loaded into the profile cache store by `T.init()`, edited through
+ * the preference screen, read back by `T.serialize()` and stored with `ProxyEntity.putOutbound`.
+ */
 @Suppress("UNCHECKED_CAST")
-abstract class ProfileSettingsActivity<T : AbstractBean>(
+abstract class ProfileSettingsActivity<T : Outbound>(
     @LayoutRes resId: Int = R.layout.layout_config_settings,
 ) : ThemedActivity(resId), OnPreferenceDataStoreChangeListener {
 
@@ -81,14 +93,27 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     companion object {
         const val EXTRA_PROFILE_ID = "id"
         const val EXTRA_IS_SUBSCRIPTION = "sub"
+
+        /** Profile cache key holding the whole ExportToJson while the "Edit as JSON" editor is open. */
+        const val KEY_RAW_JSON = "serverRawJson"
     }
 
     abstract fun createEntity(): T
     abstract fun T.init()
     abstract fun T.serialize()
 
+    /** Whether the "Edit as JSON" action (the whole ExportToJson in the JSON editor) is offered. */
+    protected open val supportsRawJson: Boolean = true
+
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
     protected var isSubscription by Delegates.notNull<Boolean>()
+
+    /** The outbound under edit: a fresh one for a new profile, the entity's parsed one otherwise. */
+    lateinit var editingOutbound: T
+
+    /** Set when the preference screen is rebuilt from edited JSON, so the rebuilt screen starts dirty. */
+    private var dirtyAfterRebuild = false
+    private var rawJsonSynced: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,17 +131,20 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
                     DataStore.editingGroup = DataStore.selectedGroupForImport()
-                    createEntity().applyDefaultValues().init()
+                    editingOutbound = createEntity()
                 } else {
-                    if (proxyEntity == null) {
+                    val entity = proxyEntity
+                    val loaded = entity?.outbound
+                    if (entity == null || loaded == null || !createEntity().javaClass.isInstance(loaded)) {
                         onMainDispatcher {
                             finish()
                         }
                         return@runOnDefaultDispatcher
                     }
-                    DataStore.editingGroup = proxyEntity!!.groupId
-                    (proxyEntity!!.requireBean() as T).init()
+                    DataStore.editingGroup = entity.groupId
+                    editingOutbound = loaded as T
                 }
+                editingOutbound.init()
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
@@ -124,30 +152,86 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                         .commit()
                 }
             }
-
-
+        } else {
+            isSubscription = intent.getBooleanExtra(EXTRA_IS_SUBSCRIPTION, false)
         }
 
     }
 
+    protected fun ensureEditingOutbound(): T {
+        if (!::editingOutbound.isInitialized) {
+            editingOutbound = if (DataStore.editingId == 0L) createEntity()
+            else (proxyEntity?.outbound as? T) ?: createEntity()
+        }
+        return editingOutbound
+    }
+
     open suspend fun saveAndExit() {
+        val outbound = ensureEditingOutbound()
+        outbound.serialize()
 
         val editingId = DataStore.editingId
         if (editingId == 0L) {
-            val editingGroup = DataStore.editingGroup
-            ProfileManager.createProfile(editingGroup, createEntity().apply { serialize() })
+            ProfileManager.createProfile(DataStore.editingGroup, outbound)
         } else {
-            if (proxyEntity == null) {
+            val entity = proxyEntity
+            if (entity == null) {
                 finish()
                 return
             }
-            if (proxyEntity!!.id == DataStore.selectedProxy) {
+            if (entity.id == DataStore.selectedProxy) {
                 SagerNet.stopService()
             }
-            ProfileManager.updateProfile(proxyEntity!!.apply { (requireBean() as T).serialize() })
+            ProfileManager.updateProfile(entity.putOutbound(outbound))
         }
         finish()
 
+    }
+
+    private val rawJsonEditor = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        applyRawJsonFromCache()
+    }
+
+    /** Opens the JSON editor on the ExportToJson of the outbound with the screen's pending edits applied. */
+    fun openRawJsonEditor() {
+        val outbound = ensureEditingOutbound()
+        outbound.serialize()
+        val text = try {
+            JSONObject(outbound.exportToJson().toCompact()).toStringPretty()
+        } catch (e: Exception) {
+            Logs.w(e)
+            outbound.exportToJson().toCompact()
+        }
+        DataStore.profileCacheStore.putString(KEY_RAW_JSON, text)
+        rawJsonSynced = text
+        rawJsonEditor.launch(Intent(this, ConfigEditActivity::class.java).apply {
+            putExtra("key", KEY_RAW_JSON)
+        })
+    }
+
+    /** A changed JSON text replaces the outbound and the preference screen is rebuilt from it. */
+    private fun applyRawJsonFromCache() {
+        val text = DataStore.profileCacheStore.getString(KEY_RAW_JSON) ?: return
+        if (text == rawJsonSynced) return
+        val parsed = createEntity()
+        val obj = JsonInput.parseObject(text)
+        if (obj.isEmpty() || !parsed.parseFromJson(obj)) {
+            Toast.makeText(this, R.string.raw_json_invalid, Toast.LENGTH_SHORT).show()
+            return
+        }
+        rawJsonSynced = text
+        runOnDefaultDispatcher {
+            editingOutbound = parsed
+            editingOutbound.init()
+            onMainDispatcher {
+                dirtyAfterRebuild = true
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.settings, MyPreferenceFragmentCompat())
+                    .commit()
+            }
+        }
     }
 
     val child by lazy { supportFragmentManager.findFragmentById(R.id.settings) as MyPreferenceFragmentCompat }
@@ -166,9 +250,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 isVisible = true // not new profile
             }
         }
-        // shared menu item
-        menu.findItem(R.id.action_custom_outbound_json)?.isVisible = true
-        menu.findItem(R.id.action_custom_config_json)?.isVisible = true
+        menu.findItem(R.id.action_edit_raw_json)?.isVisible = supportsRawJson
         return true
     }
 
@@ -234,24 +316,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
             activity?.apply {
                 viewCreated(view, savedInstanceState)
-                DataStore.dirty = false
+                DataStore.dirty = dirtyAfterRebuild
+                dirtyAfterRebuild = false
                 DataStore.profileCacheStore.registerChangeListener(this)
             }
-        }
-
-        var callbackCustom: ((String) -> Unit)? = null
-        var callbackCustomOutbound: ((String) -> Unit)? = null
-
-        val resultCallbackCustom = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { (_, _) ->
-            callbackCustom?.let { it(DataStore.serverCustom) }
-        }
-
-        val resultCallbackCustomOutbound = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { (_, _) ->
-            callbackCustomOutbound?.let { it(DataStore.serverCustomOutbound) }
         }
 
         @SuppressLint("CheckResult")
@@ -279,35 +347,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 true
             }
 
-            R.id.action_custom_outbound_json -> {
-                activity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    DataStore.serverCustomOutbound = bean.customOutboundJson
-                    callbackCustomOutbound = { bean.customOutboundJson = it }
-                    resultCallbackCustomOutbound.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM_OUTBOUND)
-                        })
-                }
-                true
-            }
-
-            R.id.action_custom_config_json -> {
-                activity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    DataStore.serverCustom = bean.customConfigJson
-                    callbackCustom = { bean.customConfigJson = it }
-                    resultCallbackCustom.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM)
-                        })
-                }
+            R.id.action_edit_raw_json -> {
+                activity?.openRawJsonEditor()
                 true
             }
 
@@ -387,7 +428,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             return if (text.isNullOrBlank()) {
                 preference.context.getString(androidx.preference.R.string.not_set)
             } else {
-                "\u2022".repeat(text.length)
+                "•".repeat(text.length)
             }
         }
 

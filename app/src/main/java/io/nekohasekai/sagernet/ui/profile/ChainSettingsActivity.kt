@@ -24,26 +24,33 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.databinding.LayoutAddEntityBinding
 import io.nekohasekai.sagernet.databinding.LayoutProfileBinding
-import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.outbound.types.Chain
 import io.nekohasekai.sagernet.ui.ProfileSelectActivity
 import moe.matsuri.nb4a.Protocols.getProtocolColor
+import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 
-class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout_chain_settings) {
+class ChainSettingsActivity : ProfileSettingsActivity<Chain>(R.layout.layout_chain_settings) {
 
-    override fun createEntity() = ChainBean()
+    override fun createEntity() = Chain()
+    override val supportsRawJson = false
+
+    private val pbm = PreferenceBindingManager().apply { text("name") }
+
+    private companion object {
+        const val KEY_CHAIN_IDS = "chainProxyIds"
+    }
 
     val proxyList = ArrayList<ProxyEntity>()
 
-    override fun ChainBean.init() {
-        DataStore.profileName = name
-        DataStore.serverProtocol = proxies.joinToString(",")
+    override fun Chain.init() {
+        pbm.writeToCacheAll(this)
+        DataStore.profileCacheStore.putString(KEY_CHAIN_IDS, list.joinToString(","))
     }
 
-    override fun ChainBean.serialize() {
-        name = DataStore.profileName
-        proxies = proxyList.map { it.id }
-        initializeDefaultValues()
+    override fun Chain.serialize() {
+        pbm.fromCacheAll(this)
+        list = ArrayList(proxyList.map { it.id })
     }
 
     override fun PreferenceFragmentCompat.createPreferences(
@@ -51,6 +58,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.name_preferences)
+        pbm.setPreferenceFragment(this)
     }
 
     lateinit var configurationList: RecyclerView
@@ -121,8 +129,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     inner class ProxiesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         suspend fun reload() {
-            val idList = DataStore.serverProtocol.split(",")
-                .mapNotNull { it.takeIf { it.isNotBlank() }?.toLong() }
+            val idList = (DataStore.profileCacheStore.getString(KEY_CHAIN_IDS) ?: "").split(",")
+                .mapNotNull { it.takeIf { it.isNotBlank() }?.toLongOrNull() }
             if (idList.isNotEmpty()) {
                 val profiles = ProfileManager.getProfiles(idList).map { it.id to it }.toMap()
                 for (id in idList) {
@@ -189,9 +197,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     }
 
     fun testProfileContains(profile: ProxyEntity, anotherProfile: ProxyEntity): Boolean {
-        if (profile.type != 8 || anotherProfile.type != 8) return false
+        if (!profile.isChain() || !anotherProfile.isChain()) return false
         if (profile.id == anotherProfile.id) return true
-        val proxies = profile.chainBean!!.proxies
+        val proxies = profile.requireChain().list
         if (proxies.contains(anotherProfile.id)) return true
         if (proxies.isNotEmpty()) {
             for (entity in ProfileManager.getProfiles(proxies)) {

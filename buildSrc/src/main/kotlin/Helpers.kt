@@ -44,7 +44,7 @@ fun Project.setupCommon() {
         buildToolsVersion = "35.0.1"
         compileSdk = 35
         defaultConfig {
-            minSdk = 21
+            minSdk = 24
             targetSdk = 35
         }
         buildTypes {
@@ -144,12 +144,14 @@ fun Project.setupApp() {
     val pkgName = requireMetadata().getProperty("PACKAGE_NAME")
     val verName = requireMetadata().getProperty("VERSION_NAME")
     val verCode = (requireMetadata().getProperty("VERSION_CODE").toInt()) * 5
+    val coreRef = requireMetadata().getProperty("THRONE_CORE_REF")
     android.apply {
         defaultConfig {
             applicationId = pkgName
             versionCode = verCode
             versionName = verName
             buildConfigField("String", "PRE_VERSION_NAME", "\"\"")
+            buildConfigField("String", "THRONE_CORE_REF", "\"$coreRef\"")
         }
     }
     setupAppCommon()
@@ -211,10 +213,6 @@ fun Project.setupApp() {
             tasks.create("assemble" + abi + "FdroidRelease") {
                 dependsOn("assembleFdroidRelease")
             }
-        }
-
-        sourceSets.getByName("main").apply {
-            jniLibs.srcDir("executableSo")
         }
     }
 }

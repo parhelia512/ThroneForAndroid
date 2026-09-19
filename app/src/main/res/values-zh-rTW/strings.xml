@@ -3,7 +3,6 @@
     <string name="app_desc">適用於 Android 的通用代理工具鏈，由 Kotlin 編寫。</string>
     <string name="project">計畫</string>
     <string name="github">原始碼</string>
-    <string name="telegram">Telegram 更新頻道</string>
     <string name="oss_licenses">開放原始碼授權條款</string>
     <string name="app_version">版本</string>
     <string name="logcat">匯出 debug 所需資訊</string>
@@ -76,13 +75,9 @@
     <string name="password">密碼</string>
     <string name="enc_method">加密方式</string>
     <string name="protocol">設定</string>
-    <string name="protocol_param">通訊協定參數</string>
-    <string name="obfs">混淆</string>
-    <string name="obfs_param">混淆參數</string>
     <string name="uuid">使用者 ID</string>
     <string name="alter_id">替代 ID</string>
     <string name="network">網路</string>
-    <string name="header_type">標頭類型</string>
     <string name="tls">使用 TLS</string>
     <string name="sni">伺服器名稱指示</string>
     <string name="encryption">加密</string>
@@ -161,13 +156,6 @@
     <string name="cleartext_http_warning">純文字 HTTP 流量並不安全</string>
     <string name="error_title">錯誤</string>
     <string name="no_proxies_found">此連結不包含任何代理</string>
-    <!-- plugin -->
-    <string name="plugin">外掛程式</string>
-    <string name="plugin_configure">設定…</string>
-    <string name="plugin_disabled">已停用</string>
-    <string name="plugin_unknown">未知外掛程式 %s</string>
-    <string name="plugin_untrusted">警告：此外掛程式並非來自可靠的可信來源。</string>
-    <string name="plugin_auto_connect_unlock_only">此外掛程式可能不支援自動連線</string>
     <string name="proxy_cat">伺服器設定</string>
     <string name="unsaved_changes_prompt">要儲存變更嗎？</string>
     <string name="yes">是</string>
@@ -304,7 +292,6 @@
     <string name="http_proxy_bypass">HTTP 代理繞過列表</string>
     <string name="http_proxy_bypass_dialog_message">一行一個，# 開頭代表註解。範例：*zhihu.com</string>
     <string name="dns_hosts_dialog_message">一行一個，# 開頭代表註解。範例：\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
-    <string name="trojan_provider">Trojan 提供程式</string>
     <string name="protocol_settings">協議設定</string>
     <string name="group_basic">基本</string>
     <string name="group_settings">群組設定</string>
@@ -324,13 +311,6 @@
     <string name="update_when_connected_only_sum">防止 IP 位址洩漏</string>
     <string name="subscription_user_agent">使用者代理</string>
     <string name="confirm">確認</string>
-    <string name="missing_plugin">遺失外掛程式</string>
-    <string name="profile_requiring_plugin">設定檔 %s 需要外掛程式 %s，但其未被安裝。</string>
-    <string name="action_learn_more">深入瞭解</string>
-    <string name="action_download">下載</string>
-    <string name="install_from_play_store">從 Play 商店安裝</string>
-    <string name="install_from_fdroid">從 F-Droid 安裝</string>
-    <string name="download">下載</string>
     <string name="ooc_subscription_token_invalid">無效的 OOCv1 權杖</string>
     <string name="update_subscription_warning">代理尚未連線，您真的希望繼續更新嗎？</string>
     <string name="ooc_warning">警告</string>
@@ -351,9 +331,6 @@
     <string name="apps_message">%d 個應用程式</string>
     <string name="file_manager_missing">您的裝置缺少 Android 標準檔案選擇器, 請安裝一個, 如 Material Files.</string>
     <string name="menu_traffic">流量</string>
-    <string name="shadowsocks_plugin_v2ray">V2Ray (Shadowsocks Android 外掛程式)</string>
-    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs (Shadowsocks Android 外掛程式)</string>
-    <string name="plugin_exists_but_on_shit_system">設定檔 %s 需要外掛程式 %s，但是您的專有設備提供商（通常也是監視資本主義巨頭和惡意軟體製造商）篡改了你的 Android 系統，使此外掛程式不可用。</string>
     <string name="ssh_private_key_passphrase">私密金鑰複雜密碼</string>
     <string name="ssh_private_key">私密金鑰</string>
     <string name="ssh_public_key">公開金鑰</string>
@@ -442,10 +419,6 @@
     <string name="card_style_stroke">描邊</string>
     <string name="enable_fakedns">啟用 FakeDNS</string>
     <string name="fakedns_message">可能導致其他應用程式在代理停止後需要重新啟動以重新連線到網路</string>
-    <string name="kcp_header_type">偽裝頭型別</string>
-    <string name="kcp_mtu">mKCP MTU</string>
-    <string name="kcp_tti">mKCP TTI</string>
-    <string name="kcp_cwnd_multiplier">擁塞視窗倍數</string>
     <string name="route_opt_block_quic">遮蔽 QUIC</string>
     <string name="mux_sum">多路複用是為了減少 TCP 的握手延遲而設計, 而非提高連線的吞吐量. 用於看影片、下載或者測速通常都有反效果。如果伺服器不支援，則無法上網。</string>
     <string name="mux_mode">模式</string>
@@ -483,7 +456,6 @@
     <string name="please_update_force">您的 APP (%s) 版本過舊，已於 %s 停止工作，請立即升級。</string>
     <string name="connection_test_delete_unavailable">清理不可用配置</string>
     <string name="move">移動</string>
-    <string name="exe_prefer_provider">首選外掛提供者</string>
     <string name="create_shortcut">建立快捷方式</string>
     <string name="app_tls_version">訂閱最低 TLS 版本</string>
     <string name="hop_interval">埠跳躍間隔(秒)</string>
@@ -597,7 +569,6 @@
     <string name="vless_encryption_hint">mlkem768x25519plus.native.0rtt.KEY1.KEY2...</string>
     <string name="app_list_permission_denied">無法讀取已安裝的應用。\n這通常是由於系統限制了應用的讀取許可權（例如某些中國廠商系統）。\n請在系統設定中授予許可權。</string>
     <string name="open_app_settings">開啟系統設定</string>
-    <string name="kcp_seed">mKCP Seed</string>
     <string name="rules_geosite_url">geosite 網址</string>
     <string name="rules_geoip_url">geoip 網址</string>
     <string name="mux_preference">多路複用</string>

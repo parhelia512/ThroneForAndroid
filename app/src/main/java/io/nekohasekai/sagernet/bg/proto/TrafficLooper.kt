@@ -7,8 +7,6 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
-import io.nekohasekai.sagernet.fmt.TAG_BYPASS
-import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.ktx.Logs
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
@@ -49,7 +47,7 @@ class TrafficLooper
         if (!DataStore.profileTrafficStatistics) return
         withStateLock {
             val traffic = mutableMapOf<Long, TrafficData>()
-            data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
+            data.proxy?.trafficMap?.forEach { (_, ents) ->
                 for (ent in ents) {
                     val item = idMap[ent.id] ?: return@forEach
                     ent.rx = item.rx
@@ -86,7 +84,7 @@ class TrafficLooper
     }
 
     private suspend fun selectMainLocked(id: Long) {
-        Logs.d("select traffic count $TAG_PROXY to $id, old id is $selectorNowId")
+        Logs.d("select traffic count ${CoreConfig.TAG_PROXY} to $id, old id is $selectorNowId")
         val oldData = idMap[selectorNowId]
         val newData = idMap[id] ?: return
         oldData?.apply {
@@ -94,7 +92,7 @@ class TrafficLooper
             ignore = true
             // post traffic when switch
             if (DataStore.profileTrafficStatistics) {
-                data.proxy?.config?.trafficMap?.get(tag)?.firstOrNull()?.let {
+                data.proxy?.trafficMap?.get(tag)?.firstOrNull()?.let {
                     it.rx = rx
                     it.tx = tx
                     ProfileManager.updateTraffic(it.id, it.rx, it.tx)
@@ -104,7 +102,7 @@ class TrafficLooper
         selectorNowFakeTag = newData.tag
         selectorNowId = id
         newData.apply {
-            tag = TAG_PROXY
+            tag = CoreConfig.TAG_PROXY
             ignore = false
         }
     }
@@ -122,7 +120,7 @@ class TrafficLooper
                 }
             }
 
-            data.proxy?.config?.trafficMap?.values?.forEach { entities ->
+            data.proxy?.trafficMap?.values?.forEach { entities ->
                 entities.forEach { entity ->
                     if (entity.id in targetIds) {
                         entity.tx = 0L
@@ -163,7 +161,7 @@ class TrafficLooper
         if (delayMs == 0L) return
 
         // for display
-        val itemBypass = TrafficUpdater.TrafficLooperData(tag = TAG_BYPASS)
+        val itemBypass = TrafficUpdater.TrafficLooperData(tag = CoreConfig.TAG_DIRECT)
 
         while (currentCoroutineContext().isActive) {
             val proxy = data.proxy
@@ -178,9 +176,7 @@ class TrafficLooper
                     idMap.clear()
                     idMap[-1] = itemBypass
                     //
-                    val tags = hashSetOf(TAG_PROXY, TAG_BYPASS)
-                    proxy.config.trafficMap.forEach { (tag, ents) ->
-                        tags.add(tag)
+                    proxy.trafficMap.forEach { (tag, ents) ->
                         for (ent in ents) {
                             val item = TrafficUpdater.TrafficLooperData(
                                 tag = tag,
@@ -188,21 +184,16 @@ class TrafficLooper
                                 tx = ent.tx,
                                 rxBase = ent.rx,
                                 txBase = ent.tx,
-                                ignore = proxy.config.selectorGroupId >= 0L,
                             )
                             idMap[ent.id] = item
                             tagMap[tag] = item
                             Logs.d("traffic count $tag to ${ent.id}")
                         }
                     }
-                    if (proxy.config.selectorGroupId >= 0L) {
-                        selectMainLocked(proxy.config.mainEntId)
-                    }
                     //
                     trafficUpdater = TrafficUpdater(
                         box = proxy.box, items = idMap.values.toList()
                     )
-                    proxy.box.setV2rayStats(tags.joinToString("\n"))
                 }
 
                 trafficUpdater!!.updateAll()

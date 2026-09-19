@@ -1,107 +1,94 @@
 package moe.matsuri.nb4a
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
-import android.net.ConnectivityManager
+import android.content.Intent
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
-import android.system.OsConstants
 import android.os.Build
-import android.os.Build.VERSION_CODES
-import android.os.SystemClock
-import androidx.annotation.RequiresApi
+import android.os.Process
+import android.system.OsConstants
+import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import io.nekohasekai.sagernet.utils.PackageCache
+import io.throneproj.mobile.ConnectionOwner
+import io.throneproj.mobile.InterfaceUpdateListener
+import io.throneproj.mobile.LocalDNSTransport
+import io.throneproj.mobile.Mobile
+import io.throneproj.mobile.NetworkInterfaceIterator
+import io.throneproj.mobile.PlatformInterface
+import io.throneproj.mobile.StringIterator
+import io.throneproj.mobile.TunOptions
+import io.throneproj.mobile.WIFIState
 import kotlinx.coroutines.runBlocking
-import libcore.BoxPlatformInterface
-import libcore.InterfaceUpdateListener
-import libcore.Libcore
-import libcore.NB4AInterface
-import libcore.NetworkInterfaceIterator
-import libcore.StringIterator
+import moe.matsuri.nb4a.net.LocalResolverImpl
 import java.net.Inet6Address
-import java.util.Collections
-import java.util.WeakHashMap
 import java.net.InetSocketAddress
 import java.net.InterfaceAddress
 import java.net.NetworkInterface
-import libcore.NetworkInterface as LibcoreNetworkInterface
+import java.util.Collections
+import java.util.WeakHashMap
+import io.throneproj.mobile.NetworkInterface as CoreNetworkInterface
+import io.throneproj.mobile.Notification as CoreNotification
 
-class NativeInterface : BoxPlatformInterface, NB4AInterface {
+class NativeInterface : PlatformInterface {
 
-    //  libbox interface
+    override fun localDNSTransport(): LocalDNSTransport = LocalResolverImpl
 
+    override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
+
+    // Test boxes run in this process while no VPN service exists; their sockets then take the plain
+    // dial path, which is what those tests want, so a missing service is not an error.
     override fun autoDetectInterfaceControl(fd: Int) {
         DataStore.vpnService?.protect(fd)
     }
 
-    override fun openTun(singTunOptionsJson: String, tunPlatformOptionsJson: String): Long {
-        if (DataStore.vpnService == null) {
-            throw Exception("no VpnService")
-        }
-        return DataStore.vpnService!!.startVpn(singTunOptionsJson, tunPlatformOptionsJson).toLong()
+    override fun openTun(options: TunOptions): Int {
+        val service = DataStore.vpnService ?: error("android: no VpnService")
+        return service.openTun(options)
     }
 
-    override fun useProcFS(): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-    }
+    override fun useProcFS(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun findConnectionOwner(
-        ipProto: Int, srcIp: String, srcPort: Int, destIp: String, destPort: Int
-    ): Int {
-        return SagerNet.connectivity.getConnectionOwnerUid(
-            ipProto, InetSocketAddress(srcIp, srcPort), InetSocketAddress(destIp, destPort)
+        ipProtocol: Int,
+        sourceAddress: String,
+        sourcePort: Int,
+        destinationAddress: String,
+        destinationPort: Int,
+    ): ConnectionOwner {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            error("android: connection owner lookup requires API 29")
+        }
+        val uid = SagerNet.connectivity.getConnectionOwnerUid(
+            ipProtocol,
+            InetSocketAddress(sourceAddress, sourcePort),
+            InetSocketAddress(destinationAddress, destinationPort),
         )
-    }
-
-    override fun packageNameByUid(uid: Int): String {
-        PackageCache.awaitLoadSync()
-
-        if (uid <= 1000L) {
-            return "android"
+        if (uid == Process.INVALID_UID) error("android: connection owner not found")
+        return ConnectionOwner().apply {
+            userId = uid
+            setAndroidPackageNames(packageNamesOf(uid).toStringIterator())
         }
-
-        val packageNames = PackageCache.uidMap[uid]
-        if (!packageNames.isNullOrEmpty()) for (packageName in packageNames) {
-            return packageName
-        }
-
-        error("unknown uid $uid")
     }
 
-    override fun uidByPackageName(packageName: String): Int {
+    private fun packageNamesOf(uid: Int): List<String> {
+        if (uid <= 1000) return listOf("android")
         PackageCache.awaitLoadSync()
-        return PackageCache[packageName] ?: 0
+        return PackageCache.uidMap[uid]?.toList() ?: emptyList()
     }
 
-    // TODO: 'getter for connectionInfo: WifiInfo!' is deprecated
-    override fun wifiState(): String {
-        val wifiManager =
-            app.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val connectionInfo = wifiManager.connectionInfo
-        return "${connectionInfo.ssid},${connectionInfo.bssid}"
-    }
-
-    // 默认接口监视器（sing-box 官方内核强制平台提供）。
-    // 复用 DefaultNetworkListener：registerBestMatchingNetworkCallback 避开 VPN 接口，
-    // 报告的是物理默认网络（WiFi/蜂窝）。
-
-    override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener?) {
-        if (listener == null) return
-        // 必须同步注册：官方内核拨号时 DefaultInterface()==nil 会秒报
-        // "no available network interface"（见 libcore/interface_monitor.go 批注）。
-        // 原先 runOnDefaultDispatcher 异步注册，测试盒 box.Start() 后立刻拨号，
-        // 首拨几乎必然抢在首次回调之前 → 批量测速大面积"超时"。
-        // DefaultNetworkListener.start 会等待 actor 处理 Start；缓存命中时还会等待
-        // 首次回调及 Go updateDefaultInterface 完成后才返回（Go 线程短暂阻塞，可接受）。
+    // Registered synchronously so DefaultInterface() is populated before the box's first dial.
+    override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         runBlocking {
             DefaultNetworkListener.start(listener) { network ->
                 checkDefaultInterfaceUpdate(listener, network)
@@ -109,118 +96,109 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         }
     }
 
-    override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener?) {
-        if (listener == null) return
-        // 与 start 对称同步化，避免 box.Close 后监听者残留/时序错乱。
+    override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         runBlocking {
             DefaultNetworkListener.stop(listener)
         }
     }
 
-    // 每个监听器（box）的上报状态：用于 Info 去重 + 风暴计数诊断。
-    // WeakHashMap 键为 gomobile 代理对象，box close 后不泄漏。
     private class IfaceReportState {
         var name: String? = null
         var index: Int = Int.MIN_VALUE
         var network: Network? = null
-        var suppressed: Int = 0
     }
 
     private val ifaceReportStates = Collections.synchronizedMap(
         WeakHashMap<InterfaceUpdateListener, IfaceReportState>()
     )
 
+    @Volatile
+    private var lastResetNetwork: Network? = null
+
     private fun reportState(listener: InterfaceUpdateListener): IfaceReportState =
         synchronized(ifaceReportStates) {
             ifaceReportStates.getOrPut(listener) { IfaceReportState() }
         }
 
+    private fun clearInterface(listener: InterfaceUpdateListener, state: IfaceReportState) {
+        state.name = null
+        state.index = Int.MIN_VALUE
+        state.network = null
+        listener.updateDefaultInterface("", -1, false, false)
+    }
+
     private fun checkDefaultInterfaceUpdate(listener: InterfaceUpdateListener, network: Network?) {
-        // 诊断：入口线程 + 全程耗时（验证事件链是否跑在主线程、单次事件成本）
-        val start = SystemClock.elapsedRealtime()
-        Logs.d("checkDefaultInterfaceUpdate enter network=$network thread=${Thread.currentThread().name}")
-        // 同步「网络变化时重置出站」开关到 Go：控制 name/index 变化时是否
-        // callback → 官方 ResetNetwork（见 libcore/interface_monitor.go）。
-        Libcore.setNetworkChangeResetConnections(DataStore.networkChangeResetConnections)
         val state = reportState(listener)
         if (network == null) {
-            Logs.i("checkDefaultInterfaceUpdate network=null -> clear default interface suppressedSinceLast=${state.suppressed} elapsed=${SystemClock.elapsedRealtime() - start}ms")
-            state.name = null
-            state.index = Int.MIN_VALUE
-            state.network = null
-            state.suppressed = 0
-            listener.updateDefaultInterface("", -1)
+            clearInterface(listener, state)
             return
         }
-        // LinkProperties / NetworkInterface 可能短暂未就绪，参考 husi/SFA 重试
-        repeat(10) { attempt ->
+        // LinkProperties / NetworkInterface may lag behind the callback briefly.
+        repeat(10) {
             val linkProperties = SagerNet.connectivity.getLinkProperties(network)
             if (linkProperties == null) {
-                Logs.d("checkDefaultInterfaceUpdate attempt=${attempt + 1} linkProperties=null network=$network")
                 Thread.sleep(100)
                 return@repeat
             }
             val interfaceIndex = try {
                 NetworkInterface.getByName(linkProperties.interfaceName).index
             } catch (e: Exception) {
-                Logs.d("checkDefaultInterfaceUpdate attempt=${attempt + 1} getByName failed name=${linkProperties.interfaceName}: $e")
                 Thread.sleep(100)
                 return@repeat
             }
-            // 结果与上次完全相同：短路，不调 Go。
-            // Go 侧 unchanged 路径本就只是 UpdateInterfaces 刷缓存后 skip ResetNetwork，
-            // 不上报零语义损失（下次真实变化时全链照跑、缓存照刷）。
-            // 批量测速时每个 test box 挂一个监听器，onCapabilitiesChanged 风暴 ×
-            // N 个 box × (JNI + Go UpdateInterfaces 全量枚举) 曾把主线程按秒阻塞。
+            // Capability-change storms repeat the same interface; skip them without a JNI round trip.
             if (state.name == linkProperties.interfaceName && state.index == interfaceIndex && state.network == network) {
-                state.suppressed++
-                if (state.suppressed == 1 || state.suppressed % 20 == 0) {
-                    Logs.d("checkDefaultInterfaceUpdate duplicate #${state.suppressed} name=${linkProperties.interfaceName} index=$interfaceIndex network=$network elapsed=${SystemClock.elapsedRealtime() - start}ms (unchanged, skip Go)")
-                }
                 return
             }
-            Logs.i("checkDefaultInterfaceUpdate ok name=${linkProperties.interfaceName} index=$interfaceIndex network=$network attempt=${attempt + 1} suppressedSinceLast=${state.suppressed} elapsed=${SystemClock.elapsedRealtime() - start}ms thread=${Thread.currentThread().name}")
+            val changed = state.name != null
             state.name = linkProperties.interfaceName
             state.index = interfaceIndex
             state.network = network
-            state.suppressed = 0
-            listener.updateDefaultInterface(linkProperties.interfaceName, interfaceIndex)
+            val capabilities = SagerNet.connectivity.getNetworkCapabilities(network)
+            val isExpensive = capabilities?.let {
+                it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    !it.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            } ?: false
+            listener.updateDefaultInterface(linkProperties.interfaceName, interfaceIndex, isExpensive, false)
+            if (changed) onDefaultInterfaceChanged(network)
             return
         }
-        Logs.w("checkDefaultInterfaceUpdate exhausted retries network=$network -> clear default interface suppressedSinceLast=${state.suppressed} elapsed=${SystemClock.elapsedRealtime() - start}ms")
-        state.name = null
-        state.index = Int.MIN_VALUE
-        state.network = null
-        state.suppressed = 0
-        listener.updateDefaultInterface("", -1)
+        Logs.w("checkDefaultInterfaceUpdate exhausted retries for $network")
+        clearInterface(listener, state)
     }
 
-    // 平台网络接口枚举（sing-box 官方内核拨号路径强制要求，否则报 no available network interface）。
-    // 参考 husi AndroidPlatformInterface.getInterfaces。
+    // Every box in this process has its own listener, so the user's "reset on network change"
+    // switch is applied once per new network to the running VPN instance only.
+    private fun onDefaultInterfaceChanged(network: Network) {
+        if (!DataStore.networkChangeResetConnections) return
+        if (lastResetNetwork == network) return
+        lastResetNetwork = network
+        DataStore.baseService?.data?.proxy?.boxOrNull?.resetNetwork()
+    }
 
     override fun getInterfaces(): NetworkInterfaceIterator {
         @Suppress("DEPRECATION") val networks = SagerNet.connectivity.allNetworks
         val networkInterfaces = NetworkInterface.getNetworkInterfaces().toList()
-        val interfaces = mutableListOf<LibcoreNetworkInterface>()
+        val interfaces = mutableListOf<CoreNetworkInterface>()
         for (network in networks) {
             val linkProperties = SagerNet.connectivity.getLinkProperties(network) ?: continue
             val networkCapabilities = SagerNet.connectivity.getNetworkCapabilities(network) ?: continue
-            val boxInterface = LibcoreNetworkInterface()
+            val networkInterface = networkInterfaces.find { it.name == linkProperties.interfaceName } ?: continue
+            val boxInterface = CoreNetworkInterface()
             boxInterface.name = linkProperties.interfaceName
-            val networkInterface = networkInterfaces.find { it.name == boxInterface.name } ?: continue
-            boxInterface.dnsServer = linkProperties.dnsServers.mapNotNull { it.hostAddress }
-                .let { it.toStringIterator(it.size) }
-            boxInterface.type = when {
-                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libcore.InterfaceTypeWIFI
-                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Libcore.InterfaceTypeCellular
-                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> Libcore.InterfaceTypeEthernet
-                else -> Libcore.InterfaceTypeOther
-            }
             boxInterface.index = networkInterface.index
             runCatching { boxInterface.mtu = networkInterface.mtu }
                 .onFailure { Logs.w("failed to get mtu for interface ${boxInterface.name}: $it") }
-            boxInterface.addresses = networkInterface.interfaceAddresses.map { it.toPrefix() }
-                .let { it.toStringIterator(it.size) }
+            boxInterface.addresses = networkInterface.interfaceAddresses.map { it.toPrefix() }.toStringIterator()
+            boxInterface.dnsServer = linkProperties.dnsServers.mapNotNull { it.hostAddress }.toStringIterator()
+            boxInterface.gateway = linkProperties.routes.filter { it.isDefaultRoute }
+                .mapNotNull { it.gateway?.hostAddress }.toStringIterator()
+            boxInterface.type = when {
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Mobile.InterfaceTypeWIFI
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Mobile.InterfaceTypeCellular
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> Mobile.InterfaceTypeEthernet
+                else -> Mobile.InterfaceTypeOther
+            }
             var dumpFlags = 0
             if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
                 dumpFlags = OsConstants.IFF_UP or OsConstants.IFF_RUNNING
@@ -233,57 +211,62 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
                 !networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
             interfaces.add(boxInterface)
         }
-        return InterfaceArray(interfaces.iterator(), interfaces.size)
+        return InterfaceArray(interfaces.iterator())
     }
 
     private class InterfaceArray(
-        private val iterator: Iterator<LibcoreNetworkInterface>,
-        private val size: Int,
+        private val iterator: Iterator<CoreNetworkInterface>,
     ) : NetworkInterfaceIterator {
         override fun hasNext(): Boolean = iterator.hasNext()
-        override fun next(): LibcoreNetworkInterface = iterator.next()
-        override fun length(): Int = size
+        override fun next(): CoreNetworkInterface = iterator.next()
     }
 
-    // nb4a interface
-
-    override fun useOfficialAssets(): Boolean {
-        return DataStore.rulesProvider == 0
+    override fun readWIFIState(): WIFIState? {
+        val wifiManager = app.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        @Suppress("DEPRECATION") val connectionInfo = wifiManager.connectionInfo ?: return null
+        val ssid = connectionInfo.ssid?.removeSurrounding("\"") ?: return null
+        return WIFIState(ssid, connectionInfo.bssid ?: "")
     }
 
-    override fun selector_OnProxySelected(selectorTag: String, tag: String) {
-        if (selectorTag != "proxy") {
-            Logs.d("other selector: $selectorTag")
-            return
+    override fun clearDNSCache() {
+    }
+
+    override fun sendNotification(notification: CoreNotification) {
+        val channel = notification.typeName.ifBlank { "core" }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            SagerNet.notification.createNotificationChannel(
+                NotificationChannel(channel, channel, NotificationManager.IMPORTANCE_DEFAULT)
+            )
         }
-        Libcore.resetAllConnections(true)
-        DataStore.baseService?.apply {
-            runOnDefaultDispatcher {
-                val id = data.proxy!!.config.profileTagMap
-                    .filterValues { it == tag }.keys.firstOrNull() ?: -1
-                val ent = SagerDatabase.proxyDao.getById(id) ?: return@runOnDefaultDispatcher
-                // traffic & title
-                data.proxy?.apply {
-                    looper?.selectMain(id)
-                    displayProfileName = ServiceNotification.genTitle(ent)
-                    data.notification?.postNotificationTitle(displayProfileName)
-                }
-                // post binder
-                data.binder.broadcast { b ->
-                    b.cbSelectorUpdate(id)
-                }
-            }
+        val builder = NotificationCompat.Builder(app, channel)
+            .setSmallIcon(R.drawable.ic_throne_tile)
+            .setContentTitle(notification.title)
+            .setContentText(listOf(notification.subtitle, notification.body).filter { it.isNotBlank() }.joinToString("\n"))
+            .setAutoCancel(true)
+        if (notification.openURL.isNotBlank()) {
+            builder.setContentIntent(
+                PendingIntent.getActivity(
+                    app, 0, Intent(Intent.ACTION_VIEW, notification.openURL.toUri()),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
         }
+        SagerNet.notification.notify(notification.identifier, notification.typeID, builder.build())
+    }
+
+    override fun cancelNotification(identifier: String, typeID: Int) {
+        SagerNet.notification.cancel(identifier, typeID)
     }
 
 }
 
-private fun Iterable<String>.toStringIterator(size: Int): StringIterator {
+private fun Iterable<String>.toStringIterator(): StringIterator {
+    val values = toList()
     return object : StringIterator {
-        private val it = iterator()
+        private val it = values.iterator()
         override fun hasNext(): Boolean = it.hasNext()
         override fun next(): String = it.next()
-        override fun length(): Int = size
+        override fun len(): Int = values.size
     }
 }
 

@@ -14,19 +14,15 @@
         android:title="@string/apply"
         app:showAsAction="always" />
     <item
+        android:id="@+id/action_edit_raw_json"
+        android:title="@string/edit_as_json"
+        android:visible="false" />
+    <item
         android:id="@+id/action_create_shortcut"
         android:title="@string/create_shortcut"
         android:visible="false" />
     <item
         android:id="@+id/action_move"
         android:title="@string/move"
-        android:visible="false" />
-    <item
-        android:id="@+id/action_custom_outbound_json"
-        android:title="@string/custom_outbound_json"
-        android:visible="false" />
-    <item
-        android:id="@+id/action_custom_config_json"
-        android:title="@string/custom_config_json"
         android:visible="false" />
 </menu>

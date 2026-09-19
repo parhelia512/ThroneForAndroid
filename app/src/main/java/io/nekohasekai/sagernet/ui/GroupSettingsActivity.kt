@@ -15,8 +15,8 @@ import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.preference.*
-import com.github.shadowsocks.plugin.Empty
-import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
+import io.nekohasekai.sagernet.widget.AlertDialogFragment
+import io.nekohasekai.sagernet.widget.Empty
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
@@ -26,7 +26,6 @@ import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.ListListener
@@ -56,7 +55,7 @@ class GroupSettingsActivity(
         DataStore.landingProxyTmp =
             if (landingProxy >= 0) OutboundPreference.VALUE_SELECT_PROFILE.toInt() else 0
 
-        val subscription = subscription ?: SubscriptionBean().applyDefaultValues()
+        val subscription = subscription ?: SubscriptionBean().apply { initializeDefaultValues() }
         DataStore.subscriptionLink = subscription.link
         DataStore.subscriptionForceResolve = subscription.forceResolve
         DataStore.subscriptionDeduplication = subscription.deduplication
@@ -92,7 +91,7 @@ class GroupSettingsActivity(
 
         val isSubscription = type == GroupType.SUBSCRIPTION
         if (isSubscription) {
-            subscription = (subscription ?: SubscriptionBean().applyDefaultValues()).apply {
+            subscription = (subscription ?: SubscriptionBean().apply { initializeDefaultValues() }).apply {
                 link = DataStore.subscriptionLink
                 forceResolve = DataStore.subscriptionForceResolve
                 deduplication = DataStore.subscriptionDeduplication

@@ -7,11 +7,13 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SpeedTestSettings
 import io.nekohasekai.sagernet.TunImplementation
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.parseSingBoxOutbound
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
-import moe.matsuri.nb4a.proxy.config.ConfigBean
+import io.nekohasekai.sagernet.outbound.OutboundFactory
+import io.nekohasekai.sagernet.outbound.json.JsonArray
+import io.nekohasekai.sagernet.outbound.json.JsonInput
+import io.nekohasekai.sagernet.outbound.json.JsonObject
+import io.nekohasekai.sagernet.outbound.json.JsonValues
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -20,6 +22,7 @@ import java.nio.ByteOrder
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
+import kotlin.math.abs
 
 /**
  * 解析 Throne 电脑版 `.thrbackup`（QDataStream + 内嵌 SQLite），
@@ -134,12 +137,14 @@ object ThroneDesktopBackupImporter {
         )
         try {
             val settingsMap = readSettings(db)
-            if (importProfiles && parsed.hasProfiles) {
-                importGroupsAndProfiles(db, settingsMap)
+            val profiles = if (importProfiles && parsed.hasProfiles) readGroupsAndProfiles(db, settingsMap) else null
+            val rules = if (importRules && parsed.hasRoutes) readRoutes(db, settingsMap) else null
+            // One transaction, and only after everything above parsed: a bad backup leaves the database untouched.
+            SagerDatabase.instance.runInTransaction {
+                profiles?.let { applyGroupsAndProfiles(it) }
+                rules?.let { applyRoutes(it) }
             }
-            if (importRules && parsed.hasRoutes) {
-                importRoutes(db, settingsMap)
-            }
+            profiles?.let { applySelection(it) }
             if (importSettings && parsed.hasSettings) {
                 applySettings(settingsMap)
             }
@@ -228,31 +233,39 @@ object ThroneDesktopBackupImporter {
 
     // region profiles
 
-    private fun importGroupsAndProfiles(db: SQLiteDatabase, settings: Map<String, String>) {
-        data class DeskGroup(
-            val id: Long,
-            val name: String,
-            val url: String,
-            val info: String,
-            val subLastUpdate: Long,
-            val skipAutoUpdate: Boolean,
-            val frontProxyId: Long,
-            val landingProxyId: Long,
-            val profilesJson: String,
-            val order: Long,
-        )
+    private class DeskGroup(
+        val id: Long,
+        val name: String,
+        val url: String,
+        val info: String,
+        val subLastUpdate: Long,
+        val skipAutoUpdate: Boolean,
+        val frontProxyId: Long,
+        val landingProxyId: Long,
+        val profilesJson: String,
+        val order: Long,
+    )
 
-        data class DeskProfile(
-            val id: Long,
-            val type: String,
-            val name: String,
-            val gid: Long,
-            val outboundJson: String,
-            val trafficUp: Long,
-            val trafficDl: Long,
-            val latency: Int,
-        )
+    private class DeskProfile(
+        val id: Long,
+        val type: String,
+        val name: String,
+        val gid: Long,
+        val outboundJson: String,
+        val trafficUp: Long,
+        val trafficDl: Long,
+        val latency: Int,
+    )
 
+    /** The desktop rows mapped to the app's entities, ready to be written in one transaction. */
+    private class ProfileImportData(
+        val groups: List<ProxyGroup>,
+        val proxies: List<ProxyEntity>,
+        val selectedGroup: Long?,
+        val selectedProfile: Long?,
+    )
+
+    private fun readGroupsAndProfiles(db: SQLiteDatabase, settings: Map<String, String>): ProfileImportData {
         val orderMap = HashMap<Long, Long>()
         try {
             db.rawQuery("SELECT group_id, display_order FROM groups_order", null).use { c ->
@@ -324,10 +337,13 @@ object ThroneDesktopBackupImporter {
             }
         }
 
-        val subAutoUpdateDelay = settings["sub_auto_update"]?.toIntOrNull()?.takeIf { it > 0 } ?: 1440
+        // sub_auto_update is a sign-encoded interval in minutes: negative means auto update off (SettingsRepo.h:152).
+        val subAutoUpdate = settings["sub_auto_update"]?.toIntOrNull()
+        val autoUpdateEnabled = subAutoUpdate != null && subAutoUpdate > 0
+        val subAutoUpdateDelay = subAutoUpdate?.let { abs(it) }?.takeIf { it > 0 } ?: 1440
 
         // Build per-group profile order from profiles_json
-        val orderInGroup = HashMap<Long, Long>() // profileId -> userOrder
+        val orderInGroup = HashMap<Long, Long>() // desktop profile id -> userOrder
         for (g in deskGroups) {
             val arr = try {
                 JSONArray(g.profilesJson)
@@ -343,34 +359,49 @@ object ThroneDesktopBackupImporter {
             }
         }
 
+        // Group ids: the desktop's Default group (id 1) becomes the app's ungrouped bucket unless it is a
+        // subscription, in which case every desktop group shifts by one so that id 1 stays free for the bucket.
+        val defaultGroup = deskGroups.find { it.id == 1L }
+        val shift = if (defaultGroup != null && defaultGroup.url.isNotBlank()) 1L else 0L
+        val desktopIsUngrouped = defaultGroup != null && shift == 0L
+        val groupIdMap = HashMap<Long, Long>()
+        for (g in deskGroups) groupIdMap[g.id] = g.id + shift
+        // Profile ids are kept; every reference (chain lists, front / landing proxies, the remembered id) is
+        // still routed through this map so a different policy needs one change.
+        val profileIdMap = HashMap<Long, Long>()
+        for (p in deskProfiles) profileIdMap[p.id] = p.id
+        fun mapGroup(id: Long): Long = groupIdMap[id] ?: 1L
+        fun mapProfile(id: Long): Long = profileIdMap[id] ?: id
+
         val groups = ArrayList<ProxyGroup>()
-        // Always keep a local ungrouped bucket (id=1) so T4A assumptions hold
-        groups.add(
-            ProxyGroup(
-                id = 1L,
-                userOrder = 0L,
-                ungrouped = true,
-                name = "Ungrouped",
-                type = GroupType.BASIC,
+        if (!desktopIsUngrouped) {
+            groups.add(
+                ProxyGroup(
+                    id = 1L,
+                    userOrder = 0L,
+                    ungrouped = true,
+                    name = "Ungrouped",
+                    type = GroupType.BASIC,
+                )
             )
-        )
+        }
 
         for (g in deskGroups) {
             val isSub = g.url.isNotBlank()
             val pg = ProxyGroup(
-                id = g.id,
+                id = mapGroup(g.id),
                 userOrder = g.order,
-                ungrouped = false,
+                ungrouped = desktopIsUngrouped && g.id == 1L,
                 name = g.name.ifBlank { "Group ${g.id}" },
                 type = if (isSub) GroupType.SUBSCRIPTION else GroupType.BASIC,
-                frontProxy = g.frontProxyId.takeIf { it > 0 } ?: -1L,
-                landingProxy = g.landingProxyId.takeIf { it > 0 } ?: -1L,
+                frontProxy = g.frontProxyId.takeIf { it > 0 }?.let(::mapProfile) ?: -1L,
+                landingProxy = g.landingProxyId.takeIf { it > 0 }?.let(::mapProfile) ?: -1L,
             )
             if (isSub) {
                 val sub = SubscriptionBean().applyDefaultValues()
                 sub.link = g.url
                 sub.subscriptionUserinfo = g.info
-                sub.autoUpdate = !g.skipAutoUpdate
+                sub.autoUpdate = autoUpdateEnabled && !g.skipAutoUpdate
                 sub.autoUpdateDelay = subAutoUpdateDelay
                 // desktop stores unix seconds; T4A lastUpdated is Int seconds
                 sub.lastUpdated = g.subLastUpdate
@@ -384,79 +415,69 @@ object ThroneDesktopBackupImporter {
         val proxies = ArrayList<ProxyEntity>()
         var fallbackOrder = 10_000L
         for (p in deskProfiles) {
-            val bean = convertOutbound(p.outboundJson, p.name, p.type)
-            val entity = ProxyEntity(
-                id = p.id,
-                groupId = if (p.gid > 0) p.gid else 1L,
-                userOrder = orderInGroup[p.id] ?: fallbackOrder++,
-                tx = p.trafficUp,
-                rx = p.trafficDl,
-                ping = p.latency,
-            ).putBean(bean)
-            proxies.add(entity)
+            proxies.add(
+                ProxyEntity(
+                    id = mapProfile(p.id),
+                    groupId = if (p.gid > 0) mapGroup(p.gid) else 1L,
+                    type = OutboundFactory.canonicalType(p.type),
+                    outboundJson = convertOutboundJson(p.type, p.name, p.outboundJson, ::mapProfile),
+                    userOrder = orderInGroup[p.id] ?: fallbackOrder++,
+                    tx = p.trafficUp,
+                    rx = p.trafficDl,
+                    ping = p.latency,
+                )
+            )
         }
 
+        val selectedGroup = settings["current_group"]?.toLongOrNull()?.takeIf { it > 0 }?.let { groupIdMap[it] }
+        val selectedProfile = settings["remember_id"]?.toLongOrNull()?.takeIf { it > 0 }?.let { profileIdMap[it] }
+        return ProfileImportData(groups, proxies, selectedGroup, selectedProfile)
+    }
+
+    private fun applyGroupsAndProfiles(data: ProfileImportData) {
         SagerDatabase.proxyDao.reset()
         SagerDatabase.groupDao.reset()
-        SagerDatabase.groupDao.insert(groups)
-        if (proxies.isNotEmpty()) {
-            SagerDatabase.proxyDao.insert(proxies)
-        }
-
-        // selected group / profile from desktop settings (IDs preserved)
-        settings["current_group"]?.toLongOrNull()?.takeIf { it > 0 }?.let {
-            if (groups.any { g -> g.id == it }) {
-                DataStore.selectedGroup = it
-            }
-        }
-        settings["remember_id"]?.toLongOrNull()?.takeIf { it > 0 }?.let { rid ->
-            if (proxies.any { it.id == rid }) {
-                DataStore.selectedProxy = rid
-                DataStore.currentProfile = rid
-            }
+        SagerDatabase.groupDao.insert(data.groups)
+        if (data.proxies.isNotEmpty()) {
+            SagerDatabase.proxyDao.insert(data.proxies)
         }
     }
 
-    private fun convertOutbound(outboundJson: String, name: String, typeHint: String): AbstractBean {
-        if (outboundJson.isBlank()) {
-            return ConfigBean().apply {
-                this.name = name
-                this.type = 1
-                config = """{"type":"$typeHint","tag":${JSONObject.quote(name)}}"""
-                initializeDefaultValues()
-            }
+    private fun applySelection(data: ProfileImportData) {
+        data.selectedGroup?.let { DataStore.selectedGroup = it }
+        data.selectedProfile?.let {
+            DataStore.selectedProxy = it
+            DataStore.currentProfile = it
         }
-        val json = try {
-            JSONObject(outboundJson)
-        } catch (_: Exception) {
-            return ConfigBean().apply {
-                this.name = name
-                this.type = 1
-                config = outboundJson
-                initializeDefaultValues()
-            }
+    }
+
+    /**
+     * The desktop's outbound_json is already the contract (compact ExportToJson); it is re-serialised only to
+     * carry the row's name when the JSON lacks one and to remap the ids of a chain. Text that is not a JSON
+     * object is stored as is (the entity then reports an invalid profile).
+     */
+    private fun convertOutboundJson(
+        type: String,
+        name: String,
+        outboundJson: String,
+        mapProfile: (Long) -> Long,
+    ): String {
+        val obj = if (outboundJson.isBlank()) JsonObject() else JsonInput.parseObjectOrNull(outboundJson) ?: return outboundJson
+        val nameKey = if (type == "chain" || type == "custom") "name" else "tag"
+        if (name.isNotBlank() && !obj.contains(nameKey)) obj[nameKey] = name
+        if (type == "chain" && obj.isArray("list")) {
+            val list = JsonArray()
+            for (v in obj.array("list")) list.add(mapProfile(JsonValues.toInteger(v)))
+            obj["list"] = list
         }
-        if (!json.has("tag") && name.isNotBlank()) {
-            json.put("tag", name)
-        }
-        val parsed = runCatching { parseSingBoxOutbound(json) }.getOrNull()
-        if (parsed != null) {
-            if (parsed.name.isNullOrBlank()) parsed.name = name
-            return parsed
-        }
-        return ConfigBean().apply {
-            this.name = name.ifBlank { json.optString("tag") }
-            this.type = 1 // outbound
-            config = outboundJson
-            initializeDefaultValues()
-        }
+        return obj.toCompact()
     }
 
     // endregion
 
     // region routes
 
-    private fun importRoutes(db: SQLiteDatabase, settings: Map<String, String>) {
+    private fun readRoutes(db: SQLiteDatabase, settings: Map<String, String>): List<RuleEntity> {
         val currentRouteId = settings["current_route_id"]?.toLongOrNull()
         val routeProfileIds = ArrayList<Long>()
         try {
@@ -467,10 +488,7 @@ object ThroneDesktopBackupImporter {
         } catch (e: Exception) {
             Logs.w(e)
         }
-        if (routeProfileIds.isEmpty()) {
-            SagerDatabase.rulesDao.reset()
-            return
-        }
+        if (routeProfileIds.isEmpty()) return emptyList()
         val targetIds = if (currentRouteId != null && routeProfileIds.contains(currentRouteId)) {
             listOf(currentRouteId)
         } else {
@@ -604,6 +622,10 @@ object ThroneDesktopBackupImporter {
             }
         }
 
+        return rules
+    }
+
+    private fun applyRoutes(rules: List<RuleEntity>) {
         SagerDatabase.rulesDao.reset()
         if (rules.isNotEmpty()) {
             SagerDatabase.rulesDao.insert(rules)
@@ -711,35 +733,21 @@ object ThroneDesktopBackupImporter {
         s["fragment_size"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.FRAGMENT_LENGTH, it) }
         s["fragment_sleep"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.FRAGMENT_INTERVAL, it) }
 
-        s["sniffing_mode"]?.toIntOrNull()?.let { putIntStr(Key.TRAFFIC_SNIFFING, it) }
-
         // disable_private_range_bypass=true means do NOT bypass LAN → bypassLanInCore=false
         s["disable_private_range_bypass"]?.toBooleanStrictOrNull()?.let { disabled ->
             putBool(Key.BYPASS_LAN_IN_CORE, !disabled)
             putBool(Key.BYPASS_LAN, !disabled)
         }
 
+        // core_box_clash_api is a sign-encoded port: negative means the API is off (SettingsRepo.h:290).
         s["core_box_clash_api"]?.let { v ->
             val enabled = when {
                 v.equals("true", true) -> true
                 v.equals("false", true) -> false
-                else -> (v.toIntOrNull() ?: 0) != 0
+                else -> (v.toIntOrNull() ?: 0) > 0
             }
             putBool(Key.ENABLE_CLASH_API, enabled)
         }
-
-        // domain strategies (T4A uses dedicated keys read by SingBoxOptionsUtil)
-        s["outbound_domain_strategy"]?.let {
-            putStr("domain_strategy_for_server", it)
-        }
-        s["domain_strategy"]?.let {
-            // general fallback
-            if (store.getString("domain_strategy_for_server") == null) {
-                putStr("domain_strategy_for_server", it)
-            }
-        }
-        s["remote_dns_strategy"]?.let { putStr("domain_strategy_for_remote", it) }
-        s["direct_dns_strategy"]?.let { putStr("domain_strategy_for_direct", it) }
 
         // geo assets: desktop often points at .dat; only map if looks usable or leave default
         s["xray_geosite_url"]?.takeIf { it.contains("geosite") }?.let {
