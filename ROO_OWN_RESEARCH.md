@@ -1,9 +1,10 @@
 # OwnBox (OwnBoxForAndroid) 深度调研报告
 
 > 调研对象：`C:\repos\OwnBoxForAndroid`（origin: https://github.com/Own716/OwnBoxForAndroid ）
-> 基准仓库：`C:\repos\ThroneForAndroid`（T4A，main @ `48547d2`，v1.6.2，sing-box v1.13.16）
+> 基准仓库：`C:\repos\ThroneForAndroid`（T4A，nb4a.properties v1.6.4 / versionCode 47，sing-box v1.13.16）
 > 报告生成时间：初版调研于 T4A main @ `48547d2`（2026-09-04 "bump version"）；
 > **2026-09-12 增量更新：重新扫描至 Own v2.6.0（HEAD `4372435`，versionCode 260）**，见第 0 章。
+> **本轮增量更新：扫描 OwnBox origin/main `7bccca0b`（Own v2.8.0），聚焦 sing-box 1.14.1 升级专项**，见第 0B 章。
 
 ---
 
@@ -112,6 +113,80 @@ v2.4.x 起，负载均衡从"分组开关"升级为**可保存的独立 Profile*
 
 ---
 
+## 0B. v2.6.0 → v2.8.0 增量扫描（sing-box 1.14.1 升级专项）⭐ 最新
+
+> 扫描口径：`git diff 4372435..origin/main`（Own v2.6.0 → Own v2.8.0，origin/main 当前 @ `7bccca0b`，约 98+ 提交）。
+> **注意**：本机 `C:\repos\OwnBoxForAndroid` 检出落后（main 停在 `3769c07`），本轮已 `git fetch`，以下结论均以 `origin/main` 为准。
+> 内核时间线：OwnBox 的 sing-box 版本从 **v1.14.0 直接跳到 v1.15.0-alpha.4**（`8bb680f8`），**从未使用过 1.14.1**。
+> 因此对 T4A 升级 1.14.1（稳定版补丁）而言：
+> - OwnBox 在 **1.14.0 内核期间（`4372435..8bb680f8` 之间）** 的全部改动可直接借鉴；
+> - OwnBox 的 1.15 迁移提交 `8bb680f8` 本身适配面极小（见 0B.4），**反向确认**了其 1.14 适配层（第 2.A/2.B 章 `9160df5d`/`a5c0685`）就是完整的 1.14 适配集合，且 1.15 专属改动 T4A 上 1.14.1 时不需要做。
+
+### 0B.1 内核层新增改动（1.14.0 内核期间，libcore，Go）⭐
+
+| 文件 | 改动内容 |
+|---|---|
+| `libcore/box.go` | ① `urlTest` 预热阶段 HEAD 不兼容（EOF/405/403/5xx）时自动以 **GET 重试**再预热；② 启用 **HTTP/2**：`NextProtos: ["h2","http/1.1"]` + `ForceAttemptHTTP2` + `http2.ConfigureTransport`；③ 5xx 判失败（预热与测量两阶段都查 `>= 500`）；④ **primary/fallback 超时拆分**：`timeout>3500` 时主测 `timeout-1500`、备用固定 2000ms；⑤ urltest 实例 `Close()` 后**节流 GC**（`lastUrlTestGc` 2s 内只跑一次 `runtime.GC()+FreeOSMemory`）；⑥ `newSingBoxInstance` selector 兜底：显式 selector 为空时扫描全部 outbounds 找第一个 `*group.Selector` |
+| `libcore/protocol/loadbalance/outbound.go` | **目的地粘性哈希**：`hashDestination`（FNV-1a）+ `pickByDestination`，同一目标地址始终映射同一节点，修复大文件分块上传卡死 / 连接漂移 / TLS 会话恢复跳 IP（`dcd78681`）；`NewConnection`/`NewPacketConnection` 均改走粘性选择 |
+| `libcore/speedtest.go` | 下载阶段**实时 progress 回调**（分段报告速率）；0 字节下载明确报错（`simple download transferred no data`）而非静默成功 |
+| `libcore/protocol/vless/xhttp/{client,conn,dialer,options}.go` | **XHTTP 传输大修**（`2d395981`）：headers、**ALPN 协商**、连接 teardown 修正；新增 `xhttp_test.go`（135 行）测试套件。T4A 的 xhttp 移植层与 1.14 升级需一并参考 |
+| `libcore/nb4a.go` | ① `ForceGc` 改为 `runtime.GC()+debug.FreeOSMemory()` 双阶段；② 新增 **`SetMemoryProfile(performancePriority)`**：低内存模式 GOGC=20 + `SetMemoryLimit(128MB)`，性能优先模式 GOGC=100 + 无限制；③ **perf_mode 标志文件机制**（`no_backup/perf_mode` 存在与否决定模式，避免新增 JNI 绑定）；④ `InitCore` 中提前 chdir 并设置 `protectSocketPath` 绝对路径 + `GetProtectSocketPath()` |
+| `libcore/protect.go` / `platform_box.go` | **protect 通道加固**：socket `chmod 0666`；`AutoDetectInterfaceControl` 失败**重试 3 次**（间隔 25ms）；`sendFdToProtect` 超时从 100ms 提到 **2s**（`timeout.Sec = 2`）；protect 路径改用绝对路径 |
+| `libcore/go.mod`（v2.6.0 状态，1.14.0 依赖族） | `sing v0.9.0-beta.4`、`quic-go v0.61.0-sing-box-mod.7`、`sing-tun v0.9.0-beta.4`、`sing-vmess v0.2.8-*`、`sing-mux v0.3.5`（对比 T4A 现状：sing v0.8.12、quic-go v0.59.0-sing-box-mod.4、sing-tun v0.8.12）——即 **1.14 稳定线的依赖族整体上移一个 minor**；1.14.1 应以官方 tag 的 go.mod 为准、OwnBox 该状态为参照 |
+
+### 0B.2 配置生成层新增改动（1.14.0 内核期间，Kotlin）⭐ 对 1.14.1 升级为必改项
+
+1. **sc_\* XHTTP 字段必须为 `{"from":N,"to":N}` 范围对象**（`249ca740`，1.14 内核实测踩坑）：
+   - sing-box 1.14.x 内核对 `sc_max_each_post_bytes` / `sc_min_posts_interval_ms` / `sc_stream_up_server_secs` 等要求 range 对象，纯数字报错 `cannot unmarshal number into Go struct field`；
+   - OwnBox 为此在 `SingBoxOptions.java` 引入 `XHTTPRangeValue{from,to}`（1.15 迁移时 `8bb680f8` 才回退为 JsonElement）；`V2RayFmt.kt` 中 `RANGE_KEYS` 集合在合并 extra 时把纯数字包成 `{"from":N,"to":N}`；
+   - **T4A 现状**：`SingBoxOptions.V2RayTransportOptions_XHTTPOptions` 的 sc_\* 字段仍是 `JsonElement`，`V2RayFmt.kt`/`XhttpExtraConverter.kt` 无范围包装逻辑 → **升级 1.14.1 必改**。
+2. **`V2RayFmt.kt` extra 合并过滤**：`BLOCKED_KEYS = {"encryption"}`（sing-box 1.12+ 已移除该字段，静默丢弃避免 unknown field error）；`sc_max_buffered_posts` 也列入 RANGE_KEYS。
+3. **`V2RayFmt.kt` TLS/REALITY 增强**（`buildSingBoxOutboundTLS`）：security 判定扩展接受 `reality` / `realityPubKey` 非空；sni/serverAddress trim；ALPN 为空且 type=xhttp/splithttp 时补 `["h2","http/1.1"]`；uTLS fingerprint trim+小写，REALITY 下默认 `chrome`（none/random/randomized 也强制 chrome）；short_id trim+小写；xhttp transport 强制 `no_grpc_header = true`。
+4. **`HysteriaFmt.kt` QUIC 韧性参数**（配套 `SingBoxOptions.Outbound_HysteriaOptions` 新增 6 字段：`idle_timeout`/`keep_alive_period`/`stream_receive_window`/`connection_receive_window`/`disable_path_mtu_discovery`/`bbr_profile`）：
+   - hopPorts 列表为空时回退 `getFirstPort`；`hop_interval` 最小 15s（默认 30s）；
+   - 新增 `keep_alive_period="15s"`、`idle_timeout="30s"`、`disable_path_mtu_discovery`、两个 receive_window、`bbr_profile="standard"`（移动网络韧性优化）。
+5. `extra` xhttp 转换失败回退原文：`runCatching { XhttpExtraConverter.xrayToSingBox(it) }.getOrDefault(it)`。
+
+### 0B.3 服务稳定性（1.14.0 内核期间）
+
+- **内核/服务自动恢复**（`0c604172`，v2.7.8）：`BaseService` 捕获启动异常时识别 **cache.db 损坏**（`invalid freelist page` / `initialize cache-file` 等特征）→ `deleteCorruptedCacheDb()`（扫描 cacheDir/filesDir/noBackupFilesDir 等 4 处候选路径）删除后**自动重启一次**（`cacheRecoveryAttempts` 限 1 次防循环）；`proxy.close()` 移入 `Dispatchers.IO`；restart 前加 `delay(100)`；
+- **Doze 行为修正**：设备进入 Doze 时不再 `box.sleep()`（会阻断后台推送/同步导致假断连），改为只 `Libcore.forceGc()`；新增 `ACTION_SCREEN_OFF` 触发 forceGc 保后台 RSS 低位；
+- 磁贴通知 `postNotificationSpeed` 回调补齐。
+
+### 0B.4 OwnBox 的 1.15 迁移提交 `8bb680f8` —— 反向确认 1.14.1 升级边界 ⭐
+
+该提交（v1.14.0 → v1.15.0-alpha.4）全部适配面仅 5 个文件：
+
+| 文件 | 改动 |
+|---|---|
+| `libcore/go.mod` | 依赖族升级：sing v0.9.5-*、sing-quic v0.7.1-*、sing-tun v0.9.4-*、sing-vmess v0.2.8、sing-mux v0.3.7-*、sing-snell/sing-anytls snapshot、wireguard-go v0.0.6 |
+| `libcore/platform_box.go` | ① `adapter.ConnectionOwner` 字段改名 `AndroidPackageNames` → `PackageNames`；② 新增 `UsePlatformAutoRedirect()`/`CreateAutoRedirect()` 空实现（1.15 新平台接口） |
+| `SingBoxOptions.java` | 移除 `XHTTPRangeValue`（1.15 内核重新接受 JsonElement/任意 JSON）；RANGE_KEYS 去掉 `sc_max_buffered_posts` |
+| `V2RayFmt.kt` | 同上单行 |
+| `nb4a.properties` | SINGBOX_VERSION → v1.15.0-alpha.4 |
+
+**结论**：① T4A 升到 1.14.1 **不需要** PackageNames 改名 / AutoRedirect / 1.15 依赖族；② 1.14.x 的 sc_\* range 对象要求在 1.15 被取消，属 1.14 特有坑，T4A 上 1.14.1 必须处理；③ OwnBox 的 1.14 适配层 + 0B.1/0B.2 增量 = T4A 升级 1.14.1 的完整参考实现。
+
+### 0B.5 1.15 专属改动（T4A 上 1.14.1 不适用，仅备案）
+
+- Sing-Tun 官方自研栈接入（`db13ab6a`）与 1.15 native tun 优化（`95be8b72`，safe MTU / stack 调优）；
+- xhttp 2.8.0 全面重写（`4ef86a0a`，VLESS+XHTTP Xray 对齐 + 测试套件，基于 1.15 内核）——T4A 后续升 1.15 时再评估；
+- 性能优先模式跨进程生效、后台深度省电（`6cf9dd0e`，依赖 0B.1 的 SetMemoryProfile + perf_mode 文件）。
+
+### 0B.6 v2.6.0→v2.8.0 非内核类改动速览（与本 change 无关，简记）
+
+主题系统大重构（MD3 深度重构、色板、纯白修复）、全部分组聚合搜索、节点多格式分享/二维码导出、局域网共享（免 Root 热点检测）、sing-box 官方仪表盘 1:1 移植（`25a537cf`）、DocsFragment 帮助中心、负载均衡 UI 完善（前置/落地代理、正则过滤、策略联动）、balancer 链式（`18ab110c`）。这些属 UI/产品向，若 T4A 需要另立 change。
+
+### 0B.7 对 T4A「升级 sing-box v1.14.1」的移植清单汇总（供 propose）
+
+1. **基础适配**（OwnBox 第 2.A/2.B 章 + `9160df5d`/`a5c0685`）：go.mod 1.14 依赖族（以官方 1.14.1 tag 为准）、`box.go` ResetNetwork 新签名 + `CertificateProviderRegistry`、`platform_box.go` 平台接口补齐、`ruleset.go` Tag 类型、DNS schema typed servers / fakeip 服务器化 / dns-block→reject、TLS fragment detour 重构、xhttp `qtls.Dial` 签名修复；
+2. **1.14 必改新增**（0B.2）：sc_\* 字段 `{"from","to"}` 范围包装、extra `encryption` 丢弃、xhttp ALPN `["h2","http/1.1"]`、REALITY uTLS 默认 chrome、no_grpc_header、Hysteria QUIC 韧性字段（+SingBoxOptions 6 字段）、hopPorts 空回退 + hop_interval 下限；
+3. **libcore 增强可选**（0B.1，与内核版本无关但建议随升级一并做）：urlTest HTTP/2 + GET 回退 + 超时拆分、urltest 节流 GC、protect 重试/超时/chmod、speedtest progress + 0 字节报错、loadbalance 粘性哈希（若 T4A 移植负载均衡则必做）、SetMemoryProfile（性能优先模式，可选独立 change）；
+4. **稳定性可选**（0B.3）：cache.db 损坏自动恢复、Doze 不 sleep、SCREEN_OFF forceGc；
+5. **不适用**：0B.4/0B.5 全部 1.15 专属项。
+
+---
+
 ## 1. 调研方法与基线说明（重要）
 
 直接用 `git merge-base` 得到的分叉点是 `5768494`（T4A v1.4.2，2026-02-09），但这**不是有效的对比基线**：
@@ -134,6 +209,8 @@ v2.4.x 起，负载均衡从"分组开关"升级为**可保存的独立 Profile*
 （其中约 150 个文件为图标 mipmap/drawable 二进制增删，代码增量集中在 libcore、fmt/group/database、ui/widget。）
 
 OwnBox 当前版本：**v2.6.0（versionCode 260）**，包名 `com.ownbox.app`，sing-box **v1.14.0**。
+
+**2026-09-XX 复核**：origin/main 已推进至 `7bccca0b`（**Own v2.8.0**，versionCode 28x），sing-box 升至 **v1.15.0-alpha.4**（`8bb680f8`，从未经过 1.14.1）；1.14 相关增量见第 0B 章。
 
 ---
 
