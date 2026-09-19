@@ -57,5 +57,5 @@
 
 ## 8. 收尾与规范同步
 
-- [ ] 8.1 运行 `uv run tools/diagnostics/check_no_brand_comments.py` 与 `uv run tools/diagnostics/roo_check_repo_governance.py`，均退出码 0
-- [ ] 8.2 `openspec validate --change port-ownbox-fixes-260` 通过；汇总并执行后置真机清单（3.3、4.4、6.6、7.4），全部通过后变更进入待归档状态
+- [x] 8.1 运行 `uv run tools/diagnostics/check_no_brand_comments.py` 与 `uv run tools/diagnostics/roo_check_repo_governance.py`，均退出码 0
+- [x] 8.2 `openspec validate --change port-ownbox-fixes-260` 通过；汇总并执行后置真机清单（3.3、4.4、6.6、7.4），全部通过后变更进入待归档状态
