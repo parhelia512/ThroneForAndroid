@@ -149,9 +149,9 @@ class ConfigBuilderDnsTest {
     @Test
     fun fragmentFallbackDelayParsesFirstRangeValue() {
         assertEquals("10ms", parseFragmentFallbackDelay("10-20"))
-        // 多段时取首段的首值（spec：逗号分隔多段时取首段）
+        // 多段时取首个数值（spec：逗号分隔多段时取首段）
         assertEquals("10ms", parseFragmentFallbackDelay("10-20,30-40"))
-        assertEquals("30ms", parseFragmentFallbackDelay("25-35,30-40"))
+        assertEquals("25ms", parseFragmentFallbackDelay("25-35,30-40"))
         assertEquals("10ms", parseFragmentFallbackDelay("10 20"))
         assertEquals("10ms", parseFragmentFallbackDelay("10-20-30"))
         assertEquals("10ms", parseFragmentFallbackDelay(""))
