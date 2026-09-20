@@ -4746,10 +4746,8 @@ public class SingBoxOptions {
 
         public Integer rewrite_ttl;
 
-        // sing-box 1.14：DNS 规则动作（reject/predefined 等）与自定义 rcode；
-        // 原 dns-block server 类型已移除，拦截语义改由 action:"reject" 表达。
-        public String action;
-
+        // sing-box 1.14：DNS 规则新增自定义 rcode（action 字段 1.13 起已存在，
+        // 原 dns-block server 类型移除后拦截语义即由既有 action:"reject" 表达）。
         public String rcode;
 
     }
