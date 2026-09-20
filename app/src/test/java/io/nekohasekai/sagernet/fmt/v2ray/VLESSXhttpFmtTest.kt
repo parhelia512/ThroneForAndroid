@@ -185,7 +185,10 @@ class VLESSXhttpFmtTest {
         assertEquals("/transport", transport["path"].asString)
         assertEquals("100-1000", transport["x_padding_bytes"].asString)
         assertFalse(transport["no_sse_header"].asBoolean)
-        assertEquals(30, transport["sc_max_buffered_posts"].asInt)
+        // sing-box 1.14：sc_* 范围类字段发射为 {"from":N,"to":N} 对象
+        val scBuffered = transport["sc_max_buffered_posts"].asJsonObject
+        assertEquals(30, scBuffered["from"].asInt)
+        assertEquals(30, scBuffered["to"].asInt)
         assertEquals("20-80", transport["sc_stream_up_server_secs"].asString)
         assertEquals("16-32", transport.getAsJsonObject("xmux")["max_concurrency"].asString)
         assertEquals("download.example.com", transport.getAsJsonObject("download")["server"].asString)

@@ -34,9 +34,10 @@ class HysteriaFmtTest {
 
     @Test
     fun hopPortsNormalizeToColonRangeFormat() {
-        // sing-box 1.14 内核 ParsePorts 要求 "start:end" 冒号区间
+        // sing-box 1.14 内核 ParsePorts 要求 "start:end" 冒号区间；
+        // 单端口片段（无区间）按既有规范化行为被丢弃（由 getFirstPort 兜底）
         assertEquals(listOf("1000:2000"), hopPortsToSingboxList("1000-2000"))
-        assertEquals(listOf("443:443", "8000:9000"), hopPortsToSingboxList("443, 8000-9000"))
+        assertEquals(listOf("8000:9000"), hopPortsToSingboxList("443, 8000-9000"))
         assertTrue("非法片段被丢弃", hopPortsToSingboxList("bad,1000-2000").contains("1000:2000"))
         assertTrue("空输入返回空列表", hopPortsToSingboxList("").isEmpty())
     }
