@@ -51,4 +51,43 @@ T4A 当前内核 v1.13.16（`nb4a.properties` 唯一版本来源），libcore �
 
 ## Open Questions
 
-（无 —— hopPorts 分隔符与依赖族版本在批次一以官方 v1.14.1 源码核对后确定，不阻塞规划。）
+（无 —— 已在批次一任务 1.1 核对完毕，见附录 A。）
+
+## 附录 A：官方 sing-box v1.14.1 核对结论（任务 1.1 证据）
+
+来源：`https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.1/go.mod`、`protocol/hysteria2/outbound.go`、`SagerNet/sing-quic v0.7.0`（`hysteria/client.go` 的 `ParsePorts`、`hysteria2/client.go`）。
+
+### A.1 官方 v1.14.1 go.mod 关键依赖族（go 1.25.5）
+
+| 依赖 | 官方 v1.14.1 | T4A 现状（1.13.16） | OwnBox v2.6.0（1.14.0） |
+|---|---|---|---|
+| `sagernet/sing` | **v0.9.4** | v0.8.12-* | v0.9.0-beta.4 |
+| `sagernet/quic-go` | **v0.61.0-sing-box-mod.7** | v0.59.0-sing-box-mod.4 | v0.61.0-sing-box-mod.7 |
+| `sagernet/sing-tun` | **v0.9.3** | v0.8.12-* | v0.9.0-beta.4 |
+| `sagernet/sing-quic` | **v0.7.0** | （未直接 require） | v0.7.0 |
+| `sagernet/sing-mux` | **v0.3.6** | — | v0.3.5 |
+| `sagernet/sing-vmess` | **v0.2.8** | — | v0.2.8-* |
+| `sagernet/sing-anytls` | **v0.0.11** | — | v0.0.11 |
+| `sagernet/sing-snell` | v0.0.0-20260829071736-20f2eaec77c3 | — | 同 |
+| `sagernet/wireguard-go` | **v0.0.6** | — | v0.0.6 |
+| `sagernet/gvisor` | v0.0.0-20260727.0-sing-box-mod.1 | — | 同 |
+| `sagernet/netlink` | v0.0.0-20260814022025-64455d367bbf | — | 同 |
+| `sagernet/nftables` | v0.3.0-mod.4 | — | 同 |
+| `sagernet/smux` | v1.5.50-sing-box-mod.1 | — | 同 |
+| `miekg/dns` | v1.1.72 | v1.1.72 | v1.1.72 |
+| `oschwald/maxminddb-golang` | v1.13.1 | v1.13.1 | v1.13.1 |
+| `golang.org/x/net` | v0.57.0 | v0.50.0 | — |
+| `golang.org/x/sys` | v0.47.0 | v0.41.0 | — |
+| `golang.org/x/crypto` | v0.54.0 | — | v0.54.0 |
+| `google.golang.org/grpc` | v1.79.1 | — | — |
+| `sagernet/tailscale` | v1.102.1-sing-box-1.14-mod.5 | — | — |
+
+结论：T4A 的 go.mod 依赖族按官方 v1.14.1 上移（sing 0.8.x→0.9.4、quic-go→mod.7、sing-tun→0.9.3、x/net→0.57.0、x/sys→0.47.0），并需补 `sing-quic v0.7.0`（1.14 的 hysteria/hysteria2/tuic 已迁入 sing-quic 包）。OwnBox v2.6.0 的 beta 版本号（sing v0.9.0-beta.4、sing-tun v0.9.0-beta.4）仅为其当时快照，以官方 tag 为准。
+
+### A.2 Hysteria 端口区间语法（1.14.1 实测源码）
+
+- `sing-quic/hysteria/client.go` 的 `ParsePorts`：**必须包含 `:`**（`strings.Contains(portRange, ":")`，否则报 `bad port range`），即 `start:end` 格式（如 `20820:20830`）；`start` 缺省为 0、`end` 缺省为 65535。
+- `hysteria2.NewClient` 同样经 `hysteria.ParsePorts` 解析 `ServerPorts`。
+- **hop interval 下限为 5 秒**（`hop.go`：`interval < 5*time.Second` 报错；`interval==0 && intervalMax==0` 时默认 30s）。OwnBox 的 15s 下限/30s 默认满足且更保守，采用之。
+- 1.14.1 `Hysteria2OutboundOptions` 确认支持：`IdleTimeout`、`KeepAlivePeriod`、`StreamReceiveWindow`、`ConnectionReceiveWindow`、`MaxConcurrentStreams`、`InitialPacketSize`、`DisablePathMTUDiscovery`、`BBRProfile`（`protocol/hysteria2/outbound.go` 直接映射到 `qtls.QUICOptions`）——与 OwnBox 新增的 6 个 SingBoxOptions 字段一一对应。
+- T4A 的 `hopPortsToSingboxList` 输出格式 MUST 为 `start:end`（与 OwnBox v2.6.0 一致；上版报告记录的 `start-end` 为旧内核语义，已废弃）。

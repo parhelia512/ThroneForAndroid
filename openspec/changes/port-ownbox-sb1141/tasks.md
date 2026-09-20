@@ -2,7 +2,7 @@
 
 ## 1. 批次一：libcore 1.14.1 编译适配
 
-- [ ] 1.1 联网核对 `SagerNet/sing-box` 官方 `v1.14.1` tag 的 go.mod 依赖族与 hysteria 端口区间语法（`start:end`/`start-end`），将结论记录到本 change 的 design.md 附录（修正 Open Questions），证据：tag go.mod 关键行摘录
+- [x] 1.1 联网核对 `SagerNet/sing-box` 官方 `v1.14.1` tag 的 go.mod 依赖族与 hysteria 端口区间语法（`start:end`/`start-end`），将结论记录到本 change 的 design.md 附录（修正 Open Questions），证据：tag go.mod 关键行摘录（已写入 design.md 附录 A）
 - [ ] 1.2 `nb4a.properties` 的 `SINGBOX_VERSION` 改为 `v1.14.1`，`libcore/go.mod` 依赖族按官方 tag 对齐（sing/quic-go/sing-tun/sing-mux 等），保留 T4A 特有依赖；验证：`go.mod` 注释与 `nb4a.properties` 一致、无 fork 来源
 - [ ] 1.3 适配 `libcore/box.go`：ResetNetwork 新签名、CertificateProviderRegistry 注册、selector 兜底扫描（对照 OwnBox 最终态），保持 T4A 既有 urlTest 两阶段语义；验证：代码走查对照 spec「内核升级至 sing-box v1.14.1 保持官方接入契约」
 - [ ] 1.4 适配 `libcore/platform_box.go`（1.14 平台回调补齐 + 不支持项空实现）、`libcore/ruleset.go`（RuleSet.Tag 类型）、`libcore/dns_box.go`；验证：对照 spec「平台接口按 box 实例隔离」MODIFIED 增量
