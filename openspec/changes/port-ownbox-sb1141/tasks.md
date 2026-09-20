@@ -7,7 +7,7 @@
 - [x] 1.3 适配 `libcore/box.go`：ResetNetwork 新签名、CertificateProviderRegistry 注册、selector 兜底扫描（对照 OwnBox 最终态），保持 T4A 既有 urlTest 两阶段语义；验证：代码走查对照 spec「内核升级至 sing-box v1.14.1 保持官方接入契约」通过
 - [x] 1.4 适配 `libcore/platform_box.go`（1.14 平台回调补齐 + 不支持项空实现）、`libcore/ruleset.go`（RuleSet.Tag []string 取首元素）、`libcore/dns_box.go`（ExchangeAsync）；验证：对照 spec「平台接口按 box 实例隔离」MODIFIED 增量通过，与 OwnBox 1.14 适配 diff 逐项一致
 - [x] 1.5 适配 `libcore/protocol/vless/**` XHTTP 移植层（qtls.Dial 四参新签名、移除 UnbindPacketConn 包装、Go 侧 Range 反序列化兼容纯数字/单值字符串）与测试文件 certificate registry 注册；验证：静态检查无 1.13 遗留 API 引用（NewUnbindPacketConn/无参 ReadWIFIState/无参 ResetNetwork 均已清除）
-- [ ] 1.6 提交批次一并推送，触发 GitHub Actions 内核构建 workflow；验证：libcore AAR 构建成功，回传 CI run 链接与结论；失败则在本批次内修复后重推
+- [x] 1.6 提交批次一并推送，触发 GitHub Actions 内核构建 workflow；验证：libcore AAR 构建成功，回传 CI run 链接与结论；失败则在本批次内修复后重推（提交 865151a 已推送，用户确认 CI 通过）
 
 ## 2. 批次二：配置生成 1.14 schema（DNS/fakeip/reject/fragment）
 
