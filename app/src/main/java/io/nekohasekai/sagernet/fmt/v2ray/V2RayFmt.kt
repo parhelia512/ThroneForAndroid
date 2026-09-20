@@ -805,6 +805,8 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
                 mode = normalizeXhttpMode(bean.xhttpMode)
                 host = bean.host.takeIf { it.isNotBlank() }
                 path = bean.path.takeIf { it.isNotBlank() } ?: "/"
+                // XHTTP 非 gRPC 模式下禁用 gRPC 起始头（对齐 Xray 客户端行为）
+                no_grpc_header = com.google.gson.JsonPrimitive(true)
             }
             
             // Merge xhttpExtra JSON config if present
@@ -841,9 +843,41 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
                         "uplink_data_key",
                         "uplink_chunk_size"
                     )
+                    // sing-box 1.14 内核要求 sc_* 范围类字段为 {"from":N,"to":N} 对象，
+                    // 纯数字会报 "cannot unmarshal number into Go struct field"；
+                    // sing-box 1.12 起已移除 encryption 字段，静默丢弃避免 unknown field error。
+                    val RANGE_KEYS = setOf(
+                        "sc_max_each_post_bytes",
+                        "sc_min_posts_interval_ms",
+                        "sc_max_buffered_posts",
+                        "sc_stream_up_server_secs"
+                    )
+                    val BLOCKED_KEYS = setOf("encryption")
                     allowedKeys.forEach { key ->
-                        if (extraJson.has(key)) {
-                            baseJson.put(key, extraJson.get(key))
+                        if (key in BLOCKED_KEYS) return@forEach
+                        if (!extraJson.has(key)) return@forEach
+                        val raw = extraJson.get(key)
+                        if (key in RANGE_KEYS) {
+                            // 已是带 "from" 的范围对象则原样使用；纯数字包装为等值范围
+                            if (raw is org.json.JSONObject && raw.has("from")) {
+                                baseJson.put(key, raw)
+                            } else {
+                                val num = try {
+                                    raw.toString().toDoubleOrNull()?.toInt()
+                                } catch (e: Exception) {
+                                    null
+                                }
+                                if (num != null) {
+                                    baseJson.put(key, org.json.JSONObject().apply {
+                                        put("from", num)
+                                        put("to", num)
+                                    })
+                                } else {
+                                    baseJson.put(key, raw)
+                                }
+                            }
+                        } else {
+                            baseJson.put(key, raw)
                         }
                     }
                     // Convert merged JSON back to object
@@ -862,11 +896,13 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
 }
 
 fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
-    if (bean.security != "tls") return null
+    // sing-box 1.14：security 判定扩展接受 reality / realityPubKey 非空
+    if (bean.security != "tls" && bean.security != "reality" && bean.realityPubKey.isBlank()) return null
     return OutboundTLSOptions().apply {
         enabled = true
         insecure = bean.allowInsecure || DataStore.globalAllowInsecure
-        if (bean.sni.isNotBlank()) server_name = bean.sni
+        val trimmedSni = bean.sni.trim()
+        if (trimmedSni.isNotBlank()) server_name = trimmedSni
         if (bean.alpn.isNotBlank()) {
             // 当传输协议为WebSocket时，过滤掉h2和h3
             val alpnList = bean.alpn.listByLineOrComma()
@@ -876,18 +912,24 @@ fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
             } else {
                 alpn = alpnList
             }
+        } else if (bean.type == "xhttp" || bean.type == "splithttp") {
+            // XHTTP 传输缺省 ALPN：h2 与 http/1.1（对齐 Xray 客户端协商）
+            alpn = listOf("h2", "http/1.1")
         }
         if (bean.certificates.isNotBlank()) certificate = bean.certificates
-        var fp = bean.utlsFingerprint
+        var fp = bean.utlsFingerprint?.trim()?.lowercase()
         if (bean.realityPubKey.isNotBlank()) {
             reality = OutboundRealityOptions().apply {
                 enabled = true
-                public_key = bean.realityPubKey
-                short_id = bean.realityShortId
+                public_key = bean.realityPubKey.trim()
+                short_id = bean.realityShortId?.trim()?.lowercase() ?: ""
             }
-            if (fp.isNullOrBlank()) fp = "chrome"
+            // REALITY 下无效指纹（空/none/random/randomized）统一回退 chrome
+            if (fp.isNullOrBlank() || fp == "none" || fp == "random" || fp == "randomized") {
+                fp = "chrome"
+            }
         }
-        if (fp.isNotBlank()) {
+        if (!fp.isNullOrBlank()) {
             utls = OutboundUTLSOptions().apply {
                 enabled = true
                 fingerprint = fp

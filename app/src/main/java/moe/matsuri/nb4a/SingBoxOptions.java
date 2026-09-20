@@ -4565,6 +4565,20 @@ public class SingBoxOptions {
 
         public String hop_interval;
 
+        // sing-box 1.14 Hysteria2 QUIC 韧性参数（官方 Hysteria2OutboundOptions）：
+        // 移动网络下保活/空闲超时/接收窗口/路径 MTU 探测/BBR 配置可显著改善断流。
+        public String idle_timeout;
+
+        public String keep_alive_period;
+
+        public Long stream_receive_window;
+
+        public Long connection_receive_window;
+
+        public Boolean disable_path_mtu_discovery;
+
+        public String bbr_profile;
+
     }
 
     public static class Outbound_SelectorOptions extends Outbound {

@@ -53,6 +53,35 @@ class VLESSXhttpFmtTest {
     }
 
     @Test
+    fun xhttpConfigWrapsPlainScFieldsAndDropsEncryption() {
+        // sing-box 1.14 内核要求 sc_* 范围类字段为 {"from":N,"to":N} 对象；
+        // encryption 字段 1.12 起已移除，须静默丢弃；no_grpc_header 恒发射。
+        // extra 使用 sing-box 原生（snake_case）格式以原样透传到合并出口。
+        val bean = parseV2Ray(
+            "vless://00000000-0000-0000-0000-000000000004@example.com:443" +
+                    "?encryption=none&type=xhttp&extra=" +
+                    "%7B%22sc_max_each_post_bytes%22%3A1000000%2C%22sc_min_posts_interval_ms%22%3A10%2C" +
+                    "%22encryption%22%3A%22none%22%2C%22x_padding_bytes%22%3A%22100-200%22%7D#xhttp-range"
+        )
+        bean.initializeDefaultValues()
+
+        val transport = buildSingBoxOutboundStreamSettings(bean)!!
+        val json = JavaUtil.gson.toJsonTree(transport).asJsonObject
+        assertEquals("xhttp", json["type"].asString)
+
+        val scMax = json["sc_max_each_post_bytes"].asJsonObject
+        assertEquals(1000000, scMax["from"].asInt)
+        assertEquals(1000000, scMax["to"].asInt)
+
+        val scMin = json["sc_min_posts_interval_ms"].asJsonObject
+        assertEquals(10, scMin["from"].asInt)
+        assertEquals(10, scMin["to"].asInt)
+
+        assertFalse("encryption 字段必须被丢弃", json.has("encryption"))
+        assertTrue("no_grpc_header 必须发射", json["no_grpc_header"].asBoolean)
+    }
+
+    @Test
     fun invalidUrlModeFallsBackToAutoBeforeConfigGeneration() {
         val bean = parseV2Ray(
             "vless://00000000-0000-0000-0000-000000000003@example.com:443" +

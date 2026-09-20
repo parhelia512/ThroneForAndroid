@@ -34,6 +34,8 @@ func serveProtect(path string, callback func(fd int)) io.Closer {
 		log.Println("serveProtect listen failed:", err)
 		return nil
 	}
+	// 放开权限：跨进程（:bg 与主进程）访问 protect socket 需要
+	_ = os.Chmod(path, 0666)
 	server := &protectServer{listener: listener, done: make(chan struct{})}
 	go server.loop(callback)
 	return server

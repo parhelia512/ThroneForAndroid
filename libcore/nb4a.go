@@ -16,7 +16,19 @@ import (
 )
 
 //go:linkname resourcePaths github.com/sagernet/sing-box/constant.resourcePaths
-var resourcePaths []string
+var (
+	resourcePaths     []string
+	protectSocketPath string
+)
+
+// GetProtectSocketPath 返回 protect unix socket 的绝对路径（no_backup 目录下）。
+// 未初始化时回退相对路径（兼容 chdir 后的工作目录语义）。
+func GetProtectSocketPath() string {
+	if protectSocketPath != "" {
+		return protectSocketPath
+	}
+	return "protect_path"
+}
 
 func NekoLogPrintln(s string) {
 	log.Println(s)
@@ -46,6 +58,8 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	tmp := filepath.Join(cachePath, "../no_backup")
 	os.MkdirAll(tmp, 0755)
 	os.Chdir(tmp)
+	// protect socket 使用绝对路径，避免依赖 chdir 后的相对路径语义
+	protectSocketPath = filepath.Join(tmp, "protect_path")
 
 	// sing-box fs
 	resourcePaths = append(resourcePaths, externalAssets)

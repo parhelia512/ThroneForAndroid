@@ -66,18 +66,23 @@ func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) error {
 	w.urlTestTrace("protect", "begin fd=%d processBg=%v", fd, isBgProcess)
 	// call protect_path
 	if !isBgProcess {
-		err := sendFdToProtect(fd, "protect_path")
-		if err == nil {
-			w.urlTestTrace("protect", "ok fd=%d elapsed=%s via=protect_path", fd, time.Since(started))
-			return nil
-		}
-		// protect 服务不存在/无监听 = VPN 未运行，无需 protect，放行；
-		// 其余失败（如 100ms ack 超时）说明 VPN 在跑但 protect 异常，必须
-		// fail-fast——吞掉错误会让未 protect 的测速流量回环进 tun，经当前
-		// 节点"套娃"出站，测速结果与节点直连可用性彻底脱节。
-		if errors.Is(err, unix.ENOENT) || errors.Is(err, unix.ECONNREFUSED) {
-			w.urlTestTrace("protect", "skip fd=%d elapsed=%s reason=no-vpn-service error=%v", fd, time.Since(started), err)
-			return nil
+		var err error
+		protectPath := GetProtectSocketPath()
+		// 立即重试（无 sleep 等待）：吸收偶发的瞬时失败；VPN 未运行类错误仍直接放行
+		for attempt := 0; attempt < 3; attempt++ {
+			err = sendFdToProtect(fd, protectPath)
+			if err == nil {
+				w.urlTestTrace("protect", "ok fd=%d elapsed=%s via=protect_path attempt=%d", fd, time.Since(started), attempt+1)
+				return nil
+			}
+			// protect 服务不存在/无监听 = VPN 未运行，无需 protect，放行；
+			// 其余失败说明 VPN 在跑但 protect 异常，必须 fail-fast——吞掉错误
+			// 会让未 protect 的测速流量回环进 tun，经当前节点"套娃"出站，
+			// 测速结果与节点直连可用性彻底脱节。
+			if errors.Is(err, unix.ENOENT) || errors.Is(err, unix.ECONNREFUSED) {
+				w.urlTestTrace("protect", "skip fd=%d elapsed=%s reason=no-vpn-service error=%v", fd, time.Since(started), err)
+				return nil
+			}
 		}
 		w.urlTestTrace("protect", "failed fd=%d elapsed=%s error=%v", fd, time.Since(started), err)
 		return E.Cause(err, "protect fd via protect_path")

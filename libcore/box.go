@@ -2,6 +2,7 @@ package libcore
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/http2"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/experimental/v2rayapi"
@@ -35,6 +38,24 @@ import (
 
 var mainInstance *BoxInstance
 var boxInstanceSequence atomic.Uint64
+
+// urltest 实例关闭后的节流 GC：2s 窗口内多次关闭只触发一次完整回收，
+// 避免批量延迟测试时反复 stop-the-world。
+var lastUrlTestGc atomic.Int64
+
+const (
+	defaultFallbackURL = "https://www.gstatic.com/generate_204"
+	defaultCFURL       = "https://cp.cloudflare.com/generate_204"
+	browserUserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+// getFallbackLink 返回与主测速 URL 互备的备用测速 URL（cloudflare↔gstatic）。
+func getFallbackLink(primaryLink string) string {
+	if strings.Contains(primaryLink, "cloudflare.com") {
+		return defaultFallbackURL
+	}
+	return defaultCFURL
+}
 
 type boxLifecycleState uint8
 
@@ -354,6 +375,18 @@ func (b *BoxInstance) Close() (err error) {
 	} else if b.Box != nil {
 		err = b.Box.Close()
 	}
+	// urltest 实例（批量延迟测试）关闭后节流触发完整 GC，
+	// 回收 QUIC/TLS 会话等大对象，防止批量测速后 RSS 抬升不回落。
+	if b.isURLTest {
+		now := time.Now().UnixMilli()
+		if now-lastUrlTestGc.Load() > 2000 {
+			lastUrlTestGc.Store(now)
+			go func() {
+				runtime.GC()
+				debug.FreeOSMemory()
+			}()
+		}
+	}
 	return err
 }
 
@@ -425,16 +458,45 @@ func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err err
 		i = mainInstance
 	}
 	boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.UrlTest link=%s timeout=%dms instance=%v", link, timeout, i != nil))
+
+	// primary/fallback 超时拆分：主测留足预算，备用 URL 用更短超时快速互备
+	primaryTimeout := timeout
+	fallbackTimeout := int32(2000)
+	if timeout > 3500 {
+		primaryTimeout = timeout - 1500
+		fallbackTimeout = 2000
+	} else if timeout < 2000 {
+		fallbackTimeout = timeout
+	}
+
 	if i == nil {
 		// 无实例：直连测试（单 GET，计时含拨号）
-		client := &http.Client{Timeout: time.Duration(timeout) * time.Millisecond}
+		client := &http.Client{Timeout: time.Duration(primaryTimeout) * time.Millisecond}
 		latency, err = urlTestDirect(client, link)
+		if err != nil {
+			fallback := getFallbackLink(link)
+			boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.UrlTest direct failed: %v, trying fallback: %s", err, fallback))
+			fbClient := &http.Client{Timeout: time.Duration(fallbackTimeout) * time.Millisecond}
+			latency, err = urlTestDirect(fbClient, fallback)
+		}
 	} else {
 		var connectionTracker adapter.ConnectionTracker
 		if i.v2api != nil {
 			connectionTracker = i.v2api
 		}
-		latency, err = urlTest(i, connectionTracker, link, timeout)
+		latency, err = urlTest(i, connectionTracker, link, primaryTimeout)
+		if err != nil {
+			primaryErr := err
+			fallback := getFallbackLink(link)
+			boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.UrlTest primary failed: %v, trying fallback: %s", err, fallback))
+			var fbErr error
+			latency, fbErr = urlTest(i, connectionTracker, fallback, fallbackTimeout)
+			if fbErr != nil {
+				err = primaryErr
+			} else {
+				err = nil
+			}
+		}
 	}
 	boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.UrlTest result latency=%dms err=%v", latency, err))
 	return
@@ -493,48 +555,83 @@ func urlTest(instance *BoxInstance, tracker adapter.ConnectionTracker, link stri
 	}
 	defer conn.Close()
 
-	// client 恒复用上面建立的连接（keep-alive）；重定向不跟随（generate_204 类直返）。
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(context.Context, string, string) (net.Conn, error) {
-				return conn, nil
-			},
+	// 探测 transport：启用 HTTP/2（ALPN h2 + http/1.1），复用上面建立的连接（keep-alive）；
+	// 重定向不跟随（generate_204 类直返）。
+	transport := &http.Transport{
+		DialContext: func(context.Context, string, string) (net.Conn, error) {
+			return conn, nil
 		},
+		TLSClientConfig: &tls.Config{
+			ServerName:         hostname,
+			InsecureSkipVerify: true,
+			NextProtos:         []string{"h2", "http/1.1"},
+		},
+		ForceAttemptHTTP2: true,
+	}
+	_ = http2.ConfigureTransport(transport)
+	client := &http.Client{
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 	defer client.CloseIdleConnections()
 
-	doHead := func() error {
-		req, err := http.NewRequestWithContext(ctx, http.MethodHead, link, nil)
+	// doRequest 执行单次探测请求：状态码 >= 500 判失败（4xx 视为端点对
+	// 该方法不兼容，由预热阶段的 GET 重试兜底）。
+	doRequest := func(method string) error {
+		req, err := http.NewRequestWithContext(ctx, method, link, nil)
 		if err != nil {
 			return err
 		}
+		req.Header.Set("User-Agent", browserUserAgent)
 		resp, err := client.Do(req)
 		if err != nil {
 			return err
 		}
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
-		if resp.StatusCode >= 400 {
+		if resp.StatusCode >= 500 {
 			return E.New("unexpected status: ", resp.Status)
 		}
 		return nil
 	}
 
-	// 第一次：预热（建立 TLS 会话等），不计时
+	// 第一次：预热（建立 TLS 会话等），不计时。
+	// HEAD 不兼容的目标（EOF/405/403/5xx 等）自动以 GET 重试预热。
 	warmupStarted := time.Now()
 	instance.urlTestTrace("warmup-head", "begin")
-	if err = doHead(); err != nil {
+	methodUsed := http.MethodHead
+	err = doRequest(methodUsed)
+	if err != nil {
+		instance.urlTestTrace("warmup-head", "head failed elapsed=%s error=%v, retry with GET", time.Since(warmupStarted), err)
+		reqGet, errGet := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+		if errGet == nil {
+			reqGet.Header.Set("User-Agent", browserUserAgent)
+			warmupStarted = time.Now()
+			respGet, errGetDo := client.Do(reqGet)
+			if errGetDo == nil {
+				_, _ = io.Copy(io.Discard, respGet.Body)
+				_ = respGet.Body.Close()
+				if respGet.StatusCode < 500 {
+					err = nil
+					methodUsed = http.MethodGet
+				} else {
+					err = fmt.Errorf("HTTP error %d", respGet.StatusCode)
+				}
+			}
+		}
+	}
+	if err != nil {
 		boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.urlTest warmup request failed: %v", err))
 		instance.urlTestTrace("warmup-head", "failed elapsed=%s totalElapsed=%s error=%v", time.Since(warmupStarted), time.Since(totalStarted), err)
 		return 0, err
 	}
-	instance.urlTestTrace("warmup-head", "ok elapsed=%s", time.Since(warmupStarted))
-	// 第二次：复用连接，纯 RTT 计时
+	instance.urlTestTrace("warmup-head", "ok elapsed=%s method=%s", time.Since(warmupStarted), methodUsed)
+	// 第二次：复用连接，纯 RTT 计时（沿用预热成功的方法）
 	start := time.Now()
 	instance.urlTestTrace("measure-head", "begin reusedConnection=true")
-	if err = doHead(); err != nil {
+	if err = doRequest(methodUsed); err != nil {
 		boxPlatformLogWriter.WriteMessage(sblog.LevelDebug, fmt.Sprintf("box.urlTest measure request failed after %dms: %v", time.Since(start).Milliseconds(), err))
 		instance.urlTestTrace("measure-head", "failed elapsed=%s totalElapsed=%s error=%v", time.Since(start), time.Since(totalStarted), err)
 		return 0, err
@@ -571,7 +668,7 @@ func goServeProtect(start bool) {
 		protectCloser = nil
 	}
 	if start {
-		protectCloser = serveProtect("protect_path", func(fd int) {
+		protectCloser = serveProtect(GetProtectSocketPath(), func(fd int) {
 			intfBox.AutoDetectInterfaceControl(int32(fd))
 		})
 	}

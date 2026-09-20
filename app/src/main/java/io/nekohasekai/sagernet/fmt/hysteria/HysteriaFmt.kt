@@ -269,6 +269,12 @@ fun getFirstPort(portStr: String): Int {
         .substringBefore("-").toIntOrNull() ?: 443
 }
 
+// 端口跳跃生效时的 hop_interval 决策（纯函数便于单测）：
+// 下限 15s（sing-quic 硬下限 5s，取更保守值），未配置或低于下限时默认 30s。
+fun resolveHopInterval(hopInterval: Int?): Int {
+    return if (hopInterval != null && hopInterval >= 15) hopInterval else 30
+}
+
 fun HysteriaBean.canUseSingBox(): Boolean {
     if (protocol != HysteriaBean.PROTOCOL_UDP) return false
     return true
@@ -323,9 +329,15 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             if (port != null) {
                 server_port = port
             } else {
-                server_ports = hopPortsToSingboxList(bean.serverPorts)
+                // 端口跳跃列表为空时回退多端口配置的首端口，不发射空 server_ports
+                val hopList = hopPortsToSingboxList(bean.serverPorts)
+                if (hopList.isNotEmpty()) {
+                    server_ports = hopList
+                    hop_interval = "${resolveHopInterval(bean.hopInterval)}s"
+                } else {
+                    server_port = getFirstPort(bean.serverPorts)
+                }
             }
-            hop_interval = "${bean.hopInterval}s"
             up_mbps = bean.uploadMbps
             down_mbps = bean.downloadMbps
             if (bean.obfuscation.isNotBlank()) {
@@ -334,14 +346,20 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
                     password = bean.obfuscation
                 }
             }
-//            disable_mtu_discovery = bean.disableMtuDiscovery
             password = bean.authPayload
-//            if (bean.streamReceiveWindow > 0) {
-//                recv_window_conn = bean.streamReceiveWindow.toLong()
-//            }
-//            if (bean.connectionReceiveWindow > 0) {
-//                recv_window_conn = bean.connectionReceiveWindow.toLong()
-//            }
+            // QUIC & 移动网络韧性优化（sing-box 1.14 Hysteria2OutboundOptions）
+            keep_alive_period = "15s"
+            idle_timeout = "30s"
+            if (bean.disableMtuDiscovery) {
+                disable_path_mtu_discovery = true
+            }
+            if (bean.streamReceiveWindow != null && bean.streamReceiveWindow > 0) {
+                stream_receive_window = bean.streamReceiveWindow.toLong()
+            }
+            if (bean.connectionReceiveWindow != null && bean.connectionReceiveWindow > 0) {
+                connection_receive_window = bean.connectionReceiveWindow.toLong()
+            }
+            bbr_profile = "standard"
             tls = SingBoxOptions.OutboundTLSOptions().apply {
                 // SNI 为空时回退服务器地址；alpn 从节点配置解析，不再硬编码 h3
                 server_name = bean.sni.ifBlank { bean.serverAddress }

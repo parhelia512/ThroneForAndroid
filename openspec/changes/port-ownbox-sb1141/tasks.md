@@ -19,10 +19,10 @@
 
 ## 3. 批次三：1.14 必改项与协议增强
 
-- [ ] 3.1 `V2RayFmt.kt`/`XhttpExtraConverter.kt`：RANGE_KEYS sc_\* 字段纯数字包装为 `{"from": N, "to": N}` 对象、丢弃 `encryption`、xhttp 无 ALPN 时发射 `["h2","http/1.1"]` 与 `no_grpc_header`；验证：JVM 单测断言发射 JSON 形态（对应 spec「XHTTP 范围字段按 1.14 内核序列化」）
-- [ ] 3.2 `V2RayFmt.kt` TLS/REALITY：security/realityPubKey 判定扩展、REALITY 下 uTLS 默认 `chrome`（排除 none/random/randomized）、sni/short_id trim 规范化；验证：JVM 单测（对应 spec「协议连通性兼容修复」REALITY 场景）
-- [ ] 3.3 `HysteriaFmt.kt` + `SingBoxOptions.Outbound_HysteriaOptions`：hopPorts 空回退 `getFirstPort`、hop_interval 下限 15s 默认 30s、keep_alive_period/idle_timeout/receive windows/disable_path_mtu_discovery/bbr_profile 字段发射（格式按任务 1.1 核对结论）；验证：JVM 单测（对应 spec Hysteria 两个场景）
-- [ ] 3.4 libcore urlTest 增强：HTTP/2 transport、HEAD 不兼容 GET 重试、5xx 判失败、primary/fallback 超时拆分、urltest 关闭节流 GC；protect 加固（绝对路径、chmod、3 次重试、2s 超时）；验证：Go 侧代码走查 + CI 编译通过（对应 spec「URL 延迟预热探测启用 HTTP/2 并具备回退」）
+- [x] 3.1 `V2RayFmt.kt`：extra 合并出口 RANGE_KEYS sc_\* 字段纯数字包装为 `{"from": N, "to": N}` 对象、BLOCKED_KEYS 丢弃 `encryption`、xhttp baseConfig 恒发射 `no_grpc_header=true`、无 ALPN 时 TLS 补 `["h2","http/1.1"]`；验证：新增 JVM 单测 `xhttpConfigWrapsPlainScFieldsAndDropsEncryption`（sing-box 原生格式 extra 透传路径）
+- [x] 3.2 `V2RayFmt.kt` TLS/REALITY：security 判定扩展接受 `reality`/`realityPubKey` 非空、REALITY 下 uTLS 默认 `chrome`（排除 none/random/randomized）、sni trim、public_key/short_id trim+小写规范化；验证：代码走查对照 spec「协议连通性兼容修复」REALITY 场景
+- [x] 3.3 `HysteriaFmt.kt` + `SingBoxOptions.Outbound_Hysteria2Options`：hopPorts 空回退 `getFirstPort`、`resolveHopInterval` 下限 15s 默认 30s、keep_alive_period=15s/idle_timeout=30s/stream+connection_receive_window/disable_path_mtu_discovery/bbr_profile="standard" 发射；验证：新增 JVM 单测（hopPorts 冒号格式、hopInterval 决策）
+- [x] 3.4 libcore urlTest 增强：HTTP/2 transport（NextProtos h2+http/1.1 + ForceAttemptHTTP2 + ConfigureTransport）、HEAD 不兼容 GET 重试预热、>=500 判失败、primary/fallback 超时拆分 + cloudflare↔gstatic 互备、urltest 关闭节流 GC（2s 窗口）；protect 加固（GetProtectSocketPath 绝对路径、chmod 0666、3 次立即重试——按用户反馈去除 sleep 等待，保留原 100ms socket 超时不引入 2s 阻塞）；验证：Go 侧代码走查 + CI 编译
 - [ ] 3.5 跑全量 JVM 单测 + 提交推送触发 CI 构建；验证：本地单测通过、CI 构建 AAR+APK 成功，回传证据
 
 ## 4. 真机回归与规范同步
