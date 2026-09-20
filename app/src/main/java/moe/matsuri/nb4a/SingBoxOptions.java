@@ -316,7 +316,9 @@ public class SingBoxOptions {
 
         public Boolean reverse_mapping;
 
-        public DNSFakeIPOptions fakeip;
+        // sing-box 1.14：fakeip 迁移为 dns.servers 中 type:"fakeip" 的 server，
+        // 顶层 dns.fakeip 已被官方移除，继续发射会解析失败。
+        // public DNSFakeIPOptions fakeip;
 
         // Generate note: nested type DNSClientOptions
         public String strategy;
@@ -331,21 +333,29 @@ public class SingBoxOptions {
 
     }
 
+    // sing-box 1.14 typed DNS server：旧式 address/address_resolver/address_strategy/
+    // address_fallback_delay/strategy 字段已被官方移除，继续发射会解析失败。
     public static class DNSServerOptions extends SingBoxOption {
+
+        public String type;
 
         public String tag;
 
-        public String address;
+        public String server;
 
-        public String address_resolver;
+        public Integer server_port;
 
-        public String address_strategy;
-
-        public Long address_fallback_delay;
-
-        public String strategy;
+        public String path;
 
         public String detour;
+
+        public String domain_resolver;
+
+        public String domain_strategy;
+
+        public String inet4_range;
+
+        public String inet6_range;
 
     }
 
@@ -4735,6 +4745,12 @@ public class SingBoxOptions {
         public Boolean disable_cache;
 
         public Integer rewrite_ttl;
+
+        // sing-box 1.14：DNS 规则动作（reject/predefined 等）与自定义 rcode；
+        // 原 dns-block server 类型已移除，拦截语义改由 action:"reject" 表达。
+        public String action;
+
+        public String rcode;
 
     }
 

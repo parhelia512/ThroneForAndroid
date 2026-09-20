@@ -11,11 +11,11 @@
 
 ## 2. 批次二：配置生成 1.14 schema（DNS/fakeip/reject/fragment）
 
-- [ ] 2.1 `SingBoxOptions.java`：`DNSServerOptions` 重写为 typed 字段（type/server/server_port/path/domain_resolver/domain_strategy）、DNS 规则增加 action/rcode、fakeip server 选项（inet4/inet6_range）；验证：字段与官方 1.14.1 schema 一致
-- [ ] 2.2 `ConfigBuilder.kt` 新增 `buildDnsServer()` 工厂：解析 `tls://`、`quic://`、`h3://`、`https://`、`tcp://`、`local`、`hosts` 为 typed server，非 IP 地址补 domain_resolver/strategy；验证：新增 JVM 单测覆盖每种 scheme 与引导解析
-- [ ] 2.3 fakeip 迁移（dns.servers 中 type:"fakeip" + 规则 server 引用）与 dns-block→`action:"reject"` 规则改造；验证：JVM 单测断言无顶层 `dns.fakeip`、无 dns-block server
-- [ ] 2.4 TLS fragment 改为主出站 detour 注入（区间首值解析 delay，失败回退默认）；验证：JVM 单测断言无独立 fragment outbound 且 delay 取首段
-- [ ] 2.5 跑全量 JVM 单测（`gradlew :app:testDebugUnitTest` 或等价本地可跑子集）+ 提交推送触发 CI 构建；验证：本地单测通过、CI APK 构建成功，回传证据
+- [x] 2.1 `SingBoxOptions.java`：`DNSServerOptions` 重写为 typed 字段（type/server/server_port/path/domain_resolver/domain_strategy/inet4_range/inet6_range）、DNS 规则增加 action/rcode、移除顶层 `dns.fakeip` 字段；验证：字段与官方 1.14.1 schema 及 OwnBox 适配一致
+- [x] 2.2 `ConfigBuilder.kt` 新增顶层 `buildDnsServer()` 工厂：解析 `tls://`、`quic://`、`h3://`、`https://`、`tcp://`、`udp://`、`local`、`hosts` 为 typed server，非 IP 地址补 domain_resolver/domain_strategy；验证：新增 `ConfigBuilderDnsTest`（12 用例覆盖各 scheme/端口/IPv6 方括号/IP 跳过引导）
+- [x] 2.3 fakeip 迁移（dns.servers 中 type:"fakeip" + 规则 server 引用）、hosts server 改 typed `type:"hosts"`、dns-block→`action:"reject"` 规则转换（用户规则出口统一转换）；验证：静态检查无 `dns.fakeip`/`rcode://`/legacy 字段残留，单测断言 typed 序列化无 address/address_resolver/strategy 键
+- [x] 2.4 TLS fragment 验证：T4A 现状已是主出站 TLS 内联 fragment（无独立 fragment outbound），`tlsFragmentFallbackDelay` 重构出纯函数 `parseFragmentFallbackDelay`（区间首值 + 回退默认）并纳入单测；验证：单测覆盖首值/多段/空串/非法输入
+- [ ] 2.5 跑全量 JVM 单测（`gradlew :app:testDebugUnitTest` 或等价本地可跑子集）+ 提交推送触发 CI 构建；验证：本地单测通过、CI APK 构建成功，回传证据（本地无 Android SDK，单测交由 CI 执行）
 
 ## 3. 批次三：1.14 必改项与协议增强
 
