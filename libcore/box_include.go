@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/adapter/certificate"
 	"github.com/sagernet/sing-box/adapter/endpoint"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/adapter/inbound"
@@ -146,4 +147,10 @@ func nekoboxAndroidServiceRegistry() *service.Registry {
 	registry := service.NewRegistry()
 
 	return registry
+}
+
+// nekoboxAndroidCertificateProviderRegistry 注册 sing-box 1.14 新增的证书提供方
+// registry（对齐官方 include/registry.go 的空 registry，供 ACME/自定义证书源扩展）。
+func nekoboxAndroidCertificateProviderRegistry() *certificate.Registry {
+	return certificate.NewRegistry()
 }

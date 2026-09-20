@@ -59,6 +59,15 @@ func (p *platformLocalDNSTransport) Close() error {
 func (p *platformLocalDNSTransport) Reset() {
 }
 
+// ExchangeAsync 为 sing-box 1.14 DNSTransport 接口新增方法：异步交换，
+// 默认实现为 goroutine 包装同步 Exchange（对齐官方 dns.TransportAdapter 行为）。
+func (p *platformLocalDNSTransport) ExchangeAsync(ctx context.Context, message *mDNS.Msg, callback func(response *mDNS.Msg, err error)) {
+	go func() {
+		resp, err := p.Exchange(ctx, message)
+		callback(resp, err)
+	}()
+}
+
 func (p *platformLocalDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
 	if p.raw && rawQueryFunc != nil {
 		// Raw - Android 10 及以上才有

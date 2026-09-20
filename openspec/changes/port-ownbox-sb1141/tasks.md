@@ -3,10 +3,10 @@
 ## 1. 批次一：libcore 1.14.1 编译适配
 
 - [x] 1.1 联网核对 `SagerNet/sing-box` 官方 `v1.14.1` tag 的 go.mod 依赖族与 hysteria 端口区间语法（`start:end`/`start-end`），将结论记录到本 change 的 design.md 附录（修正 Open Questions），证据：tag go.mod 关键行摘录（已写入 design.md 附录 A）
-- [ ] 1.2 `nb4a.properties` 的 `SINGBOX_VERSION` 改为 `v1.14.1`，`libcore/go.mod` 依赖族按官方 tag 对齐（sing/quic-go/sing-tun/sing-mux 等），保留 T4A 特有依赖；验证：`go.mod` 注释与 `nb4a.properties` 一致、无 fork 来源
-- [ ] 1.3 适配 `libcore/box.go`：ResetNetwork 新签名、CertificateProviderRegistry 注册、selector 兜底扫描（对照 OwnBox 最终态），保持 T4A 既有 urlTest 两阶段语义；验证：代码走查对照 spec「内核升级至 sing-box v1.14.1 保持官方接入契约」
-- [ ] 1.4 适配 `libcore/platform_box.go`（1.14 平台回调补齐 + 不支持项空实现）、`libcore/ruleset.go`（RuleSet.Tag 类型）、`libcore/dns_box.go`；验证：对照 spec「平台接口按 box 实例隔离」MODIFIED 增量
-- [ ] 1.5 适配 `libcore/protocol/vless/**` XHTTP 移植层（qtls.Dial 新签名等）与自定义 outbound（负载均衡等）在 1.14 registry 的注册；验证：代码走查无 1.13 遗留 API 引用
+- [x] 1.2 `nb4a.properties` 的 `SINGBOX_VERSION` 改为 `v1.14.1`，`libcore/go.mod` 依赖族按官方 tag 对齐（sing/quic-go/sing-tun/sing-mux 等），保留 T4A 特有依赖；验证：`go.mod` 注释与 `nb4a.properties` 一致、无 fork 来源（sing v0.9.4 / quic-go mod.7 / sing-tun v0.9.3 / sing-quic v0.7.0 / sing-vmess v0.2.8 / sing-juicity v0.3.0 / x/net v0.57.0 / x/sys v0.47.0，go 1.25.5）
+- [x] 1.3 适配 `libcore/box.go`：ResetNetwork 新签名、CertificateProviderRegistry 注册、selector 兜底扫描（对照 OwnBox 最终态），保持 T4A 既有 urlTest 两阶段语义；验证：代码走查对照 spec「内核升级至 sing-box v1.14.1 保持官方接入契约」通过
+- [x] 1.4 适配 `libcore/platform_box.go`（1.14 平台回调补齐 + 不支持项空实现）、`libcore/ruleset.go`（RuleSet.Tag []string 取首元素）、`libcore/dns_box.go`（ExchangeAsync）；验证：对照 spec「平台接口按 box 实例隔离」MODIFIED 增量通过，与 OwnBox 1.14 适配 diff 逐项一致
+- [x] 1.5 适配 `libcore/protocol/vless/**` XHTTP 移植层（qtls.Dial 四参新签名、移除 UnbindPacketConn 包装、Go 侧 Range 反序列化兼容纯数字/单值字符串）与测试文件 certificate registry 注册；验证：静态检查无 1.13 遗留 API 引用（NewUnbindPacketConn/无参 ReadWIFIState/无参 ResetNetwork 均已清除）
 - [ ] 1.6 提交批次一并推送，触发 GitHub Actions 内核构建 workflow；验证：libcore AAR 构建成功，回传 CI run 链接与结论；失败则在本批次内修复后重推
 
 ## 2. 批次二：配置生成 1.14 schema（DNS/fakeip/reject/fragment）

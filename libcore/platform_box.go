@@ -1,12 +1,14 @@
 package libcore
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"libcore/procfs"
 	"log"
 	"net/netip"
+	"os"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -92,6 +94,12 @@ func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) error {
 
 func (w *boxPlatformInterfaceWrapper) UsePlatformInterface() bool {
 	return true
+}
+
+// ProcessPlatformOptions 为 sing-box 1.14 新增回调：在 OpenInterface 之前
+// 处理平台专属 TUN 选项。Android 侧选项已在 OpenInterface 经 JNI 透传，空实现。
+func (w *boxPlatformInterfaceWrapper) ProcessPlatformOptions(options option.TunPlatformOptions) error {
+	return nil
 }
 
 // OpenInterface 即旧接口的 OpenTun。
@@ -189,7 +197,8 @@ func (w *boxPlatformInterfaceWrapper) RequestPermissionForWIFIState() error {
 	return nil
 }
 
-func (w *boxPlatformInterfaceWrapper) ReadWIFIState() adapter.WIFIState {
+// sing-box 1.14 起 ReadWIFIState 携带 context 参数。
+func (w *boxPlatformInterfaceWrapper) ReadWIFIState(ctx context.Context) adapter.WIFIState {
 	state := strings.Split(intfBox.WIFIState(), ",")
 	return adapter.WIFIState{
 		SSID:  state[0],
@@ -261,8 +270,65 @@ func (w *boxPlatformInterfaceWrapper) SendNotification(notification *adapter.Not
 	return nil
 }
 
+// CancelNotification 为 sing-box 1.14 新增回调（平台通知取消）。Android 侧
+// 通知由 Kotlin 层自行管理，空实现。
+func (w *boxPlatformInterfaceWrapper) CancelNotification(identifier string, typeID int32) error {
+	return nil
+}
+
 func (w *boxPlatformInterfaceWrapper) MyInterfaceAddress() []netip.Addr {
 	return nil
+}
+
+// 以下为 sing-box 1.14 平台接口新增的可选能力（Neighbor/Shell/Bridge）。
+// Android 平台不支持，统一返回显式空实现，保证 wrapper 完整实现官方接口。
+
+func (w *boxPlatformInterfaceWrapper) UsePlatformNeighborResolver() bool {
+	return false
+}
+
+func (w *boxPlatformInterfaceWrapper) StartNeighborMonitor(listener adapter.NeighborUpdateListener) error {
+	return os.ErrInvalid
+}
+
+func (w *boxPlatformInterfaceWrapper) CloseNeighborMonitor(listener adapter.NeighborUpdateListener) error {
+	return nil
+}
+
+func (w *boxPlatformInterfaceWrapper) UsePlatformShell() bool {
+	return false
+}
+
+func (w *boxPlatformInterfaceWrapper) CheckPlatformShell() error {
+	return nil
+}
+
+func (w *boxPlatformInterfaceWrapper) OpenShellSession(user *adapter.PlatformUser, command string, env []string, term string, rows int32, cols int32) (adapter.ShellSession, error) {
+	return nil, os.ErrInvalid
+}
+
+func (w *boxPlatformInterfaceWrapper) LookupUser(username string) (*adapter.PlatformUser, error) {
+	return nil, os.ErrInvalid
+}
+
+func (w *boxPlatformInterfaceWrapper) LookupSFTPServer() (string, error) {
+	return "", os.ErrInvalid
+}
+
+func (w *boxPlatformInterfaceWrapper) ReadSystemSSHHostKey() ([]byte, error) {
+	return nil, os.ErrInvalid
+}
+
+func (w *boxPlatformInterfaceWrapper) TailscaleHostname() string {
+	return ""
+}
+
+func (w *boxPlatformInterfaceWrapper) UsePlatformBridge() bool {
+	return false
+}
+
+func (w *boxPlatformInterfaceWrapper) CreateBridge(options adapter.BridgeOptions) (adapter.BridgeSession, error) {
+	return nil, os.ErrInvalid
 }
 
 // io.Writer

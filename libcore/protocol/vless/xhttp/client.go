@@ -26,7 +26,6 @@ import (
 	"github.com/sagernet/sing-box/log"
 	qtls "github.com/sagernet/sing-quic"
 	"github.com/sagernet/sing/common"
-	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
@@ -402,7 +401,9 @@ func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *V2RayXHTTPBase
 				if dErr != nil {
 					return nil, dErr
 				}
-				return qtls.Dial(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), tlsConfig, cfg)
+				// sing-quic v0.7.0（sing-box 1.14 依赖树）的 qtls.Dial 移除了
+				// RemoteAddr 参数，且不再需要 UnbindPacketConn 包装。
+				return qtls.Dial(ctx, udpConn, tlsConfig, cfg)
 			},
 		}
 	case "2":

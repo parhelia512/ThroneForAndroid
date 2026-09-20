@@ -69,9 +69,14 @@ func prepareLocalGeoRuleSets(ruleSets []option.RuleSet) error {
 			}
 		}
 
-		dstPath, err := convertGeoRuleSetToSRS(rs.Tag, code, filepath.Join(externalAssetsPath, dbName), isGeoIP)
+		// sing-box 1.14 起 option.RuleSet.Tag 为 []string，取首元素作缓存文件名。
+		tag := ""
+		if len(rs.Tag) > 0 {
+			tag = rs.Tag[0]
+		}
+		dstPath, err := convertGeoRuleSetToSRS(tag, code, filepath.Join(externalAssetsPath, dbName), isGeoIP)
 		if err != nil {
-			return fmt.Errorf("rule-set %s: %w", rs.Tag, err)
+			return fmt.Errorf("rule-set %v: %w", rs.Tag, err)
 		}
 		rs.LocalOptions.Path = dstPath
 	}

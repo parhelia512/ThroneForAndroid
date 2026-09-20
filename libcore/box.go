@@ -102,7 +102,8 @@ func ResetAllConnections(system bool) {
 		log.Println("ResetAllConnections: no main instance, skip system=", system)
 		return
 	}
-	b.Network().ResetNetwork()
+	// sing-box 1.14 起 ResetNetwork 需要 context 参数。
+	b.Network().ResetNetwork(context.Background())
 	log.Println("ResetAllConnections: Network.ResetNetwork() done system=", system)
 }
 
@@ -167,6 +168,9 @@ func newSingBoxInstance(config string, localTransport LocalDNSTransport, platfor
 	ctx = box.Context(ctx,
 		nekoboxAndroidInboundRegistry(), nekoboxAndroidOutboundRegistry(), nekoboxAndroidEndpointRegistry(),
 		nekoboxAndroidDNSTransportRegistry(localTransport), nekoboxAndroidServiceRegistry(),
+		// sing-box 1.14 新增证书提供方 registry（对齐官方 include/registry.go），
+		// 不注册时依赖证书 provider 的组件初始化会失败。
+		nekoboxAndroidCertificateProviderRegistry(),
 	)
 	ctx = service.ContextWithDefaultRegistry(ctx)
 	// 每 box 注册独立的 PlatformInterface 实例（对齐官方 libbox 结构）。
@@ -256,6 +260,16 @@ func newSingBoxInstance(config string, localTransport LocalDNSTransport, platfor
 	if proxy, ok := b.Outbound().Outbound("proxy"); ok {
 		if selector, ok := proxy.(*group.Selector); ok {
 			b.selector = selector
+		}
+	}
+	// 兜底：配置未使用 "proxy" 标签的 selector（如自定义 tag）时，
+	// 扫描全部 outbounds 取第一个 selector，保证 selector 相关能力可用。
+	if b.selector == nil {
+		for _, outbound := range b.Outbound().Outbounds() {
+			if selector, ok := outbound.(*group.Selector); ok {
+				b.selector = selector
+				break
+			}
 		}
 	}
 
