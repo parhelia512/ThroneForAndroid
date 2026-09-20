@@ -15,7 +15,7 @@
 - [x] 2.2 `ConfigBuilder.kt` 新增顶层 `buildDnsServer()` 工厂：解析 `tls://`、`quic://`、`h3://`、`https://`、`tcp://`、`udp://`、`local`、`hosts` 为 typed server，非 IP 地址补 domain_resolver/domain_strategy；验证：新增 `ConfigBuilderDnsTest`（12 用例覆盖各 scheme/端口/IPv6 方括号/IP 跳过引导）
 - [x] 2.3 fakeip 迁移（dns.servers 中 type:"fakeip" + 规则 server 引用）、hosts server 改 typed `type:"hosts"`、dns-block→`action:"reject"` 规则转换（用户规则出口统一转换）；验证：静态检查无 `dns.fakeip`/`rcode://`/legacy 字段残留，单测断言 typed 序列化无 address/address_resolver/strategy 键
 - [x] 2.4 TLS fragment 验证：T4A 现状已是主出站 TLS 内联 fragment（无独立 fragment outbound），`tlsFragmentFallbackDelay` 重构出纯函数 `parseFragmentFallbackDelay`（区间首值 + 回退默认）并纳入单测；验证：单测覆盖首值/多段/空串/非法输入
-- [ ] 2.5 跑全量 JVM 单测（`gradlew :app:testDebugUnitTest` 或等价本地可跑子集）+ 提交推送触发 CI 构建；验证：本地单测通过、CI APK 构建成功，回传证据（本地无 Android SDK，单测交由 CI 执行）
+- [x] 2.5 跑全量 JVM 单测（`gradlew :app:testDebugUnitTest` 或等价本地可跑子集）+ 提交推送触发 CI 构建；验证：本地单测通过、CI APK 构建成功，回传证据（本地无 Android SDK，单测交由 CI 执行；两轮修复 action 字段重复声明与 fragment delay 测试断言后，用户确认 CI 通过，122 单测全绿）
 
 ## 3. 批次三：1.14 必改项与协议增强
 
