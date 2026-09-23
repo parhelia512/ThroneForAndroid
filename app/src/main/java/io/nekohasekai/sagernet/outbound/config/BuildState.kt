@@ -21,6 +21,7 @@ internal object Tags {
     const val XRAY_FULL_CONFIG_IN = "throne-bridge"
 
     const val MAIN_CHAIN_PREFIX = "config"
+    const val ROUTE_CHAIN_PREFIX = "route"
     const val TEST_CHAIN_PREFIX = "proxy"
     const val TEST_XRAY_FULL_PREFIX = "xrayfull"
     const val BRIDGE_PREFIX = "bridge"
@@ -46,11 +47,50 @@ internal class BridgeConfig(
  */
 internal class Hop(val id: Long, val outbound: Outbound)
 
+/** DomainSelectors (generate.cpp:85-95): the prefixed selector lists of one DNS routing target. */
+internal class DomainSelectors {
+    val ruleSets = JsonArray()
+    val domains = JsonArray()
+    val suffixes = JsonArray()
+    val keywords = JsonArray()
+    val regexes = JsonArray()
+
+    fun hasInlineConditions(): Boolean =
+        domains.isNotEmpty() || suffixes.isNotEmpty() || keywords.isNotEmpty() || regexes.isNotEmpty()
+}
+
+/**
+ * BuildPrerequisites (generate.cpp:137-171) as far as Android generates them: no DNS-server hijack selectors, no
+ * auxiliary endpoints and no address sets. Test builds leave it empty.
+ */
+internal class Prerequisites {
+    var needDirectDnsRules = false
+    val directDns = DomainSelectors()
+    var needProxyDnsRules = false
+    val proxyDns = DomainSelectors()
+
+    /** The `ip:` values of the route -> direct rules; they bypass the tun only with enable_tun_routing. */
+    val directIpCidrs = ArrayList<String>()
+
+    /** vpn_private_ranges minus every range a non-direct rule takes away from direct (#1741). */
+    val bypassedPrivateRanges = ArrayList<String>()
+
+    /** -1 proxy, -2 direct, -5 proxy (no WARP) and every route outbound profile id -> its `route-<n>` tag. */
+    val outboundMap = HashMap<Long, String>()
+
+    /** One hop list per route outbound, exit first. */
+    val routeOutboundGroups = ArrayList<List<Long>>()
+
+    /** route.rule_set: tag -> download URL, first-seen order. */
+    val ruleSets = LinkedHashMap<String, String>()
+}
+
 /** The per-build state of generate.cpp:180-207 that the sections share. */
 internal class BuildState(val forTest: Boolean) {
     var singToXrayTransitioned = false
     var xrayToSingTransitioned = false
     var proxyUsesXray = false
+    val prerequisites = Prerequisites()
 
     var error = ""
     val outbounds = JsonArray()

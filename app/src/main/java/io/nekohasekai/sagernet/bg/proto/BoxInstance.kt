@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.bg.CoreRuntime
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.outbound.config.GeneratedConfig
 import io.throneproj.mobile.Instance
 import io.throneproj.mobile.Mobile
@@ -25,8 +26,9 @@ abstract class BoxInstance(
     }
 
     protected open fun buildConfig() {
+        // random_inbound_port: a fresh port per start, saved so the app's own requests reach it (mainwindow_setup.cpp:193-196).
+        if (DataStore.randomInboundPort) DataStore.inboundSocksPort = mkPort()
         config = CoreConfigs.buildMain(profile)
-        DataStore.mixedInboundAuthed = DataStore.mixedInboundNeedsAuth
     }
 
     protected open suspend fun loadConfig() {

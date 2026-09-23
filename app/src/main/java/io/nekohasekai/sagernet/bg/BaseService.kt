@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.outbound.json.jsonObjectOf
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
@@ -148,13 +149,32 @@ class BaseService {
             try {
                 return runBlocking {
                     urlTestCurrent(
-                        proxy.box, proxy.core, DataStore.connectionTestURL, DataStore.connectionTestTimeout
+                        proxy.box, proxy.core, DataStore.testUrl, DataStore.urlTestTimeoutMs
                     )
                 }
             } catch (e: Exception) {
                 error(Protocols.genFriendlyMsg(e.readableMessage))
             }
         }
+
+        /**
+         * Instance.updateRuleSets (core/internal/rulesets UpdateAll): every remote rule-set of the running instance,
+         * at most 5 at a time within 60 s. Arrives on a binder thread, so blocking that long is fine.
+         */
+        override fun updateRuleSets(): String = try {
+            val box = data?.takeIf { it.state.connected }?.proxy?.boxOrNull
+            if (box == null) {
+                ruleSetUpdateJson(0, "not running")
+            } else {
+                val update = box.updateRuleSets()
+                ruleSetUpdateJson(update.updated, update.error ?: "")
+            }
+        } catch (e: Throwable) {
+            ruleSetUpdateJson(0, e.readableMessage)
+        }
+
+        private fun ruleSetUpdateJson(updated: Int, error: String): String =
+            jsonObjectOf("updated" to updated, "error" to error).toCompact()
 
         fun stateChanged(s: State, msg: String?) = launch {
             val profileName = profileName
@@ -266,7 +286,6 @@ class BaseService {
         fun stopRunner(restart: Boolean = false, msg: String? = null) {
             DataStore.baseService = null
             DataStore.vpnService = null
-            DataStore.mixedInboundAuthed = false
 
             val serviceId = Integer.toHexString(System.identityHashCode(data))
             val proxy = data.proxy
@@ -426,7 +445,7 @@ class BaseService {
 
             val proxy = ProxyInstance(profile, this)
             data.proxy = proxy
-            BootReceiver.enabled = DataStore.persistAcrossReboot
+            BootReceiver.enabled = DataStore.rememberEnable
             if (!data.closeReceiverRegistered) {
                 val filter = IntentFilter().apply {
                     addAction(Action.RELOAD)

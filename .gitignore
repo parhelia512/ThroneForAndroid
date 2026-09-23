@@ -17,3 +17,6 @@ jniLibs/
 
 # submodules
 /external
+
+# routeprofiles snapshot, fetched by CI (.github/actions/routeprofiles)
+/app/src/main/assets/routeprofiles/

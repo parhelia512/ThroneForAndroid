@@ -32,6 +32,7 @@ import io.nekohasekai.sagernet.aidl.TrafficDataBatch
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.SettingsRegistry
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyGroup
@@ -47,6 +48,7 @@ import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
+import io.nekohasekai.sagernet.ui.route.RouteImports
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.MessageStore
@@ -131,7 +133,7 @@ class MainActivity : ThemedActivity(),
             onNewIntent(intent)
         }
 
-        refreshNavMenu(DataStore.enableClashAPI)
+        refreshNavMenu(DataStore.clashApiEnabled)
 
         // sdk 33 notification
         if (Build.VERSION.SDK_INT >= 33) {
@@ -204,6 +206,11 @@ class MainActivity : ThemedActivity(),
 
         val uri = intent.data ?: return
 
+        if (uri.scheme.equals("throne", true) && RouteImports.isRouteLink(uri.toString())) {
+            importRouteLink(uri.toString())
+            return
+        }
+
         runOnDefaultDispatcher {
             if (uri.scheme == "clash") {
                 importSubscription(uri)
@@ -211,6 +218,17 @@ class MainActivity : ThemedActivity(),
                 importProfile(uri)
             }
         }
+    }
+
+    /** throne://route and throne://remoteroute links (deep link, QR code, clipboard); the Routes screen shows the result. */
+    fun importRouteLink(text: String) {
+        RouteImports.importLink(this, text) { displayFragmentWithId(R.id.nav_route) }
+    }
+
+    /** Opens one settings sub-screen, e.g. Settings › Routing, with the settings root below it. */
+    fun openSettingsScreen(fragmentClass: String, title: CharSequence) {
+        displayFragment(SettingsFragment.forScreen(fragmentClass, title))
+        navigation.menu.findItem(R.id.nav_settings).isChecked = true
     }
 
     fun urlTest(): Int {
@@ -389,6 +407,8 @@ class MainActivity : ThemedActivity(),
     ) {
         DataStore.serviceState = state
         refreshConfigurationProfileState()
+        ((currentMainFragment ?: supportFragmentManager.findFragmentById(R.id.fragment_holder)) as? RouteFragment)
+            ?.onServiceStateChanged()
 
         binding.fab.changeState(state, DataStore.serviceState, animate)
         binding.stats.changeState(state)
@@ -467,7 +487,9 @@ class MainActivity : ThemedActivity(),
                     is RouteFragment -> fragment.updateBottomPadding()
                 }
             }
-            Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
+            // The JSON editors of custom_inbound and dns_object write here from their own activity.
+            Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL,
+            SettingsRegistry.CUSTOM_INBOUND.key, SettingsRegistry.DNS_OBJECT.key -> {
                 if (DataStore.serviceState.canStop) {
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
                         SagerNet.reloadService()

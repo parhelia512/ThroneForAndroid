@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
-import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +17,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
-import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.database.preference.SettingsStore
 import io.nekohasekai.sagernet.databinding.LayoutBackupBinding
 import io.nekohasekai.sagernet.databinding.LayoutImportBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
@@ -466,7 +465,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                     if (!json.has("profiles")) {
                         import.backupConfigurations.isVisible = false
                     }
-                    if (!json.has("rules")) {
+                    if (!json.has("routes")) {
                         import.backupRules.isVisible = false
                     }
                     if (!json.has("settings")) {
@@ -527,17 +526,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     }
 
     companion object {
-        const val BACKUP_VERSION = 2
-    }
-
-    fun Parcelable.toBase64Str(): String {
-        val parcel = Parcel.obtain()
-        writeToParcel(parcel, 0)
-        try {
-            return Util.b64EncodeUrlSafe(parcel.marshall())
-        } finally {
-            parcel.recycle()
-        }
+        const val BACKUP_VERSION = 3
     }
 
     private fun doBackup(
@@ -561,17 +550,11 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 })
             }
             if (rule) {
-                put("rules", JSONArray().apply {
-                    SagerDatabase.rulesDao.allRules().forEach {
-                        put(ruleToJson(it))
-                    }
-                })
+                put("routes", RouteBackup.exportJson())
             }
             if (setting) {
-                put("settings", JSONArray().apply {
-                    PublicDatabase.kvPairDao.all().forEach {
-                        put(it.toBase64Str())
-                    }
+                put("settings", JSONObject().apply {
+                    DataStore.configurationStore.all().forEach { (key, value) -> put(key, value) }
                 })
             }
         }
@@ -603,8 +586,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
-    // Backup format 2: profiles, groups and rules are plain JSON objects (the profile payload is the desktop's
-    // ExportToJson text); settings stay marshalled KeyValuePair parcels. Format 1 (Kryo beans) is not restorable.
+    // Backup format 3: profiles and groups are plain JSON objects (the profile payload is the desktop's ExportToJson
+    // text), `routes` is RouteBackup's array and `settings` maps every settings row to its stored text. Format 2
+    // wrote the old routing rules (dropped) and KeyValuePair parcels; format 1 (Kryo beans) is not restorable.
 
     private fun profileToJson(entity: ProxyEntity): JSONObject = JSONObject().apply {
         put("id", entity.id)
@@ -713,44 +697,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
-    private fun ruleToJson(rule: RuleEntity): JSONObject = JSONObject().apply {
-        put("id", rule.id)
-        put("name", rule.name)
-        put("config", rule.config)
-        put("userOrder", rule.userOrder)
-        put("enabled", rule.enabled)
-        put("domains", rule.domains)
-        put("ip", rule.ip)
-        put("port", rule.port)
-        put("sourcePort", rule.sourcePort)
-        put("network", rule.network)
-        put("source", rule.source)
-        put("protocol", rule.protocol)
-        put("ruleset", rule.ruleset)
-        put("outbound", rule.outbound)
-        put("packages", JSONArray(rule.packages.toList()))
-    }
-
-    private fun ruleFromJson(obj: JSONObject): RuleEntity = RuleEntity(
-        id = obj.optLong("id"),
-        name = obj.optString("name"),
-        config = obj.optString("config"),
-        userOrder = obj.optLong("userOrder"),
-        enabled = obj.optBoolean("enabled"),
-        domains = obj.optString("domains"),
-        ip = obj.optString("ip"),
-        port = obj.optString("port"),
-        sourcePort = obj.optString("sourcePort"),
-        network = obj.optString("network"),
-        source = obj.optString("source"),
-        protocol = obj.optString("protocol"),
-        ruleset = obj.optString("ruleset"),
-        outbound = obj.optLong("outbound"),
-        packages = obj.optJSONArray("packages")?.let { arr -> (0 until arr.length()).map { arr.optString(it) }.toSet() }
-            ?: emptySet(),
-    )
-
-    /** The objects of a format-2 array; a format-1 (Kryo) array holds base64 strings and cannot be restored. */
+    /** The objects of a format-2+ array; a format-1 (Kryo) array holds base64 strings and cannot be restored. */
     private fun objectsOf(content: JSONObject, key: String): List<JSONObject> {
         val array = content.getJSONArray(key)
         return (0 until array.length()).map {
@@ -895,7 +842,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 if (!json.has("profiles")) {
                     import.backupConfigurations.isVisible = false
                 }
-                if (!json.has("rules")) {
+                if (!json.has("routes")) {
                     import.backupRules.isVisible = false
                 }
                 if (!json.has("settings")) {
@@ -944,6 +891,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     fun finishImport(
         content: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean
     ) {
+        var restoredProfileIds: List<Long>? = null
         if (profile && content.has("profiles")) {
             val profiles = objectsOf(content, "profiles").map { profileFromJson(it) }
             val groups = if (content.has("groups")) objectsOf(content, "groups").map { groupFromJson(it) } else emptyList()
@@ -953,26 +901,58 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 SagerDatabase.groupDao.reset()
                 SagerDatabase.groupDao.insert(groups)
             }
+            restoredProfileIds = profiles.map { it.id }
         }
-        if (rule && content.has("rules")) {
-            val rules = objectsOf(content, "rules").map { ruleFromJson(it) }
-            SagerDatabase.rulesDao.reset()
-            SagerDatabase.rulesDao.insert(rules)
+        if (rule && content.has("routes")) {
+            // Profiles keep their ids; without them RouteBackup keeps the ids that exist here.
+            val profileIdMap = restoredProfileIds?.associateWith { it } ?: emptyMap()
+            for (warning in RouteBackup.importJson(content.getJSONArray("routes"), profileIdMap)) {
+                Logs.w("route backup: $warning")
+            }
         }
         if (setting && content.has("settings")) {
-            val settings = mutableListOf<KeyValuePair>()
-            val jsonSettings = content.getJSONArray("settings")
-            for (i in 0 until jsonSettings.length()) {
-                val data = Util.b64Decode(jsonSettings[i] as String)
-                val parcel = Parcel.obtain()
+            val rows = content.optJSONObject("settings")
+            if (rows != null) {
+                DataStore.configurationStore.replaceAll(settingsRows(rows))
+            } else {
+                DataStore.configurationStore.putAll(legacySettings(content.getJSONArray("settings")))
+            }
+        }
+    }
+
+    /** Format-3 settings rows; a registered key whose value the registry rejects is dropped. */
+    private fun settingsRows(rows: JSONObject): Map<String, String> {
+        val out = LinkedHashMap<String, String>()
+        for (key in rows.keys()) {
+            val raw = rows.optString(key)
+            if (SettingsRegistry.find(key)?.accepts(raw) == false) continue
+            out[key] = raw
+        }
+        return out
+    }
+
+    /** Format-2 settings are KeyValuePair parcels under the old keys: only the Android-only keys come back. */
+    private fun legacySettings(array: JSONArray): Map<String, String> {
+        val out = LinkedHashMap<String, String>()
+        for (i in 0 until array.length()) {
+            val data = Util.b64Decode(array.optString(i))
+            val parcel = Parcel.obtain()
+            try {
                 parcel.unmarshall(data, 0, data.size)
                 parcel.setDataPosition(0)
-                settings.add(KeyValuePair.CREATOR.createFromParcel(parcel))
+                val pair = KeyValuePair.CREATOR.createFromParcel(parcel)
+                if (pair.key !in SettingsRegistry.ANDROID_KEYS) continue
+                out[pair.key] = pair.boolean?.let(SettingsStore::encodeBoolean)
+                    ?: pair.long?.toString()
+                    ?: pair.string
+                    ?: pair.float?.toString()
+                    ?: pair.stringSet?.let(SettingsStore::encodeList)
+                    ?: continue
+            } finally {
                 parcel.recycle()
             }
-            PublicDatabase.kvPairDao.reset()
-            PublicDatabase.kvPairDao.insert(settings)
         }
+        return out
     }
 
     private fun showMessage(message: String) {

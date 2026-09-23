@@ -131,16 +131,19 @@ class VpnService : BaseVpnService(),
                 options.getDNSServerAddress().toList().forEach { builder.addDnsServer(it) }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // A family gets its default route only when the tun has an address of it: without any address or
+                // route of a family (and no allowFamily call) Android blocks that family, so IPv6 fails fast
+                // instead of vanishing into a tun that has no IPv6 address (the core does the same below API 33).
                 val inet4RouteAddress = options.getInet4RouteAddress()
                 if (inet4RouteAddress.hasNext()) {
                     inet4RouteAddress.forEach { builder.addRoute(it.address(), it.prefix()) }
-                } else {
+                } else if (options.getInet4Address().hasNext()) {
                     builder.addRoute("0.0.0.0", 0)
                 }
                 val inet6RouteAddress = options.getInet6RouteAddress()
                 if (inet6RouteAddress.hasNext()) {
                     inet6RouteAddress.forEach { builder.addRoute(it.address(), it.prefix()) }
-                } else {
+                } else if (options.getInet6Address().hasNext()) {
                     builder.addRoute("::", 0)
                 }
                 options.getInet4RouteExcludeAddress().forEach {

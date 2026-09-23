@@ -25,6 +25,7 @@ class SpeedTestOutcomeTest {
             listOf(SpeedTestDirection.DOWNLOAD),
             outcome(SpeedTestSettings.MODE_SIMPLE_DOWNLOAD).rates().map { it.direction },
         )
+        assertEquals(emptyList<SpeedTestRate>(), outcome(SpeedTestSettings.MODE_COUNTRY).rates())
     }
 
     @Test
@@ -35,6 +36,8 @@ class SpeedTestOutcomeTest {
         assertNull(completed(error = "network failed"))
         assertNull(completed(stage = "upload"))
         assertNull(completed(mode = "invalid"))
+        // The country mode measures no rate, so the profile keeps its last speed result.
+        assertNull(completed(mode = SpeedTestSettings.MODE_COUNTRY))
     }
 
     @Test

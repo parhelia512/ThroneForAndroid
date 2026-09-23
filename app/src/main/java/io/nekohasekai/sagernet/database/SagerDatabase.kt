@@ -17,8 +17,8 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class],
-    version = 10,
+    entities = [ProxyGroup::class, ProxyEntity::class, RouteProfileEntity::class, RouteRuleEntity::class],
+    version = 11,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -51,9 +51,52 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        /** 10 -> 11: the flat `rules` table gives way to the desktop's route profiles, seeded with the Default one. */
+        val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `rules`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `route_profiles` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL DEFAULT '', `default_outbound_id` INTEGER NOT NULL DEFAULT -1, " +
+                        "`is_remote` INTEGER NOT NULL DEFAULT 0, `remote_url` TEXT NOT NULL DEFAULT '', " +
+                        "`auto_update` INTEGER NOT NULL DEFAULT 0, `remote_last_update` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `route_rules` (`route_profile_id` INTEGER NOT NULL, " +
+                        "`rule_order` INTEGER NOT NULL, `name` TEXT NOT NULL DEFAULT '', `type` INTEGER NOT NULL DEFAULT 0, " +
+                        "`ip_version` TEXT NOT NULL DEFAULT '', `network` TEXT NOT NULL DEFAULT '', " +
+                        "`protocol` TEXT NOT NULL DEFAULT '', `inbound_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`domain_json` TEXT NOT NULL DEFAULT '[]', `domain_suffix_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`domain_keyword_json` TEXT NOT NULL DEFAULT '[]', `domain_regex_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`source_ip_cidr_json` TEXT NOT NULL DEFAULT '[]', `source_ip_is_private` INTEGER NOT NULL DEFAULT 0, " +
+                        "`ip_cidr_json` TEXT NOT NULL DEFAULT '[]', `ip_is_private` INTEGER NOT NULL DEFAULT 0, " +
+                        "`source_port_json` TEXT NOT NULL DEFAULT '[]', `source_port_range_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`port_json` TEXT NOT NULL DEFAULT '[]', `port_range_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`process_name_json` TEXT NOT NULL DEFAULT '[]', `process_path_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`process_path_regex_json` TEXT NOT NULL DEFAULT '[]', `package_name_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`rule_set_json` TEXT NOT NULL DEFAULT '[]', `invert` INTEGER NOT NULL DEFAULT 0, " +
+                        "`outbound_id` INTEGER NOT NULL DEFAULT -2, `action` TEXT NOT NULL DEFAULT 'route', " +
+                        "`reject_method` TEXT NOT NULL DEFAULT '', `no_drop` INTEGER NOT NULL DEFAULT 0, " +
+                        "`override_address` TEXT NOT NULL DEFAULT '', `override_port` TEXT NOT NULL DEFAULT '', " +
+                        "`sniffers_json` TEXT NOT NULL DEFAULT '[]', `sniff_override_dest` INTEGER NOT NULL DEFAULT 0, " +
+                        "`strategy` TEXT NOT NULL DEFAULT '', `wifi_ssid_json` TEXT NOT NULL DEFAULT '[]', " +
+                        "`wifi_bssid_json` TEXT NOT NULL DEFAULT '[]', `tls_spoof` TEXT NOT NULL DEFAULT '', " +
+                        "`tls_spoof_method` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`route_profile_id`, `rule_order`), " +
+                        "FOREIGN KEY(`route_profile_id`) REFERENCES `route_profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL(
+                    "INSERT INTO `route_profiles` (`id`, `name`, `default_outbound_id`) VALUES (1, 'Default', -1)"
+                )
+                db.execSQL(
+                    "INSERT INTO `route_rules` (`route_profile_id`, `rule_order`, `name`, `protocol`, `action`) " +
+                        "VALUES (1, 0, 'Route DNS', 'dns', 'hijack-dns')"
+                )
+            }
+        }
+
         private fun buildProfileDatabase(): SagerDatabase =
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_9_10)
+                .addMigrations(MIGRATION_9_10, MIGRATION_10_11)
 //                .addMigrations(*SagerDatabase_Migrations.build())
                 .setJournalMode(JournalMode.TRUNCATE)
                 .allowMainThreadQueries()
@@ -103,12 +146,12 @@ abstract class SagerDatabase : RoomDatabase() {
 
         val groupDao get() = instance.groupDao()
         val proxyDao get() = instance.proxyDao()
-        val rulesDao get() = instance.rulesDao()
+        val routeDao get() = instance.routeDao()
 
     }
 
     abstract fun groupDao(): ProxyGroup.Dao
     abstract fun proxyDao(): ProxyEntity.Dao
-    abstract fun rulesDao(): RuleEntity.Dao
+    abstract fun routeDao(): RouteDao
 
 }

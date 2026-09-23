@@ -282,13 +282,6 @@ class Tls {
         return false
     }
 
-    /** TLS.cpp:466-472: a profile carrying its own spoof SNI predates the tri-state and stays on. */
-    fun spoofEffectivelyOn(ctx: BuildContext): Boolean {
-        if (!spoof_unspecified) return spoof_enabled
-        if (spoof.isNotEmpty()) return true
-        return ctx.tlsSpoofDefaultOn
-    }
-
     /** TLS.cpp:474-479. */
     fun tlsTricksEffectivelyOn(ctx: BuildContext): Boolean {
         if (tls_tricks) return true
@@ -501,7 +494,10 @@ class Tls {
         return obj
     }
 
-    /** TLS.cpp:400-457. */
+    /**
+     * TLS.cpp:400-457 without `spoof` / `spoof_method` (TLS.cpp:438-444): spoofing needs raw sockets, which an
+     * unrooted app does not have (D8). The spoof fields still round-trip through links and JSON.
+     */
     fun build(ctx: BuildContext): JsonObject {
         val obj = JsonObject()
         if (!enabled) return obj
@@ -527,14 +523,6 @@ class Tls {
             if (fragment_fallback_delay.isNotEmpty()) obj["fragment_fallback_delay"] = fragment_fallback_delay
         }
         if (record_fragment) obj["record_fragment"] = record_fragment
-        if (spoofEffectivelyOn(ctx)) {
-            val sni = if (spoof.isEmpty()) ctx.tlsSpoof.trim() else spoof
-            if (sni.isNotEmpty()) {
-                obj["spoof"] = sni
-                val method = if (spoof_method.isEmpty()) ctx.tlsSpoofMethod.trim() else spoof_method
-                if (method.isNotEmpty()) obj["spoof_method"] = method
-            }
-        }
         if (tlsTricksEffectivelyOn(ctx)) obj["tls_tricks"] = jsonObjectOf("mixedcase_sni" to true)
         ech.build(ctx).let { if (it.isNotEmpty()) obj["ech"] = it }
         val utlsObj = utls.build(ctx)

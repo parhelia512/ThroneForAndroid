@@ -23,6 +23,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.databinding.LayoutScannerBinding
 import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
+import io.nekohasekai.sagernet.ui.route.RouteImports
 import io.nekohasekai.sagernet.ktx.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -101,6 +102,14 @@ class ScannerActivity : ThemedActivity(),
         runOnDefaultDispatcher {
             try {
                 val text = result?.text ?: throw Exception("QR code not found")
+                // Route links are not proxy profiles: MainActivity prompts for them like for a deep link.
+                if (RouteImports.isRouteLink(text)) {
+                    startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
+                        action = Intent.ACTION_VIEW
+                        data = text.trim().toUri()
+                    })
+                    return@runOnDefaultDispatcher
+                }
                 ProfileTextImport.subscriptionLink(text)?.let { link ->
                     startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
                         action = Intent.ACTION_VIEW

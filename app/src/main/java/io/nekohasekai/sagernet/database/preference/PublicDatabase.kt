@@ -9,7 +9,9 @@ import io.nekohasekai.sagernet.SagerNet
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
-@Database(entities = [KeyValuePair::class], version = 1)
+// 1 -> 2 replaced the typed KeyValuePair table with the desktop's `settings` table; the destructive fallback
+// resets the settings once.
+@Database(entities = [SettingEntry::class], version = 2)
 @GenerateRoomMigrations
 abstract class PublicDatabase : RoomDatabase() {
     companion object {
@@ -20,13 +22,14 @@ abstract class PublicDatabase : RoomDatabase() {
                 .allowMainThreadQueries()
                 .enableMultiInstanceInvalidation()
                 .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .setQueryExecutor { GlobalScope.launch { it.run() } }
                 .build()
         }
 
-        val kvPairDao get() = instance.keyValuePairDao()
+        val settingsDao get() = instance.settingsDao()
     }
 
-    abstract fun keyValuePairDao(): KeyValuePair.Dao
+    abstract fun settingsDao(): SettingEntry.Dao
 
 }

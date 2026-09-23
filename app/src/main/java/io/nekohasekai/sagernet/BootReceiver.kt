@@ -27,7 +27,7 @@ class BootReceiver : BroadcastReceiver() {
             SubscriptionUpdater.reconfigureUpdater()
         }
 
-        if (!DataStore.persistAcrossReboot) {   // sanity check
+        if (!DataStore.rememberEnable) {   // sanity check
             enabled = false
             return
         }

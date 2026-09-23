@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import io.nekohasekai.sagernet.database.SettingsMapper
 import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.outbound.`import`.ProfileImport
 
@@ -10,7 +11,7 @@ import io.nekohasekai.sagernet.outbound.`import`.ProfileImport
 object ProfileTextImport {
 
     /** Every outbound found in [text]; empty when nothing parsed. */
-    fun parse(text: String): List<Outbound> = ProfileImport.parseText(text)
+    fun parse(text: String): List<Outbound> = ProfileImport.parse(text, SettingsMapper.xrayVlessPreference()).outbounds
 
     /** The subscription link when the whole text is one `clash://install-config?url=` link, else null. */
     fun subscriptionLink(text: String): String? {

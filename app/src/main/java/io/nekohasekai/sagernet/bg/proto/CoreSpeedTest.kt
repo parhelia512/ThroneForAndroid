@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner.Companion.STAGE_DOW
 import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner.Companion.STAGE_ERROR
 import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner.Companion.STAGE_LATENCY
 import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner.Companion.STAGE_UPLOAD
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.throneproj.mobile.Mobile
 import io.throneproj.mobile.SpeedTestHandler
@@ -44,6 +45,12 @@ class CoreSpeedTestSession(
                 SpeedTestSettings.MODE_SIMPLE_DOWNLOAD -> {
                     simpleDownload = true
                     simpleDownloadAddr = simpleDownloadUrl
+                }
+
+                // Only the exit's country is looked up (TestRunner.cpp:571-583).
+                SpeedTestSettings.MODE_COUNTRY -> {
+                    onlyCountry = true
+                    countryConcurrency = DataStore.testConcurrent
                 }
 
                 else -> {

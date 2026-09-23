@@ -7,7 +7,7 @@ import android.util.Log
 import com.jakewharton.processphoenix.ProcessPhoenix
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.BlankActivity
@@ -99,9 +99,9 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
 
         try {
             report += "Settings: \n"
-            for (pair in PublicDatabase.kvPairDao.all()) {
+            for ((key, value) in DataStore.configurationStore.all()) {
                 report += "\n"
-                report += pair.key + ": " + pair.toString()
+                report += "$key: $value"
             }
         } catch (e: Exception) {
             report += "Export settings failed: " + formatThrowable(e)

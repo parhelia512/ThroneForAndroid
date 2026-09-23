@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.SettingsRegistry
 import moe.matsuri.nb4a.utils.CoreLog
 import java.io.InputStream
 import java.io.OutputStream
@@ -12,10 +13,9 @@ object Logs {
         return stackTrace[4].className.substringAfterLast(".")
     }
 
-    // Levels follow the sing-box log.level mapping: 0=panic 1=warn 2=info 3=debug 4=trace.
-    // Gated at the source; an unreadable DataStore (JVM tests) lets the line through.
-    private fun enabled(required: Int): Boolean {
-        return runCatching { DataStore.logLevel >= required }.getOrDefault(true)
+    // Gated at the source by log_level; an unreadable DataStore (JVM tests) lets the line through.
+    private fun enabled(required: String): Boolean {
+        return runCatching { SettingsRegistry.logAllows(DataStore.logLevel, required) }.getOrDefault(true)
     }
 
     // No app context in JVM unit tests: a failed write is ignored.
@@ -24,49 +24,52 @@ object Logs {
     }
 
     fun d(message: String) {
-        if (!enabled(3)) return
+        if (!enabled("debug")) return
         printLog("[Debug] [${mkTag()}] $message")
     }
 
     fun d(message: String, exception: Throwable) {
-        if (!enabled(3)) return
+        if (!enabled("debug")) return
         printLog("[Debug] [${mkTag()}] $message" + "\n" + exception.stackTraceToString())
     }
 
     fun i(message: String) {
-        if (!enabled(2)) return
+        if (!enabled("info")) return
         printLog("[Info] [${mkTag()}] $message")
     }
 
     fun i(message: String, exception: Throwable) {
-        if (!enabled(2)) return
+        if (!enabled("info")) return
         printLog("[Info] [${mkTag()}] $message" + "\n" + exception.stackTraceToString())
     }
 
     fun w(message: String) {
-        if (!enabled(1)) return
+        if (!enabled("warn")) return
         printLog("[Warning] [${mkTag()}] $message")
     }
 
     fun w(message: String, exception: Throwable) {
-        if (!enabled(1)) return
+        if (!enabled("warn")) return
         printLog("[Warning] [${mkTag()}] $message" + "\n" + exception.stackTraceToString())
     }
 
     fun w(exception: Throwable) {
-        if (!enabled(1)) return
+        if (!enabled("warn")) return
         printLog("[Warning] [${mkTag()}] " + exception.stackTraceToString())
     }
 
     fun e(message: String) {
+        if (!enabled("error")) return
         printLog("[Error] [${mkTag()}] $message")
     }
 
     fun e(message: String, exception: Throwable) {
+        if (!enabled("error")) return
         printLog("[Error] [${mkTag()}] $message" + "\n" + exception.stackTraceToString())
     }
 
     fun e(exception: Throwable) {
+        if (!enabled("error")) return
         printLog("[Error] [${mkTag()}] " + exception.stackTraceToString())
     }
 

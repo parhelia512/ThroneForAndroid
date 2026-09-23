@@ -18,3 +18,12 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 
 DEST="$PWD/app/libs"
 (cd "$THRONE_DIR" && DEST="$DEST" bash script/build_android.sh)
+
+# Bundle the throneproj/routeprofiles snapshot (same as .github/actions/routeprofiles).
+ROUTES="$PWD/app/src/main/assets/routeprofiles"
+rm -rf "$ROUTES"
+mkdir -p "$ROUTES/profile"
+curl -fsSL --retry 3 -o "$ROUTES/srslist.h" https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h
+test -s "$ROUTES/srslist.h"
+curl -fsSL --retry 3 https://codeload.github.com/throneproj/routeprofiles/tar.gz/refs/heads/profile \
+  | tar -xz --strip-components=1 -C "$ROUTES/profile"

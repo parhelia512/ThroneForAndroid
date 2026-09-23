@@ -12,7 +12,6 @@ import android.text.format.Formatter
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
@@ -30,7 +29,6 @@ import androidx.core.net.toUri
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.size
-import kotlinx.coroutines.delay
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceDataStore
@@ -50,6 +48,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.SpeedTestDirection
 import io.nekohasekai.sagernet.SpeedTestOutcome
+import io.nekohasekai.sagernet.SpeedTestSettings
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.CoreServiceClient
@@ -113,6 +112,8 @@ import io.nekohasekai.sagernet.ui.profile.VlessSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.XrayVlessSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.profileSettingsIntent
 import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
+import io.nekohasekai.sagernet.ui.route.RouteImports
+import io.nekohasekai.sagernet.ui.route.RouteQuickSwitch
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.CancellationException
@@ -334,7 +335,6 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         if (!select) {
             toolbar?.inflateMenu(R.menu.add_profile_menu)
-            toolbar?.menu?.findItem(R.id.action_global_mode)?.isChecked = DataStore.globalMode
             toolbar?.setOnMenuItemClickListener(this)
         } else {
             toolbar?.setTitle(titleRes)
@@ -404,11 +404,6 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
 
         DataStore.profileCacheStore.registerChangeListener(this)
-    }
-
-    override fun onPrepareOptionsMenu(menu: Menu) {
-        menu.findItem(R.id.action_global_mode)?.isChecked = DataStore.globalMode
-        super.onPrepareOptionsMenu(menu)
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
@@ -556,6 +551,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 val text = SagerNet.getClipboardText()
                 if (text.isBlank()) {
                     snackbar(getString(R.string.clipboard_empty)).show()
+                } else if (RouteImports.isRouteLink(text)) {
+                    (activity as? MainActivity)?.importRouteLink(text)
                 } else runOnDefaultDispatcher {
                     try {
                         val subscription = ProfileTextImport.subscriptionLink(text)
@@ -761,37 +758,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 urlTest()
             }
 
-            R.id.action_global_mode -> {
-                item.isChecked = !item.isChecked
-                DataStore.globalMode = item.isChecked
-                if (DataStore.serviceState.canStop) {
-                    runOnDefaultDispatcher {
-                        try {
-                            // 等待一段时间确保配置已保存
-                            delay(500)
-                            snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
-                                runOnDefaultDispatcher {
-                                    try {
-                                        // 再次等待确保配置已保存
-                                        delay(100)
-                                        SagerNet.reloadService()
-                                    } catch (e: Exception) {
-                                        Logs.w(e)
-                                        onMainDispatcher {
-                                            snackbar(getString(R.string.service_failed)).show()
-                                        }
-                                    }
-                                }
-                            }.show()
-                        } catch (e: Exception) {
-                            Logs.w(e)
-                            onMainDispatcher {
-                                snackbar(getString(R.string.service_failed)).show()
-                            }
-                        }
-                    }
-                }
-                return true
+            R.id.action_route_profile -> {
+                RouteQuickSwitch.show(this)
             }
         }
         return false
@@ -830,7 +798,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 SpeedTestSnapshot(
                     profileId = profile.id,
                     profileName = profile.displayName(),
-                    mode = DataStore.speedTestMode,
+                    mode = SpeedTestSettings.modeName(DataStore.speedTestMode),
                     stage = SpeedTestQueueRunner.STAGE_ERROR,
                     error = error.readableMessage,
                     done = true,
@@ -1067,8 +1035,8 @@ class ConfigurationFragment @JvmOverloads constructor(
         val group = DataStore.currentGroup()
         Logs.d(
             "URLTestTrace batch=start groupId=${group.id} group=${group.name} " +
-                    "concurrent=${DataStore.connectionTestConcurrent} timeout=${DataStore.connectionTestTimeout}ms " +
-                    "link=${DataStore.connectionTestURL} serviceState=${DataStore.serviceState} " +
+                    "concurrent=${DataStore.testConcurrent} timeout=${DataStore.urlTestTimeoutMs}ms " +
+                    "link=${DataStore.testUrl} serviceState=${DataStore.serviceState} " +
                     "currentProfile=${DataStore.currentProfile} network=${SagerNet.underlyingNetwork}"
         )
 
@@ -1081,9 +1049,9 @@ class ConfigurationFragment @JvmOverloads constructor(
             try {
                 CoreServiceClient.urlTest(
                     profilesList.map { it.id }.toLongArray(),
-                    DataStore.connectionTestURL,
-                    DataStore.connectionTestTimeout,
-                    DataStore.connectionTestConcurrent,
+                    DataStore.testUrl,
+                    DataStore.urlTestTimeoutMs,
+                    DataStore.testConcurrent,
                 ) { profileId, latencyMs, error ->
                     val profile = profiles[profileId] ?: return@urlTest
                     if (error.isEmpty()) {
@@ -2214,7 +2182,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     currentAdapter.remove(index)
                     undoManager.remove(index to proxyEntity)
                 }
-                if (DataStore.confirmProfileDelete) {
+                if (!DataStore.skipDeleteConfirmation) {
                     AlertDialog.Builder(requireContext())
                         .setTitle(R.string.delete_confirm_prompt)
                         .setPositiveButton(R.string.yes) { _, _ -> removeAction() }

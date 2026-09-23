@@ -28,7 +28,8 @@ object CoreLog {
     private fun maxSizeBytes(): Long =
         runCatching { DataStore.logBufSize }.getOrDefault(0).coerceAtLeast(MIN_SIZE_KB) * 1024L
 
-    private fun enabled(): Boolean = runCatching { DataStore.logLevel > 0 }.getOrDefault(true)
+    // "panic" keeps the file empty, the way the old "none" level did.
+    private fun enabled(): Boolean = runCatching { DataStore.logLevel != "panic" }.getOrDefault(true)
 
     private fun stream(): FileOutputStream {
         stream?.let { return it }

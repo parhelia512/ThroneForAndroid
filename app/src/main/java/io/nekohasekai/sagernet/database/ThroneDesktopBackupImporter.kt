@@ -2,11 +2,6 @@ package io.nekohasekai.sagernet.database
 
 import android.database.sqlite.SQLiteDatabase
 import io.nekohasekai.sagernet.GroupType
-import io.nekohasekai.sagernet.IPv6Mode
-import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.SpeedTestSettings
-import io.nekohasekai.sagernet.TunImplementation
-import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.outbound.OutboundFactory
@@ -26,7 +21,7 @@ import kotlin.math.abs
 
 /**
  * 解析 Throne 电脑版 `.thrbackup`（QDataStream + 内嵌 SQLite），
- * 并尽力映射为 T4A 的分组/节点、路由规则与设置。
+ * 并映射为 T4A 的分组/节点、路由配置（DesktopRouteImport）与设置（SettingsRegistry）。
  *
  * 忽略自定义图标（icons/ 下文件）。
  */
@@ -34,12 +29,6 @@ object ThroneDesktopBackupImporter {
 
     private const val MAGIC = "THRN"
     private const val MAX_FORMAT_VERSION = 2
-
-    // Throne RouteRule outboundID
-    private const val DESKTOP_OUT_PROXY = -1
-    private const val DESKTOP_OUT_DIRECT = -2
-    private const val DESKTOP_OUT_BLOCK = -3
-    private const val DESKTOP_OUT_WARP_BYPASS = -5
 
     data class ParsedBackup(
         val formatVersion: Int,
@@ -138,16 +127,22 @@ object ThroneDesktopBackupImporter {
         try {
             val settingsMap = readSettings(db)
             val profiles = if (importProfiles && parsed.hasProfiles) readGroupsAndProfiles(db, settingsMap) else null
-            val rules = if (importRules && parsed.hasRoutes) readRoutes(db, settingsMap) else null
-            // One transaction, and only after everything above parsed: a bad backup leaves the database untouched.
+            var currentRouteId: Long? = null
+            // One transaction (the route import nests in it): a failing write leaves the database untouched.
             SagerDatabase.instance.runInTransaction {
                 profiles?.let { applyGroupsAndProfiles(it) }
-                rules?.let { applyRoutes(it) }
+                if (importRules && parsed.hasRoutes) {
+                    // Rules naming server profiles only keep them when those profiles came along.
+                    currentRouteId = DesktopRouteImport.fromDesktopDb(
+                        db, profiles?.profileIdMap ?: emptyMap(), settingsMap["current_route_id"]?.toLongOrNull(),
+                    )
+                }
             }
             profiles?.let { applySelection(it) }
             if (importSettings && parsed.hasSettings) {
                 applySettings(settingsMap)
             }
+            currentRouteId?.let { DataStore.currentRouteId = it }
         } finally {
             db.close()
             parsed.dbFile.delete()
@@ -263,6 +258,8 @@ object ThroneDesktopBackupImporter {
         val proxies: List<ProxyEntity>,
         val selectedGroup: Long?,
         val selectedProfile: Long?,
+        /** Desktop profile id → id here. */
+        val profileIdMap: Map<Long, Long>,
     )
 
     private fun readGroupsAndProfiles(db: SQLiteDatabase, settings: Map<String, String>): ProfileImportData {
@@ -431,7 +428,7 @@ object ThroneDesktopBackupImporter {
 
         val selectedGroup = settings["current_group"]?.toLongOrNull()?.takeIf { it > 0 }?.let { groupIdMap[it] }
         val selectedProfile = settings["remember_id"]?.toLongOrNull()?.takeIf { it > 0 }?.let { profileIdMap[it] }
-        return ProfileImportData(groups, proxies, selectedGroup, selectedProfile)
+        return ProfileImportData(groups, proxies, selectedGroup, selectedProfile, profileIdMap)
     }
 
     private fun applyGroupsAndProfiles(data: ProfileImportData) {
@@ -475,315 +472,29 @@ object ThroneDesktopBackupImporter {
 
     // endregion
 
-    // region routes
-
-    private fun readRoutes(db: SQLiteDatabase, settings: Map<String, String>): List<RuleEntity> {
-        val currentRouteId = settings["current_route_id"]?.toLongOrNull()
-        val routeProfileIds = ArrayList<Long>()
-        try {
-            db.rawQuery("SELECT id FROM route_profiles ORDER BY id", null).use { c ->
-                val i = c.getColumnIndex("id")
-                while (c.moveToNext()) routeProfileIds.add(c.getLong(i))
-            }
-        } catch (e: Exception) {
-            Logs.w(e)
-        }
-        if (routeProfileIds.isEmpty()) return emptyList()
-        val targetIds = if (currentRouteId != null && routeProfileIds.contains(currentRouteId)) {
-            listOf(currentRouteId)
-        } else {
-            routeProfileIds
-        }
-
-        val rules = ArrayList<RuleEntity>()
-        var userOrder = 1L
-        for (rpId in targetIds) {
-            db.rawQuery(
-                "SELECT * FROM route_rules WHERE route_profile_id = ? ORDER BY rule_order",
-                arrayOf(rpId.toString())
-            ).use { c ->
-                fun idx(n: String) = c.getColumnIndex(n)
-                val iName = idx("name")
-                val iNetwork = idx("network")
-                val iProtocol = idx("protocol")
-                val iDomain = idx("domain_json")
-                val iDomSuf = idx("domain_suffix_json")
-                val iDomKey = idx("domain_keyword_json")
-                val iDomRe = idx("domain_regex_json")
-                val iSrcIp = idx("source_ip_cidr_json")
-                val iSrcPriv = idx("source_ip_is_private")
-                val iIp = idx("ip_cidr_json")
-                val iIpPriv = idx("ip_is_private")
-                val iSrcPort = idx("source_port_json")
-                val iSrcPortR = idx("source_port_range_json")
-                val iPort = idx("port_json")
-                val iPortR = idx("port_range_json")
-                val iRuleSet = idx("rule_set_json")
-                val iOutbound = idx("outbound_id")
-                val iAction = idx("action")
-                while (c.moveToNext()) {
-                    val action = (if (iAction >= 0) c.getString(iAction) else null) ?: "route"
-                    // T4A ConfigBuilder already injects hijack-dns / sniff plumbing
-                    if (action == "hijack-dns" || action == "sniff" || action == "resolve") continue
-
-                    val domainParts = ArrayList<String>()
-                    parseStringList(if (iDomain >= 0) c.getString(iDomain) else null).forEach {
-                        domainParts.add(if (it.startsWith("full:")) it else "full:$it")
-                    }
-                    parseStringList(if (iDomSuf >= 0) c.getString(iDomSuf) else null).forEach {
-                        domainParts.add(
-                            when {
-                                it.startsWith("domain:") || it.startsWith("full:") ||
-                                    it.startsWith("geosite:") || it.startsWith("geosite-") -> it
-                                else -> "domain:$it"
-                            }
-                        )
-                    }
-                    parseStringList(if (iDomKey >= 0) c.getString(iDomKey) else null).forEach {
-                        domainParts.add(if (it.startsWith("keyword:")) it else "keyword:$it")
-                    }
-                    parseStringList(if (iDomRe >= 0) c.getString(iDomRe) else null).forEach {
-                        domainParts.add(if (it.startsWith("regexp:")) it else "regexp:$it")
-                    }
-
-                    val ipParts = ArrayList<String>()
-                    parseStringList(if (iIp >= 0) c.getString(iIp) else null).forEach { ipParts.add(it) }
-                    if (iIpPriv >= 0 && c.getInt(iIpPriv) != 0) {
-                        ipParts.add("geoip:private")
-                    }
-                    val srcParts = ArrayList<String>()
-                    parseStringList(if (iSrcIp >= 0) c.getString(iSrcIp) else null).forEach { srcParts.add(it) }
-                    if (iSrcPriv >= 0 && c.getInt(iSrcPriv) != 0) {
-                        // no dedicated field; approximate via source list note — skip private flag
-                    }
-
-                    val remoteRulesets = ArrayList<String>()
-                    parseStringList(if (iRuleSet >= 0) c.getString(iRuleSet) else null).forEach { rs ->
-                        when {
-                            rs.startsWith("http://") || rs.startsWith("https://") -> remoteRulesets.add(rs)
-                            rs.startsWith("geoip:") || rs.startsWith("geoip-") -> ipParts.add(rs)
-                            rs.startsWith("geosite:") || rs.startsWith("geosite-") -> domainParts.add(rs)
-                            else -> {
-                                // unknown token: keep as domain ruleset-ish
-                                domainParts.add(rs)
-                            }
-                        }
-                    }
-
-                    val ports = ArrayList<String>()
-                    parseStringList(if (iPort >= 0) c.getString(iPort) else null).forEach { ports.add(it) }
-                    parseStringList(if (iPortR >= 0) c.getString(iPortR) else null).forEach {
-                        // desktop ranges often "1000:2000"; T4A uses same colon form in port field
-                        ports.add(it)
-                    }
-                    val srcPorts = ArrayList<String>()
-                    parseStringList(if (iSrcPort >= 0) c.getString(iSrcPort) else null).forEach { srcPorts.add(it) }
-                    parseStringList(if (iSrcPortR >= 0) c.getString(iSrcPortR) else null).forEach { srcPorts.add(it) }
-
-                    val network = if (iNetwork >= 0) c.getString(iNetwork) ?: "" else ""
-                    val protocol = if (iProtocol >= 0) c.getString(iProtocol) ?: "" else ""
-                    // skip pure dns protocol rules (usually paired with hijack-dns)
-                    if (protocol.equals("dns", ignoreCase = true) && domainParts.isEmpty() && ipParts.isEmpty()) {
-                        continue
-                    }
-
-                    val outboundId = if (iOutbound >= 0) c.getInt(iOutbound) else DESKTOP_OUT_DIRECT
-                    val outbound = when (action) {
-                        "reject" -> -2L
-                        else -> mapOutboundId(outboundId)
-                    }
-
-                    // Skip empty rules that would match everything to proxy/direct unintentionally
-                    val hasMatch = domainParts.isNotEmpty() || ipParts.isNotEmpty() ||
-                        ports.isNotEmpty() || srcPorts.isNotEmpty() || srcParts.isNotEmpty() ||
-                        network.isNotBlank() || protocol.isNotBlank() || remoteRulesets.isNotEmpty()
-                    if (!hasMatch) continue
-
-                    rules.add(
-                        RuleEntity(
-                            id = userOrder,
-                            name = (if (iName >= 0) c.getString(iName) else null)
-                                ?.takeIf { it.isNotBlank() } ?: "Rule $userOrder",
-                            userOrder = userOrder,
-                            enabled = true,
-                            domains = domainParts.joinToString("\n"),
-                            ip = ipParts.joinToString("\n"),
-                            port = ports.joinToString(","),
-                            sourcePort = srcPorts.joinToString(","),
-                            network = network,
-                            source = srcParts.joinToString("\n"),
-                            protocol = protocol,
-                            ruleset = remoteRulesets.joinToString("\n"),
-                            outbound = outbound,
-                        )
-                    )
-                    userOrder++
-                }
-            }
-        }
-
-        return rules
-    }
-
-    private fun applyRoutes(rules: List<RuleEntity>) {
-        SagerDatabase.rulesDao.reset()
-        if (rules.isNotEmpty()) {
-            SagerDatabase.rulesDao.insert(rules)
-        }
-    }
-
-    private fun mapOutboundId(desktopId: Int): Long = when (desktopId) {
-        DESKTOP_OUT_PROXY -> 0L
-        DESKTOP_OUT_DIRECT, DESKTOP_OUT_WARP_BYPASS -> -1L
-        DESKTOP_OUT_BLOCK -> -2L
-        else -> if (desktopId > 0) desktopId.toLong() else 0L
-    }
-
-    private fun parseStringList(raw: String?): List<String> {
-        if (raw.isNullOrBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(raw)
-            buildList {
-                for (i in 0 until arr.length()) {
-                    val s = arr.optString(i, "")
-                    if (s.isNotBlank()) add(s)
-                }
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
-    // endregion
-
     // region settings
 
+    /**
+     * The registry-driven upsert of the desktop's `settings` rows (R7 §4.0 S3/S5): every adopted key whose value
+     * its entry accepts is written verbatim, anything else (desktop-only keys, invalid values) is skipped. The
+     * guards: a non-loopback inbound_address is only taken while LAN access is already on here, vpn_strict_route is
+     * not adopted (fixed on Android) and current_route_id comes from the route import.
+     */
     private fun applySettings(s: Map<String, String>) {
-        val store = DataStore.configurationStore
-
-        fun putBool(key: String, value: Boolean) = store.putBoolean(key, value)
-        fun putStr(key: String, value: String) = store.putString(key, value)
-        fun putIntStr(key: String, value: Int) = store.putString(key, value.toString())
-        fun putInt(key: String, value: Int) = store.putInt(key, value)
-
-        s["remote_dns"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.REMOTE_DNS, normalizeDns(it)) }
-        s["direct_dns"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.DIRECT_DNS, normalizeDns(it)) }
-        s["enable_dns_routing"]?.let { putBool(Key.ENABLE_DNS_ROUTING, it.toBooleanStrictOrNull() ?: return@let) }
-        s["fakedns"]?.let { putBool(Key.ENABLE_FAKEDNS, it.toBooleanStrictOrNull() ?: return@let) }
-
-        s["inbound_socks_port"]?.toIntOrNull()?.takeIf { it in 1..65535 }?.let {
-            putStr(Key.MIXED_PORT, it.toString())
-        }
-        s["disable_mixed_inbound"]?.let {
-            putBool(Key.DISABLE_MIXED_INBOUND, it.toBooleanStrictOrNull() ?: return@let)
-        }
-        val inboundAuth = s["inbound_auth"]?.toBooleanStrictOrNull() == true
-        if (inboundAuth) {
-            s["inbound_user"]?.let { putStr(Key.MIXED_USERNAME, it) }
-            s["inbound_pass"]?.let { putStr(Key.MIXED_PASSWORD, it) }
-        } else {
-            // desktop auth off → clear credentials so mixed stays open on loopback
-            putStr(Key.MIXED_USERNAME, "")
-            putStr(Key.MIXED_PASSWORD, "")
-        }
-        s["inbound_address"]?.let { addr ->
-            // non-loopback listen ≈ allow LAN access
-            val allow = addr.isNotBlank() && addr != "127.0.0.1" && addr != "::1"
-            putBool(Key.ALLOW_ACCESS, allow)
-        }
-
-        s["log_level"]?.let { putIntStr(Key.LOG_LEVEL, mapLogLevel(it)) }
-        s["vpn_mtu"]?.toIntOrNull()?.takeIf { it >= 1000 }?.let { putIntStr(Key.MTU, it) }
-        s["vpn_strict_route"]?.let {
-            putBool(Key.STRICT_ROUTE, it.toBooleanStrictOrNull() ?: return@let)
-        }
-        s["vpn_ipv6"]?.let {
-            val on = it.toBooleanStrictOrNull() ?: return@let
-            putIntStr(Key.IPV6_MODE, if (on) IPv6Mode.ENABLE else IPv6Mode.DISABLE)
-        }
-        s["vpn_impl"]?.let {
-            val impl = when (it.lowercase()) {
-                "system" -> TunImplementation.SYSTEM
-                "gvisor" -> TunImplementation.GVISOR
-                "mixed" -> TunImplementation.MIXED
-                else -> return@let
+        val lanAllowed = DataStore.allowLanAccess
+        val updates = LinkedHashMap<String, String>()
+        for ((key, raw) in s) {
+            val setting = SettingsRegistry.find(key) ?: continue
+            if (setting === SettingsRegistry.CURRENT_ROUTE_ID) continue
+            if (!setting.accepts(raw)) {
+                Logs.w("desktop settings import: $key=\"$raw\" rejected")
+                continue
             }
-            putIntStr(Key.TUN_IMPLEMENTATION, impl)
+            updates[key] = if (setting === SettingsRegistry.INBOUND_ADDRESS && !lanAllowed &&
+                !SettingsRegistry.isLoopbackAddress(raw)
+            ) SettingsRegistry.LOOPBACK_ADDRESS else raw
         }
-        // Tun mode on desktop ≈ VPN service mode; system proxy ≈ proxy mode
-        // Official note: system proxy / tun switch may not be in backup; still map if present
-        s["tun_mode_enabled"]?.toBooleanStrictOrNull()?.let { tunOn ->
-            if (tunOn) putStr(Key.SERVICE_MODE, Key.MODE_VPN)
-        }
-        s["system_proxy_enabled"]?.toBooleanStrictOrNull()?.let { spOn ->
-            if (spOn) putStr(Key.SERVICE_MODE, Key.MODE_PROXY)
-        }
-
-        s["test_url"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.CONNECTION_TEST_URL, it) }
-        s["url_test_timeout_ms"]?.toIntOrNull()?.let { putInt(Key.CONNECTION_TEST_TIMEOUT, it) }
-        s["test_concurrent"]?.toIntOrNull()?.let { putInt(Key.CONNECTION_TEST_CONCURRENT, it) }
-        SpeedTestSettings.desktopBackupUpdates(s).forEach { (key, value) ->
-            putStr(key, value)
-        }
-
-        s["skip_cert"]?.toBooleanStrictOrNull()?.let { putBool(Key.GLOBAL_ALLOW_INSECURE, it) }
-            ?: s["net_insecure"]?.toBooleanStrictOrNull()?.let { putBool(Key.GLOBAL_ALLOW_INSECURE, it) }
-
-        s["fragment_default_on"]?.toBooleanStrictOrNull()?.let { putBool(Key.ENABLE_TLS_FRAGMENT, it) }
-        s["fragment_size"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.FRAGMENT_LENGTH, it) }
-        s["fragment_sleep"]?.takeIf { it.isNotBlank() }?.let { putStr(Key.FRAGMENT_INTERVAL, it) }
-
-        // disable_private_range_bypass=true means do NOT bypass LAN → bypassLanInCore=false
-        s["disable_private_range_bypass"]?.toBooleanStrictOrNull()?.let { disabled ->
-            putBool(Key.BYPASS_LAN_IN_CORE, !disabled)
-            putBool(Key.BYPASS_LAN, !disabled)
-        }
-
-        // core_box_clash_api is a sign-encoded port: negative means the API is off (SettingsRepo.h:290).
-        s["core_box_clash_api"]?.let { v ->
-            val enabled = when {
-                v.equals("true", true) -> true
-                v.equals("false", true) -> false
-                else -> (v.toIntOrNull() ?: 0) > 0
-            }
-            putBool(Key.ENABLE_CLASH_API, enabled)
-        }
-
-        // geo assets: desktop often points at .dat; only map if looks usable or leave default
-        s["xray_geosite_url"]?.takeIf { it.contains("geosite") }?.let {
-            // Prefer keeping T4A default .db URLs; map only custom non-empty
-            if (!it.contains("Loyalsoldier") && it.isNotBlank()) {
-                putStr(Key.RULES_GEOSITE_URL, it)
-            }
-        }
-        s["xray_geoip_url"]?.takeIf { it.contains("geoip") }?.let {
-            if (!it.contains("Loyalsoldier") && it.isNotBlank()) {
-                putStr(Key.RULES_GEOIP_URL, it)
-            }
-        }
-
-        s["disable_traffic_stats"]?.toBooleanStrictOrNull()?.let {
-            putBool(Key.PROFILE_TRAFFIC_STATISTICS, !it)
-        }
-
-        // touch PublicDatabase so Room flush is consistent with other backup path
-        PublicDatabase.kvPairDao.get(Key.REMOTE_DNS)
-    }
-
-    private fun normalizeDns(raw: String): String {
-        val t = raw.trim()
-        if (t.isEmpty()) return t
-        // bare IP → leave as-is (T4A accepts udp/tcp/https/local/etc.)
-        return t
-    }
-
-    private fun mapLogLevel(desktop: String): Int = when (desktop.lowercase()) {
-        "panic", "fatal" -> 0
-        "error", "warn", "warning" -> 1
-        "info" -> 2
-        "debug" -> 3
-        "trace" -> 4
-        else -> desktop.toIntOrNull()?.coerceIn(0, 4) ?: 1
+        DataStore.configurationStore.putAll(updates)
     }
 
     // endregion

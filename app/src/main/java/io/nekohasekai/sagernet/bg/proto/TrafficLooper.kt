@@ -44,7 +44,7 @@ class TrafficLooper
         job?.cancelAndJoin()
         job = null
         // finally traffic post
-        if (!DataStore.profileTrafficStatistics) return
+        if (DataStore.disableTrafficStats) return
         withStateLock {
             val traffic = mutableMapOf<Long, TrafficData>()
             data.proxy?.trafficMap?.forEach { (_, ents) ->
@@ -91,7 +91,7 @@ class TrafficLooper
             tag = selectorNowFakeTag
             ignore = true
             // post traffic when switch
-            if (DataStore.profileTrafficStatistics) {
+            if (!DataStore.disableTrafficStats) {
                 data.proxy?.trafficMap?.get(tag)?.firstOrNull()?.let {
                     it.rx = rx
                     it.tx = tx
@@ -157,7 +157,7 @@ class TrafficLooper
     private suspend fun loop() {
         val delayMs = DataStore.speedInterval.toLong()
         val showDirectSpeed = DataStore.showDirectSpeed
-        val profileTrafficStatistics = DataStore.profileTrafficStatistics
+        val profileTrafficStatistics = !DataStore.disableTrafficStats
         if (delayMs == 0L) return
 
         // for display

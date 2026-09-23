@@ -2,7 +2,8 @@ package io.nekohasekai.sagernet.outbound
 
 /**
  * Every build-time global the desktop's Build() paths read from SettingsRepo (include/database/SettingsRepo.h),
- * with the desktop defaults. Immutable: create one per config generation.
+ * with the desktop defaults, except the TLS spoof globals: Android never emits spoof (D8). Immutable: create one
+ * per config generation.
  */
 data class BuildContext(
     /** SettingsRepo.h:161 skip_cert — TLS.cpp:407. */
@@ -27,12 +28,6 @@ data class BuildContext(
     val fragmentSleep: String = "2-5",
     /** SettingsRepo.h:87 tls_tricks_default_on — TLS.cpp:477. */
     val tlsTricksDefaultOn: Boolean = false,
-    /** SettingsRepo.h:89 tls_spoof — TLS.cpp:439. */
-    val tlsSpoof: String = "",
-    /** SettingsRepo.h:90 tls_spoof_method — TLS.cpp:441. */
-    val tlsSpoofMethod: String = "",
-    /** SettingsRepo.h:91 tls_spoof_default_on — TLS.cpp:471. */
-    val tlsSpoofDefaultOn: Boolean = false,
     /** SettingsRepo.h:94-100 — QUICFields.cpp:70-86. */
     val h2IdleTimeout: String = "",
     val h2KeepAlivePeriod: String = "",

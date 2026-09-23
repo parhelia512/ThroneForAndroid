@@ -16,6 +16,7 @@ data class SpeedTestOutcome(
     val uploadBitsPerSecond: Long,
 ) {
 
+    /** The country mode measures no rate. */
     fun rates(): List<SpeedTestRate> = when (mode) {
         SpeedTestSettings.MODE_DOWNLOAD_UPLOAD -> listOf(
             SpeedTestRate(SpeedTestDirection.DOWNLOAD, downloadBitsPerSecond),
@@ -33,6 +34,7 @@ data class SpeedTestOutcome(
     }
 
     companion object {
+        /** The outcome a finished snapshot leaves on its profile; null when it failed or measured no rate. */
         fun completedOrNull(
             mode: String,
             stage: String,
@@ -48,7 +50,7 @@ data class SpeedTestOutcome(
                 mode = mode,
                 downloadBitsPerSecond = downloadBitsPerSecond.coerceAtLeast(0),
                 uploadBitsPerSecond = uploadBitsPerSecond.coerceAtLeast(0),
-            )
+            ).takeIf { it.rates().isNotEmpty() }
         }
     }
 }

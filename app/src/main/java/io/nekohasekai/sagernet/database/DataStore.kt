@@ -3,24 +3,20 @@ package io.nekohasekai.sagernet.database
 import android.os.Binder
 import androidx.preference.PreferenceDataStore
 import io.nekohasekai.sagernet.GroupType
-import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.TunImplementation
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.database.preference.RoomPreferenceDataStore
+import io.nekohasekai.sagernet.database.preference.SettingsStore
 import io.nekohasekai.sagernet.ktx.boolean
 import io.nekohasekai.sagernet.ktx.int
 import io.nekohasekai.sagernet.ktx.long
-import io.nekohasekai.sagernet.ktx.parsePort
 import io.nekohasekai.sagernet.ktx.string
 import io.nekohasekai.sagernet.ktx.stringToInt
-import io.nekohasekai.sagernet.ktx.stringToIntIfExists
 import moe.matsuri.nb4a.TempDatabase
+import java.util.UUID
 
 object DataStore : OnPreferenceDataStoreChangeListener {
 
@@ -28,10 +24,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     @Volatile
     var serviceState = BaseService.State.Idle
 
-    @Volatile
-    var mixedInboundAuthed: Boolean = false
-
-    val configurationStore = RoomPreferenceDataStore(PublicDatabase.kvPairDao)
+    val configurationStore = SettingsStore(PublicDatabase.instance, SettingsRegistry::defaultOf)
     val profileCacheStore = RoomPreferenceDataStore(TempDatabase.profileCacheDao)
 
     // last used, but may not be running
@@ -88,18 +81,15 @@ object DataStore : OnPreferenceDataStoreChangeListener {
         return groups.find { it.type == GroupType.BASIC }!!.id
     }
 
+    // ------------------------------------------------------------------------------------------------ Android-only
+
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
-    var enableClashAPI by configurationStore.boolean(Key.ENABLE_CLASH_API)
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
-    var confirmProfileDelete by configurationStore.boolean(Key.CONFIRM_PROFILE_DELETE) { true }
     var groupLayoutMode by configurationStore.stringToInt(Key.GROUP_LAYOUT_MODE) { 0 }
     var profileCardStyle by configurationStore.stringToInt(Key.PROFILE_CARD_STYLE) { 0 }
 
-    var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
     var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS)
-
-    //
 
     var isExpert by configurationStore.boolean(Key.APP_EXPERT)
     var appTheme by configurationStore.int(Key.APP_THEME)
@@ -109,143 +99,197 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var appLanguage by configurationStore.string(Key.APP_LANGUAGE) { "" }
     var serviceMode by configurationStore.string(Key.SERVICE_MODE) { Key.MODE_VPN }
 
-    var trafficSniffing by configurationStore.stringToInt(Key.TRAFFIC_SNIFFING) { 1 }
-    var resolveDestination by configurationStore.boolean(Key.RESOLVE_DESTINATION)
+    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL) { 1000 }
+    var showGroupInNotification by configurationStore.boolean(Key.SHOW_GROUP_IN_NOTIFICATION)
+    var showDirectSpeed by configurationStore.boolean(Key.SHOW_DIRECT_SPEED) { true }
+    var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
-    var mtu by configurationStore.stringToInt(Key.MTU) { 9000 }
-
-    var bypassLan by configurationStore.boolean(Key.BYPASS_LAN)
-    var bypassLanInCore by configurationStore.boolean(Key.BYPASS_LAN_IN_CORE)
-    var dualNetworkAcceleration by configurationStore.boolean(Key.DUAL_NETWORK_ACCELERATION)
-
-    var allowAccess by configurationStore.boolean(Key.ALLOW_ACCESS)
-    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL)
-    var showGroupInNotification by configurationStore.boolean("showGroupInNotification")
-
-    var globalCustomConfig by configurationStore.string(Key.GLOBAL_CUSTOM_CONFIG) { "" }
-
-    var remoteDns by configurationStore.string(Key.REMOTE_DNS) { "https://dns.google/dns-query" }
-    var directDns by configurationStore.string(Key.DIRECT_DNS) { "https://223.5.5.5/dns-query" }
-    var enableDnsRouting by configurationStore.boolean(Key.ENABLE_DNS_ROUTING) { true }
-    var enableFakeDns by configurationStore.boolean(Key.ENABLE_FAKEDNS) { true }
-
-    var rulesProvider by configurationStore.stringToInt(Key.RULES_PROVIDER)
-    var logLevel by configurationStore.stringToInt(Key.LOG_LEVEL)
     var logBufSize by configurationStore.int(Key.LOG_BUF_SIZE) { 0 }
     var acquireWakeLock by configurationStore.boolean(Key.ACQUIRE_WAKE_LOCK)
     var hideFromRecentApps by configurationStore.boolean(Key.HIDE_FROM_RECENT_APPS)
     // 记录用户选择"不再显示"的预览版版本号，仅对该版本隐藏提示
     var previewHintDismissedVersion by configurationStore.string(Key.PREVIEW_HINT_DISMISSED_VERSION) { "" }
 
-    var rulesGeositeUrl by configurationStore.string(Key.RULES_GEOSITE_URL) { "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db" }
-    var rulesGeoipUrl by configurationStore.string(Key.RULES_GEOIP_URL) { "https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db" }
-    var rulesUpdateInterval by configurationStore.string(Key.RULES_UPDATE_INTERVAL) { "0" } // 默认为0，不自动更新
-
-    // hopefully hashCode = mHandle doesn't change, currently this is true from KitKat to Nougat
-    private val userIndex by lazy { Binder.getCallingUserHandle().hashCode() }
-
-    var mixedPort: Int
-        get() = getLocalPort(Key.MIXED_PORT, 2080)
-        set(value) = saveLocalPort(Key.MIXED_PORT, value)
-
-    var disableMixedInbound by configurationStore.boolean(Key.DISABLE_MIXED_INBOUND)
-
-    // 仅在 TUN 模式下真正生效；系统代理模式必须保留 mixed 入站
-    val mixedInboundDisabled: Boolean
-        get() = disableMixedInbound && serviceMode == Key.MODE_VPN
-
-    // 混合入站账密由用户设置决定：用户名留空即不启用认证（本机回环免密直连）
-    var mixedUsername by configurationStore.string(Key.MIXED_USERNAME) { "" }
-    var mixedPassword by configurationStore.string(Key.MIXED_PASSWORD) { "" }
-
-    val mixedInboundNeedsAuth: Boolean
-        get() = serviceMode == Key.MODE_VPN && !mixedInboundDisabled && mixedUsername.isNotBlank()
-
-    val mixedInboundUser: String get() = if (mixedInboundAuthed) mixedUsername else ""
-    val mixedInboundPass: String get() = if (mixedInboundAuthed) mixedPassword else ""
-
-    fun initGlobal() {
-        if (configurationStore.getString(Key.MIXED_PORT) == null) {
-            mixedPort = mixedPort
-        }
-    }
-
-
-    private fun getLocalPort(key: String, default: Int): Int {
-        return parsePort(configurationStore.getString(key), default + userIndex)
-    }
-
-    private fun saveLocalPort(key: String, value: Int) {
-        configurationStore.putString(key, "$value")
-    }
-
-    var ipv6Mode by configurationStore.stringToInt(Key.IPV6_MODE) { IPv6Mode.DISABLE }
-
     var meteredNetwork by configurationStore.boolean(Key.METERED_NETWORK)
     var proxyApps by configurationStore.boolean(Key.PROXY_APPS)
     var bypass by configurationStore.boolean(Key.BYPASS_MODE) { true }
     var individual by configurationStore.string(Key.INDIVIDUAL)
-    var showDirectSpeed by configurationStore.boolean(Key.SHOW_DIRECT_SPEED) { true }
-
-    val persistAcrossReboot by configurationStore.boolean(Key.PERSIST_ACROSS_REBOOT) { false }
-
     var httpProxyBypass by configurationStore.string(Key.HTTP_PROXY_BYPASS) { "" }
-    var dnsHosts by configurationStore.string(Key.DNS_HOSTS) { "" }
-    var strictRoute by configurationStore.boolean(Key.STRICT_ROUTE) { true }
-    var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) {
-        SagerNet.application.getString(R.string.default_connection_test_url)
-    }
-    var connectionTestConcurrent by configurationStore.int(Key.CONNECTION_TEST_CONCURRENT) {
-        SagerNet.application.getString(R.string.default_connection_test_concurrent).toInt()
-    }
-    var connectionTestTimeout by configurationStore.int(Key.CONNECTION_TEST_TIMEOUT) { 3000 }
-    var speedTestMode by configurationStore.string(Key.SPEED_TEST_MODE) {
-        SagerNet.application.getString(R.string.default_speed_test_mode)
-    }
-    var speedTestTimeoutMs by configurationStore.stringToInt(Key.SPEED_TEST_TIMEOUT_MS) {
-        SagerNet.application.getString(R.string.default_speed_test_timeout_ms).toInt()
-    }
-    var speedTestServerListURL by configurationStore.string(Key.SPEED_TEST_SERVER_LIST_URL) {
-        SagerNet.application.getString(R.string.default_speed_test_server_list_url)
-    }
-    var speedTestFallbackServerListURL by configurationStore.string(Key.SPEED_TEST_FALLBACK_SERVER_LIST_URL) {
-        SagerNet.application.getString(R.string.default_speed_test_fallback_server_list_url)
-    }
-    var simpleDownloadURL by configurationStore.string(Key.SIMPLE_DOWNLOAD_URL) {
-        SagerNet.application.getString(R.string.default_simple_download_url)
-    }
-    var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
-    var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }
-    var profileTrafficStatistics by configurationStore.boolean(Key.PROFILE_TRAFFIC_STATISTICS) { true }
+    var yacdURL by configurationStore.string(Key.YACD_URL) { "http://127.0.0.1:9090/ui" }
 
-    var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui" }
+    var webdavServer: String?
+        get() = configurationStore.getString(Key.WEBDAV_SERVER)
+        set(value) = configurationStore.putString(Key.WEBDAV_SERVER, value)
 
-    // protocol
+    var webdavUsername: String?
+        get() = configurationStore.getString(Key.WEBDAV_USERNAME)
+        set(value) = configurationStore.putString(Key.WEBDAV_USERNAME, value)
 
-    var globalAllowInsecure by configurationStore.boolean(Key.GLOBAL_ALLOW_INSECURE) { false }
+    var webdavPassword: String?
+        get() = configurationStore.getString(Key.WEBDAV_PASSWORD)
+        set(value) = configurationStore.putString(Key.WEBDAV_PASSWORD, value)
 
-    var enableTLSFragment by configurationStore.boolean(Key.ENABLE_TLS_FRAGMENT) { false }
-    var fragmentLength by configurationStore.string(Key.FRAGMENT_LENGTH) { "100-200" }
-    var fragmentInterval by configurationStore.string(Key.FRAGMENT_INTERVAL) { "10-20" }
+    var webdavPath: String?
+        get() = configurationStore.getString(Key.WEBDAV_PATH) ?: "Throne"  // 设置默认值
+        set(value) = configurationStore.putString(Key.WEBDAV_PATH, value)
 
-    // old cache, DO NOT ADD
+    // ------------------------------------------------------------------------------------------------ desktop keys
+    // SettingsRegistry: property = lowerCamelCase of the desktop key.
+
+    // general
+    var rememberEnable by SettingsRegistry.REMEMBER_ENABLE
+    var skipDeleteConfirmation by SettingsRegistry.SKIP_DELETE_CONFIRMATION
+
+    // inbound
+
+    // hopefully hashCode = mHandle doesn't change, currently this is true from KitKat to Nougat
+    private val userIndex by lazy { Binder.getCallingUserHandle().hashCode() }
+
+    /** inbound_socks_port; a missing row means 2080 plus the Android user index. */
+    var inboundSocksPort: Int
+        get() = configurationStore.getRaw(SettingsRegistry.INBOUND_SOCKS_PORT.key)
+            ?.let(SettingsRegistry.INBOUND_SOCKS_PORT::decode)
+            ?: (SettingsRegistry.INBOUND_SOCKS_PORT.default + userIndex)
+        set(value) = SettingsRegistry.INBOUND_SOCKS_PORT.write(configurationStore, value)
+
+    var inboundAddress by SettingsRegistry.INBOUND_ADDRESS
+    var disableMixedInbound by SettingsRegistry.DISABLE_MIXED_INBOUND
+    var randomInboundPort by SettingsRegistry.RANDOM_INBOUND_PORT
+    var inboundAuth by SettingsRegistry.INBOUND_AUTH
+    var inboundUser by SettingsRegistry.INBOUND_USER
+    var inboundPass by SettingsRegistry.INBOUND_PASS
+    var customInbound by SettingsRegistry.CUSTOM_INBOUND
+
+    /** disable_mixed_inbound only applies in VPN mode: the proxy-only service mode needs the mixed inbound. */
+    val mixedInboundDisabled: Boolean
+        get() = disableMixedInbound && serviceMode == Key.MODE_VPN
+
+    /** inbound_address is anything but a loopback address (the desktop's "Allow other devices to connect"). */
+    val allowLanAccess: Boolean
+        get() = !SettingsRegistry.isLoopbackAddress(inboundAddress)
+
+    fun initGlobal() {
+        if (!configurationStore.contains(SettingsRegistry.INBOUND_SOCKS_PORT.key)) {
+            inboundSocksPort = inboundSocksPort
+        }
+    }
+
+    // tun
+    var vpnImpl by SettingsRegistry.VPN_IMPL
+    var vpnMtu by SettingsRegistry.VPN_MTU
+    var vpnIpv6 by SettingsRegistry.VPN_IPV6
+    var vpnTunIpv4Cidr by SettingsRegistry.VPN_TUN_IPV4_CIDR
+    var vpnTunIpv6Cidr by SettingsRegistry.VPN_TUN_IPV6_CIDR
+    var disablePrivateRangeBypass by SettingsRegistry.DISABLE_PRIVATE_RANGE_BYPASS
+    var vpnPrivateRanges by SettingsRegistry.VPN_PRIVATE_RANGES
+    var enableTunRouting by SettingsRegistry.ENABLE_TUN_ROUTING
+
+    // routing
+    var currentRouteId by SettingsRegistry.CURRENT_ROUTE_ID
+    var outboundDomainStrategy by SettingsRegistry.OUTBOUND_DOMAIN_STRATEGY
+    var domainStrategy by SettingsRegistry.DOMAIN_STRATEGY
+    var rulesetMirror by SettingsRegistry.RULESET_MIRROR
+    var adblockEnable by SettingsRegistry.ADBLOCK_ENABLE
+    var routeAutoUpdate by SettingsRegistry.ROUTE_AUTO_UPDATE
+    var routeAutoUpdateLast by SettingsRegistry.ROUTE_AUTO_UPDATE_LAST
+
+    // dns
+    var remoteDns by SettingsRegistry.REMOTE_DNS
+    var remoteDnsDisableIpv6 by SettingsRegistry.REMOTE_DNS_DISABLE_IPV6
+    var directDns by SettingsRegistry.DIRECT_DNS
+    var directDnsDisableIpv6 by SettingsRegistry.DIRECT_DNS_DISABLE_IPV6
+    var coreBoxUnderlyingDns by SettingsRegistry.CORE_BOX_UNDERLYING_DNS
+    var dnsFinalOut by SettingsRegistry.DNS_FINAL_OUT
+    var enableDnsRouting by SettingsRegistry.ENABLE_DNS_ROUTING
+    var fakedns by SettingsRegistry.FAKEDNS
+    var fakeipDisableIpv6 by SettingsRegistry.FAKEIP_DISABLE_IPV6
+    var dnsUseHosts by SettingsRegistry.DNS_USE_HOSTS
+    var dnsPredefinedEnable by SettingsRegistry.DNS_PREDEFINED_ENABLE
+    var dnsPredefinedRules by SettingsRegistry.DNS_PREDEFINED_RULES
+    var dnsCacheCapacity by SettingsRegistry.DNS_CACHE_CAPACITY
+    var dnsQueryTimeout by SettingsRegistry.DNS_QUERY_TIMEOUT
+    var dnsOptimistic by SettingsRegistry.DNS_OPTIMISTIC
+    var dnsOptimisticTimeout by SettingsRegistry.DNS_OPTIMISTIC_TIMEOUT
+    var dnsDisableCache by SettingsRegistry.DNS_DISABLE_CACHE
+    var dnsDisableExpire by SettingsRegistry.DNS_DISABLE_EXPIRE
+    var dnsPersistCache by SettingsRegistry.DNS_PERSIST_CACHE
+    var dnsReverseMapping by SettingsRegistry.DNS_REVERSE_MAPPING
+    var useDnsObject by SettingsRegistry.USE_DNS_OBJECT
+    var dnsObject by SettingsRegistry.DNS_OBJECT
+
+    // presets
+    var muxProtocol by SettingsRegistry.MUX_PROTOCOL
+    var muxConcurrency by SettingsRegistry.MUX_CONCURRENCY
+    var muxPadding by SettingsRegistry.MUX_PADDING
+    var muxDefaultOn by SettingsRegistry.MUX_DEFAULT_ON
+    var xrayMuxConcurrency by SettingsRegistry.XRAY_MUX_CONCURRENCY
+    var xrayMuxDefaultOn by SettingsRegistry.XRAY_MUX_DEFAULT_ON
+    var fragmentDefaultOn by SettingsRegistry.FRAGMENT_DEFAULT_ON
+    var fragmentImplementation by SettingsRegistry.FRAGMENT_IMPLEMENTATION
+    var fragmentSize by SettingsRegistry.FRAGMENT_SIZE
+    var fragmentSleep by SettingsRegistry.FRAGMENT_SLEEP
+    var tlsTricksDefaultOn by SettingsRegistry.TLS_TRICKS_DEFAULT_ON
+    var utlsFingerprint by SettingsRegistry.UTLS_FINGERPRINT
+    var tlsSpoof by SettingsRegistry.TLS_SPOOF
+    var tlsSpoofMethod by SettingsRegistry.TLS_SPOOF_METHOD
+    var tlsSpoofDefaultOn by SettingsRegistry.TLS_SPOOF_DEFAULT_ON
+    var h2IdleTimeout by SettingsRegistry.H2_IDLE_TIMEOUT
+    var h2KeepAlivePeriod by SettingsRegistry.H2_KEEP_ALIVE_PERIOD
+    var h2StreamReceiveWindow by SettingsRegistry.H2_STREAM_RECEIVE_WINDOW
+    var h2ConnectionReceiveWindow by SettingsRegistry.H2_CONNECTION_RECEIVE_WINDOW
+    var h2MaxConcurrentStreams by SettingsRegistry.H2_MAX_CONCURRENT_STREAMS
+    var quicInitialPacketSize by SettingsRegistry.QUIC_INITIAL_PACKET_SIZE
+    var quicDisablePathMtuDiscovery by SettingsRegistry.QUIC_DISABLE_PATH_MTU_DISCOVERY
+
+    // testing
+    var testUrl by SettingsRegistry.TEST_URL
+    var urlTestTimeoutMs by SettingsRegistry.URL_TEST_TIMEOUT_MS
+    var testConcurrent by SettingsRegistry.TEST_CONCURRENT
+    var directTestUrl by SettingsRegistry.DIRECT_TEST_URL
+    var speedTestMode by SettingsRegistry.SPEED_TEST_MODE
+    var speedTestTimeoutMs by SettingsRegistry.SPEED_TEST_TIMEOUT_MS
+    var simpleDlUrl by SettingsRegistry.SIMPLE_DL_URL
+
+    // subscriptions (network)
+    var userAgent2 by SettingsRegistry.USER_AGENT2
+    var netUseProxy by SettingsRegistry.NET_USE_PROXY
+    var netInsecure by SettingsRegistry.NET_INSECURE
+
+    // core
+    var logLevel by SettingsRegistry.LOG_LEVEL
+    var xrayLogLevel by SettingsRegistry.XRAY_LOG_LEVEL
+    var enableStats by SettingsRegistry.ENABLE_STATS
+    var disableTrafficStats by SettingsRegistry.DISABLE_TRAFFIC_STATS
+    var coreBoxClashApi by SettingsRegistry.CORE_BOX_CLASH_API
+    var coreBoxClashListenAddr by SettingsRegistry.CORE_BOX_CLASH_LISTEN_ADDR
+    var coreBoxClashApiSecret by SettingsRegistry.CORE_BOX_CLASH_API_SECRET
+
+    /** core_box_api_secret; an empty one is replaced by a random one and saved, as SettingsRepo.cpp:15-19 does. */
+    var coreBoxApiSecret: String
+        get() = SettingsRegistry.CORE_BOX_API_SECRET.read(configurationStore).ifEmpty {
+            UUID.randomUUID().toString().replace("-", "").also { coreBoxApiSecret = it }
+        }
+        set(value) = SettingsRegistry.CORE_BOX_API_SECRET.write(configurationStore, value)
+
+    var coreDnsInPort by SettingsRegistry.CORE_DNS_IN_PORT
+    var xrayVlessPreference by SettingsRegistry.XRAY_VLESS_PREFERENCE
+    var skipCert by SettingsRegistry.SKIP_CERT
+    var useMozillaCerts by SettingsRegistry.USE_MOZILLA_CERTS
+    var enableNtp by SettingsRegistry.ENABLE_NTP
+    var ntpServerAddress by SettingsRegistry.NTP_SERVER_ADDRESS
+    var ntpServerPort by SettingsRegistry.NTP_SERVER_PORT
+    var ntpInterval by SettingsRegistry.NTP_INTERVAL
+    var ntpOutbound by SettingsRegistry.NTP_OUTBOUND
+
+    /** core_box_clash_api is on: a positive port. */
+    val clashApiEnabled: Boolean get() = coreBoxClashApi > 0
+
+    // ------------------------------------------------------------------------------------------------ old cache, DO NOT ADD
 
     var dirty by profileCacheStore.boolean(Key.PROFILE_DIRTY)
     var editingId by profileCacheStore.long(Key.PROFILE_ID)
     var editingGroup by profileCacheStore.long(Key.PROFILE_GROUP)
-    var routeName by profileCacheStore.string(Key.ROUTE_NAME)
-    var routeDomain by profileCacheStore.string(Key.ROUTE_DOMAIN)
-    var routeIP by profileCacheStore.string(Key.ROUTE_IP)
-    var routePort by profileCacheStore.string(Key.ROUTE_PORT)
-    var routeSourcePort by profileCacheStore.string(Key.ROUTE_SOURCE_PORT)
-    var routeNetwork by profileCacheStore.string(Key.ROUTE_NETWORK)
-    var routeSource by profileCacheStore.string(Key.ROUTE_SOURCE)
-    var routeProtocol by profileCacheStore.string(Key.ROUTE_PROTOCOL)
-    var routeRuleset by profileCacheStore.string(Key.ROUTE_RULESET)
-    var routeOutbound by profileCacheStore.stringToInt(Key.ROUTE_OUTBOUND)
-    var routeOutboundRule by profileCacheStore.long(Key.ROUTE_OUTBOUND + "Long")
-    var routePackages by profileCacheStore.string(Key.ROUTE_PACKAGES)
 
     var frontProxy by profileCacheStore.long(Key.GROUP_FRONT_PROXY + "Long")
     var landingProxy by profileCacheStore.long(Key.GROUP_LANDING_PROXY + "Long")
@@ -271,26 +315,6 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var subscriptionServerDns by profileCacheStore.string(Key.SUBSCRIPTION_SERVER_DNS)
 
     var rulesFirstCreate by profileCacheStore.boolean("rulesFirstCreate")
-
-    // var enableTLSFragment by configurationStore.boolean(Key.ENABLE_TLS_FRAGMENT)
-
-    var webdavServer: String?
-        get() = configurationStore.getString("webdavServer")
-        set(value) = configurationStore.putString("webdavServer", value)
-
-    var webdavUsername: String?
-        get() = configurationStore.getString("webdavUsername")
-        set(value) = configurationStore.putString("webdavUsername", value)
-
-    var webdavPassword: String?
-        get() = configurationStore.getString("webdavPassword")
-        set(value) = configurationStore.putString("webdavPassword", value)
-
-    var webdavPath: String?
-        get() = configurationStore.getString("webdavPath") ?: "Throne"  // 设置默认值
-        set(value) = configurationStore.putString("webdavPath", value)
-
-    var globalMode by configurationStore.boolean(Key.GLOBAL_MODE)
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
     }

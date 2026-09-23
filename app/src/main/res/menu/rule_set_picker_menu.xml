@@ -2,13 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_new_route"
-        android:icon="@drawable/ic_baseline_add_road_24"
-        android:title="@string/route_add"
+        android:id="@+id/action_add_url"
+        android:icon="@drawable/ic_baseline_link_24"
+        android:title="@string/rule_set_add_url"
         app:showAsAction="ifRoom" />
     <item
-        android:id="@+id/action_reset_route"
-        android:title="@string/route_reset"
+        android:id="@+id/action_clear_selections"
+        android:title="@string/clear_selections"
         app:showAsAction="never" />
-
 </menu>

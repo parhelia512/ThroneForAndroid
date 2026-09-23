@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import android.os.Parcelable
+import io.nekohasekai.sagernet.SpeedTestSettings
 import io.nekohasekai.sagernet.bg.CoreServiceClient
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -94,9 +95,9 @@ class RemoteSpeedTestSession(private val profile: ProxyEntity) : SpeedTestNodeSe
     override suspend fun run(onSample: (SpeedTestSnapshot) -> Unit): SpeedTestSnapshot {
         return CoreServiceClient.speedTest(
             profile.id,
-            DataStore.speedTestMode,
+            SpeedTestSettings.modeName(DataStore.speedTestMode),
             DataStore.speedTestTimeoutMs,
-            DataStore.simpleDownloadURL,
+            DataStore.simpleDlUrl,
             onSample,
         )
     }

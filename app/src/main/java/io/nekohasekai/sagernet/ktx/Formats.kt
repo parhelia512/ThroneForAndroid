@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.database.SettingsMapper
 import io.nekohasekai.sagernet.fmt.Serializable
 import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.outbound.import.ProfileImport
@@ -114,7 +115,7 @@ fun detectSubscriptionLink(text: String): String? {
  */
 fun parseProxies(text: String): List<Outbound> {
     detectSubscriptionLink(text)?.let { throw SubscriptionFoundException(it) }
-    return ProfileImport.parseText(text)
+    return ProfileImport.parse(text, SettingsMapper.xrayVlessPreference()).outbounds
 }
 
 fun <T : Serializable> T.applyDefaultValues(): T {

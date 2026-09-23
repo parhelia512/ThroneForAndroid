@@ -88,15 +88,12 @@ class XrayMultiplex {
         return obj
     }
 
-    /**
-     * xrayMultiplex.cpp:56-63. Line 60 writes the member (0), not the global, whenever the global is > 0 and
-     * the profile has no concurrency of its own; reproduced as-is for parity.
-     */
+    /** xrayMultiplex.cpp:56-63. */
     fun build(ctx: BuildContext): JsonObject {
         val obj = exportToJson()
         if (useDefault && ctx.xrayMuxDefaultOn) obj["enabled"] = true
         if (!obj.bool("enabled")) return JsonObject()
-        if (ctx.xrayMuxConcurrency > 0 && concurrency <= 0) obj["concurrency"] = concurrency
+        if (ctx.xrayMuxConcurrency > 0 && concurrency <= 0) obj["concurrency"] = ctx.xrayMuxConcurrency
         if (xudpConcurrency > 0) obj["xudpConcurrency"] = xudpConcurrency
         return obj
     }

@@ -31,11 +31,11 @@ constructor(
         setOnBindEditTextListener {
             concurrent = it.rootView.findViewById(R.id.edit_concurrent)
             concurrent?.apply {
-                setText(DataStore.connectionTestConcurrent.toString())
+                setText(DataStore.testConcurrent.toString())
             }
             timeout = it.rootView.findViewById(R.id.edit_timeout)
             timeout?.apply {
-                setText(DataStore.connectionTestTimeout.toString())
+                setText(DataStore.urlTestTimeoutMs.toString())
             }
             it.rootView.findViewById<LinearLayout>(R.id.concurrent_layout)?.isVisible = true
             it.rootView.findViewById<LinearLayout>(R.id.timeout_layout)?.isVisible = true
@@ -47,14 +47,14 @@ constructor(
                 if (newConcurrent == null || newConcurrent <= 0) {
                     newConcurrent = 5
                 }
-                DataStore.connectionTestConcurrent = newConcurrent
+                DataStore.testConcurrent = newConcurrent
             }
             timeout?.apply {
                 var newTimeout = text?.toString()?.toIntOrNull()
                 if (newTimeout == null || newTimeout <= 0) {
                     newTimeout = 3000
                 }
-                DataStore.connectionTestTimeout = newTimeout
+                DataStore.urlTestTimeoutMs = newTimeout
             }
             true
         }

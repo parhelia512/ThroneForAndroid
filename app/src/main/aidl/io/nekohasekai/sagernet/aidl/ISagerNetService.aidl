@@ -11,4 +11,7 @@ interface ISagerNetService {
   oneway void resetTraffic(in long[] profileIds);
 
   int urlTest();
+
+  // Refreshes the running instance's remote rule-sets; blocks up to about 60 s. Returns {"updated":n,"error":"text"}.
+  String updateRuleSets();
 }

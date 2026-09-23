@@ -1,111 +1,73 @@
 package io.nekohasekai.sagernet
 
+import io.nekohasekai.sagernet.database.SettingsRegistry
 import io.nekohasekai.sagernet.ktx.PreferenceProxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 
 class TestSettingsContractTest {
 
     @Test
     fun freshInstallDefaultsMatchThroneBaseline() {
-        val defaults = defaultResources()
-
-        assertEquals("http://cp.cloudflare.com/", defaults["default_connection_test_url"])
-        assertEquals("10", defaults["default_connection_test_concurrent"])
-        assertEquals("download_upload", defaults["default_speed_test_mode"])
-        assertEquals("5000", defaults["default_speed_test_timeout_ms"])
-        assertEquals(
-            "https://www.speedtest.net/api/js/servers",
-            defaults["default_speed_test_server_list_url"],
-        )
-        assertEquals(
-            "https://www.speedtest.net/speedtest-servers-static.php",
-            defaults["default_speed_test_fallback_server_list_url"],
-        )
-        assertEquals(
-            "http://cachefly.cachefly.net/1mb.test",
-            defaults["default_simple_download_url"],
-        )
+        assertEquals("http://cp.cloudflare.com/", SettingsRegistry.TEST_URL.default)
+        assertEquals(10, SettingsRegistry.TEST_CONCURRENT.default)
+        assertEquals(3000, SettingsRegistry.URL_TEST_TIMEOUT_MS.default)
+        assertEquals(SpeedTestSettings.FULL, SettingsRegistry.SPEED_TEST_MODE.default)
+        assertEquals(5000, SettingsRegistry.SPEED_TEST_TIMEOUT_MS.default)
+        assertEquals("http://cachefly.cachefly.net/1mb.test", SettingsRegistry.SIMPLE_DL_URL.default)
     }
 
     @Test
     fun persistedUpgradeValuesWinOverNewDefaults() {
         val values = mutableMapOf<String, Any>(
-            Key.CONNECTION_TEST_URL to "http://www.gstatic.com/generate_204",
-            Key.CONNECTION_TEST_CONCURRENT to 5,
+            SettingsRegistry.TEST_URL.key to "http://www.gstatic.com/generate_204",
+            SettingsRegistry.TEST_CONCURRENT.key to 5,
         )
-        val url = proxy(values, Key.CONNECTION_TEST_URL, "http://cp.cloudflare.com/")
-        val concurrent = proxy(values, Key.CONNECTION_TEST_CONCURRENT, 10)
+        val url = proxy(values, SettingsRegistry.TEST_URL.key, SettingsRegistry.TEST_URL.default)
+        val concurrent = proxy(values, SettingsRegistry.TEST_CONCURRENT.key, SettingsRegistry.TEST_CONCURRENT.default)
 
         assertEquals("http://www.gstatic.com/generate_204", url.getter(url.name, url.defaultValue()))
         assertEquals(5, concurrent.getter(concurrent.name, concurrent.defaultValue()))
 
-        values[Key.CONNECTION_TEST_URL] = "https://example.com/custom-latency"
-        values[Key.CONNECTION_TEST_CONCURRENT] = 3
+        values[SettingsRegistry.TEST_URL.key] = "https://example.com/custom-latency"
+        values[SettingsRegistry.TEST_CONCURRENT.key] = 3
         assertEquals("https://example.com/custom-latency", url.getter(url.name, url.defaultValue()))
         assertEquals(3, concurrent.getter(concurrent.name, concurrent.defaultValue()))
     }
 
     @Test
-    fun preferenceAndDataStoreUseTheSameDefaultResources() {
-        val preferenceXml = sourceFile("src/main/res/xml/global_preferences.xml").readText()
-        val dataStore = sourceFile(
-            "src/main/java/io/nekohasekai/sagernet/database/DataStore.kt",
-        ).readText()
+    fun testingScreenShowsTheRegistryDefaults() {
+        val preferenceXml = sourceFile("src/main/res/xml/settings_testing.xml").readText()
 
-        mapOf(
-            "connectionTestURL" to "default_connection_test_url",
-            "speedTestMode" to "default_speed_test_mode",
-            "speedTestTimeoutMs" to "default_speed_test_timeout_ms",
-            "simpleDownloadURL" to "default_simple_download_url",
-        ).forEach { (key, resource) ->
-            val preference = preferenceXml.substringAfter("app:key=\"$key\"")
-            assertTrue("preference $key must exist", preference != preferenceXml)
-            assertTrue(
-                "preference $key must use $resource",
-                preferenceXml.contains("app:defaultValue=\"@string/$resource\"") &&
-                    dataStore.contains("R.string.$resource"),
-            )
+        listOf(
+            SettingsRegistry.TEST_URL.key,
+            SettingsRegistry.SPEED_TEST_MODE.key,
+            SettingsRegistry.SPEED_TEST_TIMEOUT_MS.key,
+            SettingsRegistry.SIMPLE_DL_URL.key,
+        ).forEach { key ->
+            val preference = preferenceXml.substringAfter("app:key=\"$key\"", missingDelimiterValue = "")
+            assertTrue("preference $key must exist", preference.isNotEmpty())
         }
-
-        assertFalse(preferenceXml.contains("speedTestServerListURL"))
-        assertFalse(preferenceXml.contains("speedTestFallbackServerListURL"))
+        // The store falls back to the registry, so the screen declares no default of its own.
+        assertFalse(preferenceXml.contains("app:defaultValue"))
     }
 
     @Test
-    fun desktopBackupOnlyUpdatesFieldsThatArePresentAndValid() {
-        val existing = mapOf(
-            Key.SPEED_TEST_MODE to SpeedTestSettings.MODE_UPLOAD,
-            Key.SPEED_TEST_TIMEOUT_MS to "9000",
-            Key.SIMPLE_DOWNLOAD_URL to "https://example.com/existing.bin",
-        )
+    fun desktopBackupOnlyAcceptsValidTestValues() {
+        assertFalse(SettingsRegistry.SPEED_TEST_MODE.accepts("invalid"))
+        assertFalse(SettingsRegistry.SPEED_TEST_MODE.accepts("5"))
+        assertTrue(SettingsRegistry.SPEED_TEST_MODE.accepts(SpeedTestSettings.COUNTRY.toString()))
+        assertFalse(SettingsRegistry.SPEED_TEST_TIMEOUT_MS.accepts("0"))
+        assertTrue(SettingsRegistry.SPEED_TEST_TIMEOUT_MS.accepts("5000"))
+        assertFalse(SettingsRegistry.SIMPLE_DL_URL.accepts("file:///tmp/test.bin"))
+        assertTrue(SettingsRegistry.SIMPLE_DL_URL.accepts("https://example.com/imported.bin"))
 
-        assertEquals(existing, existing + SpeedTestSettings.desktopBackupUpdates(emptyMap()))
-        assertEquals(
-            existing,
-            existing + SpeedTestSettings.desktopBackupUpdates(
-                mapOf(
-                    "speed_test_mode" to "invalid",
-                    "speed_test_timeout_ms" to "0",
-                    "simple_dl_url" to "file:///tmp/test.bin",
-                ),
-            ),
-        )
-
-        val imported = existing + SpeedTestSettings.desktopBackupUpdates(
-            mapOf(
-                "speed_test_mode" to SpeedTestSettings.MODE_SIMPLE_DOWNLOAD,
-                "speed_test_timeout_ms" to "5000",
-                "simple_dl_url" to " https://example.com/imported.bin ",
-            ),
-        )
-        assertEquals(SpeedTestSettings.MODE_SIMPLE_DOWNLOAD, imported[Key.SPEED_TEST_MODE])
-        assertEquals("5000", imported[Key.SPEED_TEST_TIMEOUT_MS])
-        assertEquals("https://example.com/imported.bin", imported[Key.SIMPLE_DOWNLOAD_URL])
+        assertEquals(SpeedTestSettings.MODE_SIMPLE_DOWNLOAD, SpeedTestSettings.modeName(SpeedTestSettings.SIMPLE_DOWNLOAD))
+        assertEquals(SpeedTestSettings.MODE_COUNTRY, SpeedTestSettings.modeName(SpeedTestSettings.COUNTRY))
+        assertEquals(SpeedTestSettings.MODE_DOWNLOAD_UPLOAD, SpeedTestSettings.modeName(42))
     }
 
     @Test
@@ -113,21 +75,8 @@ class TestSettingsContractTest {
         val settingsSource = sourceFile(
             "src/main/java/io/nekohasekai/sagernet/TestSettings.kt",
         ).readText()
-        assertFalse(settingsSource.contains("CONNECTION_TEST_CONCURRENT"))
-        assertFalse(settingsSource.contains("connectionTestConcurrent"))
-    }
-
-    private fun defaultResources(): Map<String, String> {
-        val document = DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(sourceFile("src/main/res/values/test_settings_defaults.xml"))
-        val strings = document.getElementsByTagName("string")
-        return buildMap {
-            for (index in 0 until strings.length) {
-                val node = strings.item(index)
-                put(node.attributes.getNamedItem("name").nodeValue, node.textContent.trim())
-            }
-        }
+        assertFalse(settingsSource.contains("TEST_CONCURRENT"))
+        assertFalse(settingsSource.contains("testConcurrent"))
     }
 
     private fun <T : Any> proxy(

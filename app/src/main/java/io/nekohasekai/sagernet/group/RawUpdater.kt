@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.SettingsMapper
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.outbound.Outbound
@@ -38,11 +39,11 @@ object RawUpdater : GroupUpdater() {
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
         } else {
 
-            // The subscription's own UA first, then the common client UAs, until one of them downloads and
-            // parses into a non-empty list.
+            // The subscription's own UA first, then the app's (user_agent2) and the common client UAs, until one
+            // of them downloads and parses into a non-empty list.
             val candidateUserAgents = buildList {
                 subscription.customUserAgent.takeIf { it.isNotBlank() }?.let { add(it) }
-                add(USER_AGENT)
+                add(appUserAgent())
                 add("clash-meta")
                 add("v2rayN/7.8.2")
                 add("sing-box/1.14.0")
@@ -53,6 +54,7 @@ object RawUpdater : GroupUpdater() {
             var lastDisposition = ""
             var lastProfileTitle = ""
             proxies = emptyList()
+            val viaProxy = appRequestsViaProxy()
 
             for (candidate in candidateUserAgents) {
                 try {
@@ -60,11 +62,12 @@ object RawUpdater : GroupUpdater() {
                         fetchText(
                             subscription.link,
                             userAgent = candidate,
-                            allowInsecure = DataStore.allowInsecureOnRequest,
+                            viaProxy = viaProxy,
+                            allowInsecure = DataStore.netInsecure,
                             restrictTls13 = DataStore.appTLSVersion == "1.3",
                         )
                     } catch (proxyError: Throwable) {
-                        if (!DataStore.serviceState.connected) throw proxyError
+                        if (!viaProxy || !DataStore.serviceState.connected) throw proxyError
                         // the proxied download failed while connected: retry the same UA directly
                         Logs.d(
                             "Subscription download via proxy failed with UA $candidate, " +
@@ -74,7 +77,7 @@ object RawUpdater : GroupUpdater() {
                             subscription.link,
                             userAgent = candidate,
                             viaProxy = false,
-                            allowInsecure = DataStore.allowInsecureOnRequest,
+                            allowInsecure = DataStore.netInsecure,
                             restrictTls13 = DataStore.appTLSVersion == "1.3",
                         )
                     }
@@ -289,7 +292,7 @@ object RawUpdater : GroupUpdater() {
      */
     fun parseRaw(text: String, fileName: String = ""): List<Outbound>? {
         detectSubscriptionLink(text)?.let { throw SubscriptionFoundException(it) }
-        val result = ProfileImport.parse(text)
+        val result = ProfileImport.parse(text, SettingsMapper.xrayVlessPreference())
         for (message in result.messages) Logs.d("ProfileImport: $message")
         val proxies = result.outbounds
         if (proxies.isEmpty()) return null

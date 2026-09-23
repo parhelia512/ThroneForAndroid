@@ -33,7 +33,6 @@ abstract class GroupUpdater {
     protected suspend fun forceResolve(
         profiles: List<Outbound>, groupId: Long?
     ) {
-        val ipv6Mode = DataStore.ipv6Mode
         val lookupPool = newFixedThreadPoolContext(5, "DNS Lookup")
         val lookupJobs = mutableListOf<Job>()
         val progress = Progress(profiles.size)
@@ -41,7 +40,7 @@ abstract class GroupUpdater {
             GroupUpdater.progress[groupId] = progress
             GroupManager.postReload(groupId)
         }
-        val ipv6First = ipv6Mode >= IPv6Mode.PREFER
+        val ipv6First = DataStore.outboundDomainStrategy.let { it == "prefer_ipv6" || it == "ipv6_only" }
 
         for (profile in profiles) {
             // SNI rewrite unsupported
@@ -54,7 +53,7 @@ abstract class GroupUpdater {
                 try {
                     val results = if (
                         SagerNet.underlyingNetwork != null &&
-                        DataStore.enableFakeDns &&
+                        DataStore.fakedns &&
                         DataStore.serviceState.started &&
                         DataStore.serviceMode == Key.MODE_VPN
                     ) {

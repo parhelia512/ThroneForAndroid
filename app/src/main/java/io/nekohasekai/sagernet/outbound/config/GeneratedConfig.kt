@@ -16,6 +16,9 @@ package io.nekohasekai.sagernet.outbound.config
  * - [skipped]: test candidates that were not built, with the reason.
  * - [tunIPv4Cidr]: the tun address of the started config (generated tun inbound or the custom full config's).
  * - [error]: null on success.
+ * - [involvedProfileIds]: every profile a started config was built from (the started profile, chain hops, the
+ *   group's landing / front proxy, route outbounds and their hops), so an edit to any of them can prompt a restart
+ *   (`involvedProfiles`, generate.h:48-49); empty for test builds and failures.
  */
 class GeneratedConfig(
     @JvmField val coreConfig: String,
@@ -29,6 +32,7 @@ class GeneratedConfig(
     @JvmField val skipped: Map<Long, String>,
     @JvmField val tunIPv4Cidr: String?,
     @JvmField val error: String?,
+    @JvmField val involvedProfileIds: Set<Long> = emptySet(),
 ) {
     val ok: Boolean get() = error == null
 

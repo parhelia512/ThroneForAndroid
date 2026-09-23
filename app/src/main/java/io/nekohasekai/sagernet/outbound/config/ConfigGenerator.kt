@@ -7,32 +7,38 @@ import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.json.JsonValues
 import io.nekohasekai.sagernet.outbound.json.jsonObjectOf
+import io.nekohasekai.sagernet.route.OutboundIds
+import io.nekohasekai.sagernet.route.RouteProfile
+import io.nekohasekai.sagernet.route.RuleSets
+import io.nekohasekai.sagernet.route.RuleType
 
 /**
  * The desktop's config generator (src/configs/generate.cpp) for the Android app: [build] is BuildSingBoxConfig
- * (:2302-2378) for one selected profile with the built-in Default route profile, [buildTest] is BuildTestConfig
- * (:2527-2676) for a batch of URL-test candidates. Sections are emitted in the desktop's order and serialised
+ * (:2319-2395) for one selected profile under the route profile of [routing], [buildTest] is BuildTestConfig
+ * (:2544-2693) for a batch of URL-test candidates. Sections are emitted in the desktop's order and serialised
  * compact with sorted keys, so a config matches the desktop's byte for byte wherever the inputs match.
  *
- * Not generated in phase 1 (all desktop-only or out of scope): WARP, route-profile outbounds and rule sets, the
- * `hijack` / `hijack-dns` inbounds, extra cores, auxiliary VPN endpoints and the OpenVPN / OpenConnect tunnel DNS
- * servers, the L3 bridge, the api dashboard, Tailscale and auto-selector profiles.
+ * Not generated on Android (desktop-only or out of scope): WARP, raw route profiles, the `hijack` / `hijack-dns`
+ * inbounds, route_exclude_address_set, TLS spoof, extra cores, auxiliary VPN endpoints and the OpenVPN /
+ * OpenConnect tunnel DNS servers, the L3 bridge, the api dashboard, Tailscale and auto-selector profiles.
  */
 class ConfigGenerator @JvmOverloads constructor(
     private val profiles: ProfileProvider,
     private val settings: GeneratorSettings,
     private val buildContext: BuildContext = BuildContext.DEFAULT,
+    private val routing: RoutingInput = RoutingInput.DEFAULT,
 ) {
 
     /**
      * The config for the started profile [profileId]; [landingProxyId] becomes the exit and [frontProxyId] the
-     * entry of the main chain when > 0 (the group's landing / front proxy, generate.cpp:1806-1823).
+     * entry of the main chain when > 0 (the group's landing / front proxy, generate.cpp:1815-1832).
      */
     @JvmOverloads
     fun build(profileId: Long, landingProxyId: Long = -1, frontProxyId: Long = -1): GeneratedConfig {
-        val profile = profiles.get(profileId) ?: return GeneratedConfig.failure("Profile $profileId does not exist")
+        val reads = RecordingProfiles(profiles)
+        val profile = reads.get(profileId) ?: return GeneratedConfig.failure("Profile $profileId does not exist")
         if (profile.invalid) return GeneratedConfig.failure("Profile $profileId has a type this build cannot use: ${profile.type}")
-        // A custom full config is the whole core config (:2302-2334).
+        // A custom full config is the whole core config (:2320-2350).
         val custom = TypeAccess.asCustom(profile)
         if (custom != null && custom.isFullConfig()) {
             val core = custom.build(buildContext).json
@@ -49,18 +55,16 @@ class ConfigGenerator @JvmOverloads constructor(
                 skipped = emptyMap(),
                 tunIPv4Cidr = tunIPv4CidrOf(core),
                 error = null,
+                involvedProfileIds = reads.ids,
             )
         }
+        val route = routing.profile?.let(::routeProfileForBuild)
+            ?: return GeneratedConfig.failure("Routing profile does not exist, try resetting the route profile in Routing Settings")
 
         val state = BuildState(forTest = false)
-        val chains = ChainBuilder(profiles, buildContext, state)
-        // calculatePrerequisites (:541-753) with the Default route profile leaves only the Xray decision (:578, :710-719).
-        state.proxyUsesXray = chains.proxyPathUsesXray(profile)
-        for (id in listOf(frontProxyId, landingProxyId)) {
-            if (id <= 0) continue
-            val groupProxy = profiles.get(id) ?: continue
-            if (chains.usesXrayCore(groupProxy)) state.proxyUsesXray = true
-        }
+        val chains = ChainBuilder(reads, buildContext, state)
+        calculatePrerequisites(state, chains, reads, profile, route, landingProxyId, frontProxyId)
+        if (state.failed) return GeneratedConfig.failure(state.error)
 
         buildLogSection(state)
         buildNtpSection(state)
@@ -69,7 +73,7 @@ class ConfigGenerator @JvmOverloads constructor(
         buildOutboundsSection(state, chains, profile, profileId, landingProxyId, frontProxyId)
         if (state.failed) return GeneratedConfig.failure(state.error)
         buildDnsSection(state, useDnsObj = true)
-        buildRouteSection(state)
+        buildRouteSection(state, route)
         if (state.failed) return GeneratedConfig.failure(state.error)
         buildExperimentalSection(state)
         buildServicesSection(state)
@@ -88,7 +92,151 @@ class ConfigGenerator @JvmOverloads constructor(
             skipped = emptyMap(),
             tunIPv4Cidr = state.tunIPv4Cidr,
             error = null,
+            involvedProfileIds = reads.ids,
         )
+    }
+
+    /**
+     * The profile the build works on: a copy (the desktop copies it too, :1964), with the Linux-only `bypass` action
+     * turned into `route` to the same outbound (D12), so it also feeds the DNS and tun lists like any route rule.
+     */
+    private fun routeProfileForBuild(profile: RouteProfile): RouteProfile = profile.copy().also { copy ->
+        for (rule in copy.rules) if (rule.action == "bypass") rule.action = "route"
+    }
+
+    /**
+     * calculatePrerequisites (:542-745) minus WARP, auxiliary endpoints, the DNS-server hijack and extra cores: the
+     * Xray decision, the route outbounds, the rule-sets, the DNS site lists and the tun exclusions.
+     */
+    private fun calculatePrerequisites(
+        state: BuildState, chains: ChainBuilder, reads: ProfileProvider, profile: Outbound, route: RouteProfile,
+        landingProxyId: Long, frontProxyId: Long,
+    ) {
+        val pre = state.prerequisites
+        state.proxyUsesXray = chains.proxyPathUsesXray(profile)
+        pre.outboundMap[OutboundIds.PROXY] = Tags.PROXY
+        pre.outboundMap[OutboundIds.DIRECT] = Tags.DIRECT
+        // WARP is not generated on Android, so warp-bypass rules ride the proxy (:577).
+        pre.outboundMap[OutboundIds.WARP_BYPASS] = Tags.PROXY
+
+        // Route outbounds (:580-618), each profile once (D12): a chain takes as many suffixes as it has hops.
+        var suffix = 0
+        for (id in route.usedOutboundIds()) {
+            if (id < 0) continue
+            val needed = reads.get(id)
+            if (needed == null) {
+                state.error = "The routing profile is referencing outbounds that no longer exist, consider revising your settings"
+                return
+            }
+            if (needed.isExtraCore() || TypeAccess.isCustomFullConfig(needed) || needed.isXrayFullConfig()) {
+                state.error = "Outbounds used in routing profile cannot use an extra core or be a custom full config"
+                return
+            }
+            if (needed.type == "chain") {
+                val hops = TypeAccess.chainHops(needed)
+                if (hops.isEmpty()) {
+                    state.error = "Chain outbound in routing profile is empty or corrupted"
+                    return
+                }
+                for (hopId in hops) {
+                    val hop = reads.get(hopId)
+                    if (hop == null) {
+                        state.error = "Chain outbound in routing profile contains a missing profile"
+                        return
+                    }
+                    if (hop.isExtraCore() || TypeAccess.isCustomFullConfig(hop) || hop.isXrayFullConfig() || hop.type == "chain") {
+                        state.error = "Chain hops in routing profile cannot use an extra core, a custom full config, or be of type chain"
+                        return
+                    }
+                    if (chains.usesXrayCore(hop)) state.proxyUsesXray = true
+                }
+                pre.outboundMap[id] = hopTag(Tags.ROUTE_CHAIN_PREFIX, suffix)
+                pre.routeOutboundGroups.add(hops.asReversed().toList())
+                suffix += hops.size
+            } else {
+                if (chains.usesXrayCore(needed)) state.proxyUsesXray = true
+                pre.outboundMap[id] = hopTag(Tags.ROUTE_CHAIN_PREFIX, suffix++)
+                pre.routeOutboundGroups.add(listOf(id))
+            }
+        }
+
+        collectRuleSets(state, route)
+        if (state.failed) return
+
+        if (settings.enableDnsRouting) {
+            val directSites = route.directSites()
+            parseDomainSelectors(directSites, pre.directDns)
+            pre.needDirectDnsRules = directSites.isNotEmpty()
+            // With a direct final DNS these need an explicit remote-DNS carve-out.
+            val proxySites = route.proxySites()
+            parseDomainSelectors(proxySites, pre.proxyDns)
+            pre.needProxyDnsRules = proxySites.isNotEmpty()
+        }
+
+        for (id in listOf(frontProxyId, landingProxyId)) {
+            if (id <= 0) continue
+            val groupProxy = reads.get(id) ?: continue
+            if (chains.usesXrayCore(groupProxy)) state.proxyUsesXray = true
+        }
+
+        parseSelectorList(route.directIps()) { prefix, value -> if (prefix == "ip:") pre.directIpCidrs.add(value) }
+
+        if (settings.bypassLan) {
+            // sing-tun keeps an excluded range out of the tun entirely, so a rule aimed at one would never fire (#1741).
+            val hijacked = route.hijackedIps(settings.privateRanges)
+            for (range in settings.privateRanges) {
+                if (hijacked.none { Cidrs.overlap(range, it) }) pre.bypassedPrivateRanges.add(range)
+            }
+        }
+    }
+
+    /**
+     * get_used_rule_sets resolved the way buildRuleSetArray does (:1916-1936): an `.srs` URL downloads verbatim under
+     * its hashed tag, a srslist name through the ruleset_mirror. Entries are trimmed and deduplicated by tag (the core
+     * refuses a repeated tag), and an unknown name fails here instead of at core start (D12).
+     */
+    private fun collectRuleSets(state: BuildState, route: RouteProfile) {
+        val sets = state.prerequisites.ruleSets
+        for ((index, rule) in route.rules.withIndex()) {
+            if (rule.type == RuleType.ENDPOINT_PREFERRED_BY.id) continue
+            for (raw in rule.rule_set) {
+                val entry = raw.trim()
+                if (entry.isEmpty()) continue
+                val tag = RuleSets.tagFor(entry)
+                if (sets.containsKey(tag)) continue
+                if (RuleSets.isUrl(entry)) {
+                    sets[tag] = entry
+                    continue
+                }
+                val listed = if (entry == RuleSets.ADBLOCK_TAG) RuleSets.ADBLOCK_URL else routing.catalog.urlOf(entry)
+                if (listed == null) {
+                    val ruleName = rule.name.ifBlank { "#${index + 1}" }
+                    state.error = "Unknown rule-set \"$entry\" in rule \"$ruleName\" of routing profile \"${route.name}\""
+                    return
+                }
+                sets[tag] = RuleSets.mirrorLink(listed, settings.rulesetMirror)
+            }
+        }
+    }
+
+    private fun parseDomainSelectors(items: List<String>, sink: DomainSelectors) = parseSelectorList(items) { prefix, value ->
+        when (prefix) {
+            "ruleset:" -> sink.ruleSets.add(value)
+            "domain:" -> sink.domains.add(value)
+            "suffix:" -> sink.suffixes.add(value)
+            "keyword:" -> sink.keywords.add(value)
+            "regex:" -> sink.regexes.add(value)
+        }
+    }
+
+    /** parseSelectorList (:116-134): the first prefix a trimmed item starts with takes the trimmed rest, if any. */
+    private fun parseSelectorList(items: List<String>, sink: (prefix: String, value: String) -> Unit) {
+        for (raw in items) {
+            val item = raw.trim()
+            val prefix = SELECTOR_PREFIXES.firstOrNull { item.startsWith(it) } ?: continue
+            val value = item.substring(prefix.length).trim()
+            if (value.isNotEmpty()) sink(prefix, value)
+        }
     }
 
     /** [buildTest] for candidates that share one group's landing / front proxy. */
@@ -97,7 +245,7 @@ class ConfigGenerator @JvmOverloads constructor(
         buildTest(candidateIds.map { TestCandidate(it, landingProxyId, frontProxyId) })
 
     /**
-     * One test box for every candidate at once (BuildTestConfig, :2527-2676): candidate n is a chain under the
+     * One test box for every candidate at once (BuildTestConfig, :2544-2693): candidate n is a chain under the
      * prefix `proxy-<n>` whose ingress tag `proxy-<n>-0` is reported in [GeneratedConfig.outboundTags]; there is no
      * `proxy` tag, no inbounds except the Xray -> sing-box bridges, no experimental or services section, and the
      * DNS falls through to dns-direct. Xray candidates share one Xray config; custom Xray full configs each get
@@ -285,7 +433,7 @@ class ConfigGenerator @JvmOverloads constructor(
         state.coreConfig["certificate"] = jsonObjectOf("store" to if (settings.useMozillaCerts) "mozilla" else "system")
     }
 
-    /** buildInboundSection (:1110-1200): dns-in, mixed-in, tun-in, then the custom inbounds; bridges come later. */
+    /** buildInboundSection (:1118-1210): dns-in, mixed-in, tun-in, then the custom inbounds; bridges come later. */
     private fun buildInboundSection(state: BuildState) {
         if (state.forTest) return
         val inbounds = JsonArray()
@@ -308,7 +456,7 @@ class ConfigGenerator @JvmOverloads constructor(
     }
 
     /**
-     * The tun inbound of :1133-1172 with the Android field set of design §2.4: no interface_name / auto_redirect
+     * The tun inbound of :1141-1180 with the Android field set of design §2.4: no interface_name / auto_redirect
      * (the platform opens the device), per-app package lists instead of uid rules, the system HTTP proxy handed to
      * the VpnService builder through `platform.http_proxy`, and an explicit 1.14 `dns_mode`.
      */
@@ -324,14 +472,7 @@ class ConfigGenerator @JvmOverloads constructor(
         val address = JsonArray.of(settings.tunIPv4Cidr)
         if (settings.ipv6Enabled) address.add(settings.tunIPv6Cidr)
         tun["address"] = address
-        // sing-tun subtracts route_exclude_address from the routes it installs, so a rule aimed at an excluded range never fires (#1741).
-        val routeExcludeAddrs = JsonArray()
-        if (settings.bypassLan) {
-            routeExcludeAddrs.add("127.0.0.0/8")
-            routeExcludeAddrs.add("255.255.255.255/32")
-            for (range in settings.privateRanges) routeExcludeAddrs.add(range)
-        }
-        tun["route_exclude_address"] = routeExcludeAddrs
+        tun["route_exclude_address"] = JsonArray().also { array -> routeExcludeAddresses(state).forEach { array.add(it) } }
         // hijack (the 1.14 default, spelled out): OpenTun receives the tun's derived DNS address for the VPN builder
         // and connections to it are hijacked into the DNS module; "disabled" would leave apps on the LAN resolver,
         // which the bypassed private ranges keep outside the tun (fork docs/configuration/inbound/tun.md, dns_mode).
@@ -349,7 +490,28 @@ class ConfigGenerator @JvmOverloads constructor(
         return tun
     }
 
-    /** buildOutboundsSection (:1786-1903) for the main chain: no route-profile or auxiliary outbounds in phase 1. */
+    /**
+     * route_exclude_address (:1158-1178): loopback, broadcast and the bypassed private ranges while the bypass is on,
+     * plus the direct ip_cidr values with enable_tun_routing. Never route_exclude_address_set: the Android tun ignores
+     * address sets (D13). The desktop cuts the tun subnet out only on macOS; Android needs it too, since the tun DNS
+     * address (tun address + 1) lies in 172.16.0.0/12 and an excluded one takes every query out of the tunnel (D13).
+     */
+    private fun routeExcludeAddresses(state: BuildState): List<String> {
+        val pre = state.prerequisites
+        var excluded: List<String> = ArrayList<String>().apply {
+            if (settings.bypassLan) {
+                add("127.0.0.0/8")
+                add("255.255.255.255/32")
+                addAll(pre.bypassedPrivateRanges)
+            }
+            if (settings.enableTunRouting) addAll(pre.directIpCidrs)
+        }
+        excluded = Cidrs.subtract(excluded, settings.tunIPv4Cidr)
+        if (settings.ipv6Enabled) excluded = Cidrs.subtract(excluded, settings.tunIPv6Cidr)
+        return excluded
+    }
+
+    /** buildOutboundsSection (:1795-1911): the main chain, one chain per route outbound, then bridges and `direct`. */
     private fun buildOutboundsSection(
         state: BuildState, chains: ChainBuilder, profile: Outbound, profileId: Long, landingProxyId: Long, frontProxyId: Long,
     ) {
@@ -365,6 +527,14 @@ class ConfigGenerator @JvmOverloads constructor(
         chains.buildOutboundChain(ChainRequest(hopIds, Tags.MAIN_CHAIN_PREFIX, includeProxy = true))
         if (state.failed) return
 
+        var routeSuffix = 0
+        for (group in state.prerequisites.routeOutboundGroups) {
+            chains.buildOutboundChain(ChainRequest(group, Tags.ROUTE_CHAIN_PREFIX, link = group.size > 1, startSuffix = routeSuffix))
+            if (state.failed) return
+            routeSuffix += group.size
+        }
+
+        // The Xray -> sing-box bridges of the main and the route chains alike, hence after every chain.
         val mismatch = state.bridgeIngressMismatch()
         if (mismatch.isNotEmpty()) {
             state.error = mismatch
@@ -381,7 +551,7 @@ class ConfigGenerator @JvmOverloads constructor(
         state.coreConfig["outbounds"] = state.outbounds
     }
 
-    /** buildDNSSection (:865-1106) with the Default route profile: no direct/proxy site rules, no tunnel DNS. */
+    /** buildDNSSection (:873-1114) without the Tailscale, tunnel DNS, extra-core and DNS-server hijack rules. */
     private fun buildDnsSection(state: BuildState, useDnsObj: Boolean) {
         if (buildContext.useDnsObject && useDnsObj) {
             state.coreConfig["dns"] = JsonInput.parseObject(settings.dnsObject)
@@ -441,8 +611,15 @@ class ConfigGenerator @JvmOverloads constructor(
             independentCache = true
         }
 
+        // Below the fakeip rule, which keeps answering A / AAAA for these sites as on the desktop (R6 §3.5).
+        val pre = state.prerequisites
+        if (pre.needDirectDnsRules) appendDnsRoutingRules(rules, pre.directDns, Tags.DNS_DIRECT, buildContext.directDnsDisableIpv6)
+
         // A test box builds no dns-remote server at all, so its fall-through goes out direct.
         val useDirectFinalDns = state.forTest || settings.dnsFinalOut == Tags.DIRECT
+        if (!state.forTest && pre.needProxyDnsRules && useDirectFinalDns) {
+            appendDnsRoutingRules(rules, pre.proxyDns, Tags.DNS_REMOTE, settings.remoteDnsDisableIpv6)
+        }
         appendDnsRoute(
             rules, JsonObject(),
             if (useDirectFinalDns) Tags.DNS_DIRECT else Tags.DNS_REMOTE,
@@ -459,13 +636,37 @@ class ConfigGenerator @JvmOverloads constructor(
         if (settings.dnsDisableExpire) dns["disable_expire"] = true
         if (settings.dnsReverseMapping) dns["reverse_mapping"] = true
         if (independentCache) dns["independent_cache"] = true
-        if (settings.dnsQueryTimeout.isNotEmpty()) dns["timeout"] = settings.dnsQueryTimeout
+        val queryTimeout = validDuration(settings.dnsQueryTimeout)
+        if (queryTimeout.isNotEmpty()) dns["timeout"] = queryTimeout
         // The core refuses the config outright when optimistic meets either cache switch.
         if (settings.dnsOptimistic && !settings.dnsDisableCache && !settings.dnsDisableExpire) {
-            dns["optimistic"] = if (settings.dnsOptimisticTimeout.isEmpty()) true
-            else jsonObjectOf("enabled" to true, "timeout" to settings.dnsOptimisticTimeout)
+            val optimisticTimeout = validDuration(settings.dnsOptimisticTimeout)
+            dns["optimistic"] = if (optimisticTimeout.isEmpty()) true
+            else jsonObjectOf("enabled" to true, "timeout" to optimisticTimeout)
         }
         state.coreConfig["dns"] = dns
+    }
+
+    // The desktop never stores a malformed duration (dialog_manage_routes.cpp:230-237) and the core rejects one.
+    private fun validDuration(text: String): String = text.trim().takeIf { isValidDuration(it) } ?: ""
+
+    /** appendDnsRoutingRules (:386-399): one rule-set rule and one inline rule that always carries all four keys. */
+    private fun appendDnsRoutingRules(rules: JsonArray, selectors: DomainSelectors, server: String, disableIPv6: Boolean) {
+        if (selectors.ruleSets.isNotEmpty()) {
+            appendDnsRoute(rules, jsonObjectOf("rule_set" to selectors.ruleSets), server, disableIPv6)
+        }
+        if (selectors.hasInlineConditions()) {
+            appendDnsRoute(
+                rules,
+                jsonObjectOf(
+                    "domain" to selectors.domains,
+                    "domain_suffix" to selectors.suffixes,
+                    "domain_keyword" to selectors.keywords,
+                    "domain_regex" to selectors.regexes,
+                ),
+                server, disableIPv6,
+            )
+        }
     }
 
     // "*." is rewritten to the queried name by the core; a family without an address is refused rather than passed
@@ -494,8 +695,10 @@ class ConfigGenerator @JvmOverloads constructor(
         rules.add(route)
     }
 
-    /** buildRouteSection (:1940-2129) for the Default route profile (RouteProfile::GetDefaultChain). */
-    private fun buildRouteSection(state: BuildState) {
+    /** buildRouteSection (:1957-2146) for a structured route profile. */
+    private fun buildRouteSection(state: BuildState, route: RouteProfile) {
+        val profileRules = getRouteRules(state, route)
+        if (state.failed) return
         val mismatch = state.bridgeIngressMismatch()
         if (mismatch.isNotEmpty()) {
             state.error = mismatch
@@ -512,18 +715,72 @@ class ConfigGenerator @JvmOverloads constructor(
         }
         rules.add(jsonObjectOf("protocol" to "dns", "action" to "hijack-dns"))
         if (!state.forTest) rules.add(jsonObjectOf("inbound" to Tags.DNS_IN, "action" to "reject"))
-        // The Default profile's own rule list: "Route DNS" (RouteProfile.cpp:661-670, RouteRule.cpp:81-185).
-        rules.add(jsonObjectOf("protocol" to "dns", "action" to "hijack-dns"))
+        for (rule in profileRules) rules.add(rule)
+        val defaultOutbound = route.default_outbound_id
+        // A block default is a direct final that nothing reaches (:2064-2068, :2126-2128).
+        if (defaultOutbound == OutboundIds.BLOCK) rules.add(jsonObjectOf("action" to "reject"))
 
-        val route = JsonObject()
-        route["rules"] = rules
-        route["rule_set"] = JsonArray()
-        route["final"] = Tags.PROXY
-        if (settings.trafficStats) route["find_process"] = true
-        route["default_domain_resolver"] = jsonObjectOf("server" to Tags.DNS_DIRECT, "strategy" to buildContext.directDomainStrategy())
-        if (settings.vpnMode) route["auto_detect_interface"] = true
-        state.coreConfig["route"] = route
+        val routeObj = JsonObject()
+        routeObj["rules"] = rules
+        routeObj["rule_set"] = buildRuleSetArray(state)
+        routeObj["final"] = when (defaultOutbound) {
+            OutboundIds.BLOCK -> Tags.DIRECT
+            OutboundIds.WARP_BYPASS -> Tags.PROXY
+            else -> OutboundIds.toName(defaultOutbound)
+        }
+        if (settings.trafficStats) routeObj["find_process"] = true
+        routeObj["default_domain_resolver"] = jsonObjectOf("server" to Tags.DNS_DIRECT, "strategy" to buildContext.directDomainStrategy())
+        if (settings.vpnMode) routeObj["auto_detect_interface"] = true
+        state.coreConfig["route"] = routeObj
     }
+
+    /**
+     * get_route_rules(false, outboundMap) (RouteProfile.cpp:593-628) with get_rule_json (RouteRule.cpp:82-190): simple
+     * rules without a condition are skipped and the adblock reject goes in front of the first `route` rule, else last.
+     * Endpoint rules are skipped (no auxiliary endpoints on Android) and rule-level TLS spoof is dropped (D8).
+     */
+    private fun getRouteRules(state: BuildState, route: RouteProfile): JsonArray {
+        val out = JsonArray()
+        var addedAdblock = false
+        for (rule in route.rules) {
+            val type = RuleType.ofId(rule.type)
+            if (type == RuleType.ENDPOINT_PREFERRED_BY) continue
+            if (type != RuleType.CUSTOM && rule.isEmpty()) continue
+            val json = rule.toRuleJson(false, state.prerequisites.outboundMap[rule.outbound_id])
+            if (json.isEmpty()) {
+                state.error = "Aborted generating routing section, an error has occurred"
+                return out
+            }
+            json.remove("tls_spoof")
+            json.remove("tls_spoof_method")
+            if (!addedAdblock && settings.adblockEnable && json.string("action") == "route") {
+                out.add(adblockRule())
+                addedAdblock = true
+            }
+            out.add(json)
+        }
+        if (!addedAdblock && settings.adblockEnable) out.add(adblockRule())
+        return out
+    }
+
+    private fun adblockRule(): JsonObject = jsonObjectOf("action" to "reject", "rule_set" to JsonArray.of(RuleSets.ADBLOCK_TAG))
+
+    /**
+     * buildRuleSetArray (:1916-1955): the profile's sets, then adblock; always present. No update_interval or
+     * http_client, so the core refreshes each set every 24 h through route.final, as on the desktop.
+     */
+    private fun buildRuleSetArray(state: BuildState): JsonArray {
+        val out = JsonArray()
+        val sets = state.prerequisites.ruleSets
+        for ((tag, url) in sets) out.add(remoteRuleSet(tag, url))
+        if (settings.adblockEnable && !sets.containsKey(RuleSets.ADBLOCK_TAG)) {
+            out.add(remoteRuleSet(RuleSets.ADBLOCK_TAG, RuleSets.mirrorLink(RuleSets.ADBLOCK_URL, settings.rulesetMirror)))
+        }
+        return out
+    }
+
+    private fun remoteRuleSet(tag: String, url: String): JsonObject =
+        jsonObjectOf("type" to "remote", "tag" to tag, "format" to "binary", "url" to url)
 
     /** buildExperimentalSection (:2133-2155). */
     private fun buildExperimentalSection(state: BuildState) {
@@ -550,7 +807,7 @@ class ConfigGenerator @JvmOverloads constructor(
     private fun buildServicesSection(state: BuildState) {
         if (state.forTest || !settings.trafficStats) return
         state.coreConfig["services"] = JsonArray.of(
-            jsonObjectOf("type" to "api", "listen" to "127.0.0.1", "listen_port" to 0, "secret" to ""),
+            jsonObjectOf("type" to "api", "listen" to "127.0.0.1", "listen_port" to 0, "secret" to settings.apiSecret),
         )
     }
 
@@ -590,4 +847,21 @@ class ConfigGenerator @JvmOverloads constructor(
         }
         return null
     }
+
+    companion object {
+        private val SELECTOR_PREFIXES = listOf("ruleset:", "domain:", "suffix:", "keyword:", "regex:", "ip:")
+
+        private val DURATION = Regex("^(?:\\d+(?:\\.\\d+)?(?:ns|us|ms|s|m|h|d))+$")
+
+        /** IsValidDuration (generate.cpp:2314-2317): a Go duration without a sign, e.g. `1m30s`. */
+        @JvmStatic
+        fun isValidDuration(text: String): Boolean = DURATION.matches(text)
+    }
+}
+
+/** Records every profile id a build reads (buildProfileSink, generate.cpp:411-418). */
+private class RecordingProfiles(private val inner: ProfileProvider) : ProfileProvider {
+    val ids = LinkedHashSet<Long>()
+
+    override fun get(id: Long): Outbound? = inner.get(id)?.also { ids.add(id) }
 }

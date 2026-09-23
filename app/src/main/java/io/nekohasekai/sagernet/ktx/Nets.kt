@@ -3,6 +3,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import io.nekohasekai.sagernet.BuildConfig
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.database.DataStore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.ConnectionSpec
@@ -29,7 +30,13 @@ class HttpFetchResult(val body: String, private val headers: Headers) {
     fun header(name: String): String = headers[name] ?: ""
 }
 
-// App-internal HTTP (subscriptions, update check): through the mixed inbound while the service is
+/** user_agent2, or the app's own user agent while it is empty (SettingsRepo::GetUserAgent). */
+fun appUserAgent(): String = DataStore.userAgent2.ifBlank { USER_AGENT }
+
+/** App requests use the mixed inbound with net_use_proxy or in proxy service mode (HTTPRequestHelper.cpp:26). */
+fun appRequestsViaProxy(): Boolean = DataStore.netUseProxy || DataStore.serviceMode == Key.MODE_PROXY
+
+// App-internal HTTP (subscriptions, update check): through the mixed inbound when [viaProxy] and the service is
 // connected and that inbound exists, direct otherwise. The main process never loads the core.
 fun newHttpClient(
     viaProxy: Boolean = true,
@@ -42,8 +49,8 @@ fun newHttpClient(
         .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
         .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
     if (viaProxy && DataStore.serviceState.connected && !DataStore.mixedInboundDisabled) {
-        builder.proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(LOCALHOST, DataStore.mixedPort)))
-        if (DataStore.mixedInboundNeedsAuth) SocksAuthenticator.install()
+        builder.proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(LOCALHOST, DataStore.inboundSocksPort)))
+        if (DataStore.inboundAuth) SocksAuthenticator.install()
     }
     if (restrictTls13) {
         builder.connectionSpecs(
@@ -67,9 +74,9 @@ fun newHttpClient(
 
 fun fetchText(
     url: String,
-    userAgent: String = USER_AGENT,
-    viaProxy: Boolean = true,
-    allowInsecure: Boolean = false,
+    userAgent: String = appUserAgent(),
+    viaProxy: Boolean = appRequestsViaProxy(),
+    allowInsecure: Boolean = DataStore.netInsecure,
     restrictTls13: Boolean = false,
 ): HttpFetchResult {
     val request = Request.Builder().url(url).header("User-Agent", userAgent).build()
@@ -90,7 +97,7 @@ private object SocksAuthenticator : Authenticator() {
     override fun getPasswordAuthentication(): PasswordAuthentication? {
         if (requestingProtocol?.startsWith("SOCKS", ignoreCase = true) != true) return null
         if (requestingHost != LOCALHOST && requestingSite?.isLoopbackAddress != true) return null
-        return PasswordAuthentication(DataStore.mixedUsername, DataStore.mixedPassword.toCharArray())
+        return PasswordAuthentication(DataStore.inboundUser, DataStore.inboundPass.toCharArray())
     }
 }
 

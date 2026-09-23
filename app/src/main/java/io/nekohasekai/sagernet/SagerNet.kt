@@ -19,6 +19,7 @@ import androidx.core.content.getSystemService
 import io.nekohasekai.sagernet.bg.CoreRuntime
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.group.RemoteRouteUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
 import io.nekohasekai.sagernet.ktx.isPreview
@@ -81,6 +82,7 @@ class SagerNet : Application(),
 
                 updateNotificationChannels()
             }
+            RemoteRouteUpdater.schedule(keepExisting = true)
         }
 
         if (BuildConfig.DEBUG) {

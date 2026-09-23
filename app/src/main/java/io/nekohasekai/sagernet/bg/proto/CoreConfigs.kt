@@ -8,11 +8,13 @@ import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.outbound.config.ConfigGenerator
 import io.nekohasekai.sagernet.outbound.config.GeneratedConfig
 import io.nekohasekai.sagernet.outbound.config.ProfileProvider
+import io.nekohasekai.sagernet.outbound.config.RoutingInput
 import io.nekohasekai.sagernet.outbound.config.TestCandidate
 
 /**
  * The config generator wired to the app: profiles come from the profile table, the settings and the build-time
- * globals from DataStore through [SettingsMapper], the landing / front proxy from the profile's group.
+ * globals from DataStore through [SettingsMapper], the current route profile and the rule-set list from
+ * RouteManager (main configs only; test configs never read them), the landing / front proxy from the profile's group.
  */
 object CoreConfigs {
 
@@ -22,12 +24,13 @@ object CoreConfigs {
         override fun get(id: Long): Outbound? = cache.getOrPut(id) { SagerDatabase.proxyDao.getById(id)?.outbound }
     }
 
-    fun generator(): ConfigGenerator = ConfigGenerator(DatabaseProfiles(), SettingsMapper.generatorSettings(), SettingsMapper.buildContext())
+    fun generator(routing: RoutingInput = RoutingInput.DEFAULT): ConfigGenerator =
+        ConfigGenerator(DatabaseProfiles(), SettingsMapper.generatorSettings(), SettingsMapper.buildContext(), routing)
 
     /** The main config of [profile]; throws with the generator's message when it cannot be built. */
     fun buildMain(profile: ProxyEntity): GeneratedConfig {
         val (landing, front) = groupProxies(profile.groupId)
-        val generated = generator().build(profile.id, landing, front)
+        val generated = generator(SettingsMapper.routingInput()).build(profile.id, landing, front)
         if (!generated.ok) error(generated.error ?: "config generation failed")
         return generated
     }

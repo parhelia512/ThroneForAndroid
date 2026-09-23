@@ -20,6 +20,8 @@ jobs:
           java-version: '17'
       - name: Build ThroneCore AAR
         uses: ./.github/actions/throne-core
+      - name: Fetch routeprofiles snapshot
+        uses: ./.github/actions/routeprofiles
       - name: Gradle Build
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties

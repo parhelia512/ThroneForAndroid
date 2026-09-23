@@ -1,17 +1,17 @@
 package io.nekohasekai.sagernet.outbound.config
 
 /**
- * Every setting the config skeleton reads (include/database/SettingsRepo.h), with the desktop default wherever the
- * Android app has no equivalent. Each field names the desktop key and, where one exists, the DataStore property the
- * storage layer maps it from. `direct_dns_disable_ipv6` and `use_dns_object` are read from
- * [io.nekohasekai.sagernet.outbound.BuildContext] (they also drive the domain strategies there), not duplicated here.
+ * Every setting the config skeleton reads (include/database/SettingsRepo.h), with the desktop default. Each field
+ * names the desktop key; database.SettingsMapper fills it from the DataStore property of that key (lowerCamelCase).
+ * `direct_dns_disable_ipv6` and `use_dns_object` are read from [io.nekohasekai.sagernet.outbound.BuildContext] (they
+ * also drive the domain strategies there), not duplicated here.
  */
 data class GeneratorSettings(
     // ---- log
-    /** log_level (SettingsRepo.h:67) <- DataStore.logLevel through [logLevelName]. */
+    /** log_level (SettingsRepo.h:67). */
     val logLevel: String = "info",
 
-    // ---- ntp (SettingsRepo.h:245-249), no Android equivalent
+    // ---- ntp (SettingsRepo.h:245-249): enable_ntp, ntp_server_address, ntp_server_port, ntp_interval, ntp_outbound
     val ntpEnabled: Boolean = false,
     val ntpServer: String = "",
     val ntpServerPort: Int = 0,
@@ -20,43 +20,43 @@ data class GeneratorSettings(
     val ntpOutbound: String = "direct",
 
     // ---- certificate
-    /** use_mozilla_certs (SettingsRepo.h:164), no Android equivalent. */
+    /** use_mozilla_certs (SettingsRepo.h:164). */
     val useMozillaCerts: Boolean = false,
 
     // ---- inbounds
     /** core_dns_in_port (SettingsRepo.h:297). */
     val dnsInPort: Int = 5533,
-    /** !disable_mixed_inbound (SettingsRepo.h:203) <- !DataStore.mixedInboundDisabled. */
+    /** !disable_mixed_inbound (SettingsRepo.h:203); the proxy-only service mode always keeps the mixed inbound. */
     val mixedInboundEnabled: Boolean = true,
-    /** inbound_address (SettingsRepo.h:204): "0.0.0.0" when true, "127.0.0.1" otherwise <- DataStore.allowAccess. */
-    val allowLanAccess: Boolean = false,
-    /** inbound_socks_port (SettingsRepo.h:205) <- DataStore.mixedPort. */
+    /** inbound_address (SettingsRepo.h:204): the mixed inbound's listen address, "::" once LAN access is allowed. */
+    val inboundAddress: String = "127.0.0.1",
+    /** inbound_socks_port (SettingsRepo.h:205). */
     val mixedPort: Int = 2080,
-    /** inbound_auth / inbound_user / inbound_pass (SettingsRepo.h:208-210) <- DataStore.mixedInboundNeedsAuth, mixedUsername, mixedPassword. */
+    /** inbound_auth / inbound_user / inbound_pass (SettingsRepo.h:208-210). */
     val mixedAuth: Boolean = false,
     val mixedUsername: String = "",
     val mixedPassword: String = "",
-    /** custom_inbound (SettingsRepo.h:207): a JSON object whose `inbounds` array is appended verbatim; no Android equivalent. */
+    /** custom_inbound (SettingsRepo.h:207): a JSON object whose `inbounds` array is appended verbatim. */
     val customInboundJson: String = "",
 
     // ---- tun (only in VPN mode)
     /** spmode_vpn (SettingsRepo.h:48) <- DataStore.serviceMode == Key.MODE_VPN. */
     val vpnMode: Boolean = false,
-    /** vpn_mtu (SettingsRepo.h:236) <- DataStore.mtu. */
+    /** vpn_mtu (SettingsRepo.h:236). */
     val tunMtu: Int = 9000,
-    /** vpn_implementation (SettingsRepo.h:222-231) <- DataStore.tunImplementation through [tunStackName]. */
+    /** vpn_impl (SettingsRepo.h:222-231): the tun `stack`. */
     val tunStack: String = "gvisor",
-    /** vpn_strict_route (SettingsRepo.h:222-231) <- DataStore.strictRoute. */
+    /** vpn_strict_route (SettingsRepo.h:222-231); always true on Android (no setting). */
     val tunStrictRoute: Boolean = true,
-    /** vpn_tun_ipv4_cidr (SettingsRepo.h:240); the app's layout is VpnService.PRIVATE_VLAN4_CLIENT/28. */
-    val tunIPv4Cidr: String = "172.19.0.1/28",
-    /** vpn_tun_ipv6_cidr (SettingsRepo.h:241); VpnService.PRIVATE_VLAN6_CLIENT/126. */
-    val tunIPv6Cidr: String = "fdfe:dcba:9876::1/126",
-    /** vpn_ipv6 (SettingsRepo.h:239) <- DataStore.ipv6Mode != IPv6Mode.DISABLE. */
+    /** vpn_tun_ipv4_cidr (SettingsRepo.h:240). */
+    val tunIPv4Cidr: String = "172.19.0.1/24",
+    /** vpn_tun_ipv6_cidr (SettingsRepo.h:241). */
+    val tunIPv6Cidr: String = "fdfe:dcba:9876::1/96",
+    /** vpn_ipv6 (SettingsRepo.h:239). */
     val ipv6Enabled: Boolean = false,
-    /** !disable_private_range_bypass (SettingsRepo.h:237) <- DataStore.bypassLan. */
+    /** !disable_private_range_bypass (SettingsRepo.h:238). */
     val bypassLan: Boolean = true,
-    /** vpn_private_ranges (SettingsRepo.h:238, defaultTunPrivateRanges); no Android equivalent. */
+    /** vpn_private_ranges (SettingsRepo.h:239, defaultTunPrivateRanges); a range a non-direct rule targets stays in the tun. */
     val privateRanges: List<String> = DEFAULT_PRIVATE_RANGES,
     /** DataStore.proxyApps: whether [perAppPackages] is applied at all. */
     val perAppEnabled: Boolean = false,
@@ -70,11 +70,11 @@ data class GeneratorSettings(
     val httpProxyBypassDomains: List<String> = emptyList(),
 
     // ---- dns (SettingsRepo.h:179-197, :296)
-    /** remote_dns <- DataStore.remoteDns (desktop address syntax, see DnsServers.buildDnsObj). */
+    /** remote_dns (desktop address syntax, see DnsServers.buildDnsObj). */
     val remoteDns: String = "https://8.8.8.8/dns-query",
-    /** remote_dns_disable_ipv6 <- DataStore.ipv6Mode == IPv6Mode.DISABLE. */
+    /** remote_dns_disable_ipv6. */
     val remoteDnsDisableIpv6: Boolean = false,
-    /** direct_dns <- DataStore.directDns. */
+    /** direct_dns. */
     val directDns: String = "localhost",
     /** core_box_underlying_dns: the dns-local server, "" means "local". */
     val underlyingDns: String = "",
@@ -96,19 +96,29 @@ data class GeneratorSettings(
     /** dns_predefined_enable / dns_predefined_rules (hosts-file lines). */
     val dnsPredefinedEnable: Boolean = true,
     val dnsPredefinedRules: List<String> = listOf("127.0.0.1 localhost"),
-    /** fake_dns (SettingsRepo.h:219) <- DataStore.enableFakeDns. */
+    /** fakedns (SettingsRepo.h:219). */
     val fakeDns: Boolean = false,
-    /** fakeip_disable_ipv6 (SettingsRepo.h:220) <- DataStore.ipv6Mode == IPv6Mode.DISABLE. */
+    /** fakeip_disable_ipv6 (SettingsRepo.h:220). */
     val fakeIpDisableIpv6: Boolean = false,
 
     // ---- route
-    /** resolve_domain_strategy (SettingsRepo.h:198): adds the `resolve` rule for mixed-in / tun-in when non-empty. */
+    /** domain_strategy (SettingsRepo.h:198): adds the `resolve` rule for mixed-in / tun-in when non-empty. */
     val resolveDomainStrategy: String = "",
-    /** enable_stats (SettingsRepo.h:118) <- DataStore.profileTrafficStatistics: route.find_process and the api service. */
+    /** ruleset_mirror (SettingsRepo.h:201): the jsDelivr mirror of srslist rule-sets, 0 = GitHub itself. */
+    val rulesetMirror: Int = 1,
+    /** adblock_enable (SettingsRepo.h:217): the adblock rule-set and its reject rule. */
+    val adblockEnable: Boolean = false,
+    /** enable_dns_routing (SettingsRepo.h:189): DNS rules for the route profile's direct and proxy sites. */
+    val enableDnsRouting: Boolean = true,
+    /** enable_tun_routing (SettingsRepo.h:222): the route profile's direct ip_cidr values bypass the tun. */
+    val enableTunRouting: Boolean = false,
+    /** enable_stats (SettingsRepo.h:118): route.find_process and the api service. */
     val trafficStats: Boolean = true,
+    /** core_box_api_secret (SettingsRepo.h:295): the api service's secret. */
+    val apiSecret: String = "",
 
     // ---- experimental (SettingsRepo.h:290-292)
-    /** core_box_clash_api > 0 <- DataStore.enableClashAPI. */
+    /** core_box_clash_api > 0; [clashApiPort] is its magnitude, [clashApiListen] / [clashApiSecret] the other two keys. */
     val clashApiEnabled: Boolean = false,
     val clashApiListen: String = "127.0.0.1",
     val clashApiPort: Int = 9090,
@@ -120,33 +130,16 @@ data class GeneratorSettings(
     /** xray_log_level (SettingsRepo.h:300). */
     val xrayLogLevel: String = "warning",
 ) {
-    /** inbound_address as the desktop stores it. */
-    val mixedListen: String get() = if (allowLanAccess) "0.0.0.0" else "127.0.0.1"
+    /** The mixed inbound's `listen`: inbound_address as stored. */
+    val mixedListen: String get() = inboundAddress
 
     companion object {
-        /** defaultTunPrivateRanges (SettingsRepo.h:18-20). */
+        /** defaultTunPrivateRanges (SettingsRepo.h:18-21). */
         @JvmField
-        val DEFAULT_PRIVATE_RANGES: List<String> =
-            listOf("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "224.0.0.0/4")
-
-        /** DataStore.logLevel (the index of the app's log-level list) to the core's level name. */
-        @JvmStatic
-        fun logLevelName(level: Int): String = when (level) {
-            0 -> "panic"
-            1 -> "warn"
-            2 -> "info"
-            3 -> "debug"
-            4 -> "trace"
-            else -> "info"
-        }
-
-        /** DataStore.tunImplementation (TunImplementation.GVISOR / SYSTEM / MIXED) to the tun `stack` name. */
-        @JvmStatic
-        fun tunStackName(implementation: Int): String = when (implementation) {
-            1 -> "system"
-            2 -> "mixed"
-            else -> "gvisor"
-        }
+        val DEFAULT_PRIVATE_RANGES: List<String> = listOf(
+            "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "224.0.0.0/4",
+            "fc00::/7", "fe80::/10", "ff00::/8",
+        )
 
         /** A newline separated DataStore list (individual, httpProxyBypass) with blanks and `#` comments dropped. */
         @JvmStatic
