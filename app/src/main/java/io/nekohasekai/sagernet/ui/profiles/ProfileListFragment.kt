@@ -184,8 +184,11 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
 
     fun updateBottomPadding() {
         if (!::list.isInitialized) return
-        // The test panel reaches the bottom edge and keeps its own content clear of the FAB and the stats bar.
-        list.updateBasePadding(bottom = max(dp2px(BOTTOM_PADDING_DP), host?.panelHeight ?: 0))
+        // The test panel reaches the bottom edge and keeps its own content clear of the FAB and the stats bar; the
+        // picker has neither.
+        val host = host
+        val clearance = if (host?.select == true) list.paddingTop else dp2px(BOTTOM_PADDING_DP)
+        list.updateBasePadding(bottom = max(clearance, host?.panelHeight ?: 0))
     }
 
     /** An empty group says how to add profiles instead of a blank page; an empty subscription offers its update. */

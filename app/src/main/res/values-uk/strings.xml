@@ -183,6 +183,8 @@
     <string name="unsaved_changes_prompt">Зміни не збережено. Ви хочете зберегти?</string>
     <string name="yes">Так</string>
     <string name="no">Ні</string>
+    <string name="save">Зберегти</string>
+    <string name="discard">Не зберігати</string>
     <string name="apply">Застосувати</string>
     <string name="need_reload">Перезавантажте службу проксі, щоб застосувати зміни</string>
     <string name="license">Ліцензія</string>

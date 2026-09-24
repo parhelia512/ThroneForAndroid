@@ -266,5 +266,7 @@
     <string name="navigation_back">Atrás</string>
     <string name="navigation_close">Cerrar</string>
     <string name="navigation_cancel_selection">Cancelar selección</string>
+    <string name="save">Guardar</string>
+    <string name="discard">Descartar</string>
 </resources>
 

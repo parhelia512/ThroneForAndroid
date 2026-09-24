@@ -104,5 +104,7 @@
     <string name="navigation_back">Назад</string>
     <string name="navigation_close">Закрыць</string>
     <string name="navigation_cancel_selection">Скасаваць выбар</string>
+    <string name="save">Захаваць</string>
+    <string name="discard">Адхіліць</string>
 </resources>
 

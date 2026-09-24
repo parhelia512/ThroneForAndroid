@@ -12,6 +12,8 @@
     <string name="license">Lisens</string>
     <string name="apply">Bruk</string>
     <string name="no">Nei</string>
+    <string name="save">Lagre</string>
+    <string name="discard">Forkast</string>
     <string name="yes">Ja</string>
     <string name="proxy_cat">Tjenerinnstillinger</string>
     <string name="subscriptions">Abonnementer</string>

@@ -179,6 +179,8 @@
 <string name="network_change_reset_connections">Сбросить исходящие соединения при изменении сети</string>
 <string name="night_mode">Ночной режим</string>
 <string name="no">Нет</string>
+    <string name="save">Сохранить</string>
+    <string name="discard">Не сохранять</string>
 <string name="no_proxies_found">В ссылке не найдено прокси-серверов</string>
 <string name="no_proxies_found_in_file">В файле не найдено прокси-серверов</string>
 <string name="not_connected">Не подключен</string>

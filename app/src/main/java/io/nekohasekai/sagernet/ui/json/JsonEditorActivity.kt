@@ -428,8 +428,8 @@ class JsonEditorActivity : ThemedActivity() {
         }
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.unsaved_changes_prompt)
-            .setPositiveButton(R.string.yes) { _, _ -> save() }
-            .setNegativeButton(R.string.no) { _, _ -> finish() }
+            .setPositiveButton(R.string.save) { _, _ -> save() }
+            .setNegativeButton(R.string.discard) { _, _ -> finish() }
             .setNeutralButton(android.R.string.cancel, null)
             .show()
     }

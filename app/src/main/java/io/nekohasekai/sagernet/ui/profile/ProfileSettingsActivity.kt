@@ -62,12 +62,12 @@ abstract class ProfileSettingsActivity<T : Outbound>(
     class UnsavedChangesDialogFragment : AlertDialogFragment<Empty, Empty>() {
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.unsaved_changes_prompt)
-            setPositiveButton(R.string.yes) { _, _ ->
+            setPositiveButton(R.string.save) { _, _ ->
                 runOnDefaultDispatcher {
                     (requireActivity() as ProfileSettingsActivity<*>).saveAndExit()
                 }
             }
-            setNegativeButton(R.string.no) { _, _ ->
+            setNegativeButton(R.string.discard) { _, _ ->
                 requireActivity().finish()
             }
             setNeutralButton(android.R.string.cancel, null)

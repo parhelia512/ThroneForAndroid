@@ -66,5 +66,7 @@
     <string name="navigation_back">Zurück</string>
     <string name="navigation_close">Schließen</string>
     <string name="navigation_cancel_selection">Auswahl aufheben</string>
+    <string name="save">Speichern</string>
+    <string name="discard">Verwerfen</string>
 </resources>
 

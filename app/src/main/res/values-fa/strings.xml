@@ -179,6 +179,8 @@
     <string name="unsaved_changes_prompt">تغییرات جدید هنوز ذخیره نشدند، آیا می‌خواهید ذخیره شوند؟</string>
     <string name="yes">بله</string>
     <string name="no">خیر</string>
+    <string name="save">ذخیره</string>
+    <string name="discard">دور انداختن</string>
     <string name="apply">اعمال تغییرات</string>
     <string name="need_reload">برای اعمال تغییرات، سرویس پراکسی را دوباره راه‌اندازی کنید</string>
     <string name="license">مجوز</string>

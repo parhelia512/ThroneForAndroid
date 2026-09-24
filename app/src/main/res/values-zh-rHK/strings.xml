@@ -99,5 +99,7 @@
     <string name="navigation_back">返回</string>
     <string name="navigation_close">關閉</string>
     <string name="navigation_cancel_selection">取消選取</string>
+    <string name="save">儲存</string>
+    <string name="discard">捨棄</string>
 </resources>
 

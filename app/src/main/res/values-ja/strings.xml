@@ -154,6 +154,8 @@
     <string name="unsaved_changes_prompt">変更が保存されていません。保存しますか？</string>
     <string name="yes">はい</string>
     <string name="no">いいえ</string>
+    <string name="save">保存</string>
+    <string name="discard">破棄</string>
     <string name="apply">適用</string>
     <string name="need_reload">変更を適用するにはプロキシサービスを再読み込みしてください</string>
     <string name="license">ライセンス</string>

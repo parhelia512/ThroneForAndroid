@@ -216,6 +216,8 @@
     <string name="unsaved_changes_prompt">Save changes?</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="save">Save</string>
+    <string name="discard">Discard</string>
     <string name="apply">Apply</string>
     <string name="need_reload">Reload proxy service to apply changes</string>
     <string name="license">License</string>

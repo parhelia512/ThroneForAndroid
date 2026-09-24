@@ -234,8 +234,8 @@ class GroupSettingsActivity : ThemedActivity(R.layout.layout_config_settings), O
         }
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.unsaved_changes_prompt)
-            .setPositiveButton(R.string.yes) { _, _ -> lifecycleScope.launch { save() } }
-            .setNegativeButton(R.string.no) { _, _ -> finish() }
+            .setPositiveButton(R.string.save) { _, _ -> lifecycleScope.launch { save() } }
+            .setNegativeButton(R.string.discard) { _, _ -> finish() }
             .setNeutralButton(android.R.string.cancel, null)
             .show()
     }

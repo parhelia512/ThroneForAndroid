@@ -117,6 +117,8 @@
     <string name="unsaved_changes_prompt">要儲存變更嗎？</string>
     <string name="yes">是</string>
     <string name="no">否</string>
+    <string name="save">儲存</string>
+    <string name="discard">捨棄</string>
     <string name="apply">套用</string>
     <string name="license">授權條款</string>
     <string name="document">文件</string>

@@ -48,5 +48,7 @@
     <string name="navigation_back">Indietro</string>
     <string name="navigation_close">Chiudi</string>
     <string name="navigation_cancel_selection">Annulla selezione</string>
+    <string name="save">Salva</string>
+    <string name="discard">Scarta</string>
 </resources>
 

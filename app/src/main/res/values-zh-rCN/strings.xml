@@ -119,6 +119,8 @@
     <string name="unsaved_changes_prompt">是否要保存修改？</string>
     <string name="yes">是</string>
     <string name="no">否</string>
+    <string name="save">保存</string>
+    <string name="discard">放弃</string>
     <string name="apply">应用</string>
     <string name="license">授权协议</string>
     <string name="route_proxy">代理</string>

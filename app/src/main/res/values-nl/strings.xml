@@ -52,5 +52,7 @@
     <string name="navigation_back">Terug</string>
     <string name="navigation_close">Sluiten</string>
     <string name="navigation_cancel_selection">Selectie annuleren</string>
+    <string name="save">Opslaan</string>
+    <string name="discard">Verwerpen</string>
 </resources>
 

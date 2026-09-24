@@ -56,47 +56,8 @@
             app:contentInsetStart="0dp"
             app:hideOnScroll="true">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?android:attr/selectableItemBackground"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tx"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:layout_gravity="fill_horizontal"
-                    android:ellipsize="marquee"
-                    android:singleLine="true"
-                    android:textColor="?whiteOrTextPrimary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/rx"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:layout_gravity="fill_horizontal"
-                    android:ellipsize="marquee"
-                    android:singleLine="true"
-                    android:textColor="?whiteOrTextPrimary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="fill_horizontal"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="?whiteOrTextPrimary"
-                    android:textSize="16sp"
-                    tools:text="@string/connection_test_available" />
-
-            </LinearLayout>
+            <!-- Three lines; one line in landscape (layout-land). -->
+            <include layout="@layout/layout_stats_bar_content" />
 
         </io.nekohasekai.sagernet.widget.StatsBar>
 
