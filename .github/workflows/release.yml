@@ -1,10 +1,13 @@
 name: Release
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the release v<VERSION_NAME> at this commit (otherwise the APKs are only uploaded as a workflow artifact)
+        type: boolean
+        default: true
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 permissions:
   contents: write
@@ -20,14 +23,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Check the tag
+      # The tag is v<VERSION_NAME>; a published release never reuses an existing tag.
+      - name: Version
+        id: version
+        env:
+          PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           VERSION_NAME=$(sed -n 's/^VERSION_NAME=//p' nb4a.properties | tr -d '\r[:space:]')
-          if [ "$GITHUB_REF_NAME" != "v$VERSION_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION_NAME=$VERSION_NAME in nb4a.properties"
+          test -n "$VERSION_NAME"
+          TAG="v$VERSION_NAME"
+          if [ "$PUBLISH" = "true" ] && git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::$TAG already exists: raise VERSION_NAME in nb4a.properties for a new release"
             exit 1
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - name: Build
         uses: ./.github/actions/android-build
         with:
@@ -37,10 +47,20 @@ jobs:
           sign: 'true'
       - name: Release assets
         run: python3 buildScript/release_assets.py app/build/outputs/apk/oss/release dist stable
+      - name: Upload artifact
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Throne-${{ steps.version.outputs.tag }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
       - name: Publish release
+        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "$TAG" --generate-notes
