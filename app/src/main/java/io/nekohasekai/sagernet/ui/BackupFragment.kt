@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.BuildConfig
@@ -36,7 +37,7 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.triggerFullRestart
-import io.nekohasekai.sagernet.utils.CustomIconManager
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -52,14 +53,14 @@ import java.util.Locale
  * backup (saved, shared or uploaded to WebDAV) holds the checked parts; a restore accepts any stream that starts
  * with "THRN", shows the desktop's part dialog, stops the service and restarts the app afterwards.
  */
-class BackupFragment : NamedFragment(R.layout.layout_backup) {
+class BackupFragment : Fragment(R.layout.layout_backup) {
 
     companion object {
         private const val ARG_RESTORE = "restore"
         private const val MIME = "application/octet-stream"
         private const val SHARE_DIR = "backup"
 
-        /** A Backup tab that opens the restore dialog for [restore] once. */
+        /** A Backup page that opens the restore dialog for [restore] once. */
         fun newInstance(restore: Uri?) = BackupFragment().apply {
             if (restore != null) arguments = bundleOf(ARG_RESTORE to restore.toString())
         }
@@ -75,8 +76,6 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     /** The backup the restore dialog shows; discarded when the dialog goes away without a restore. */
     private var pending: BackupRestore.Loaded? = null
 
-    override fun name0() = app.getString(R.string.backup)
-
     private val saveBackup = registerForActivityResult(SaveDocument(MIME)) { uri ->
         if (uri != null) createTo(uri)
     }
@@ -89,9 +88,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         super.onViewCreated(view, savedInstanceState)
         val binding = LayoutBackupBinding.bind(view)
         this.binding = binding
-        val hasIcons = CustomIconManager.isCustomActive()
-        binding.backupIcons.isEnabled = hasIcons
-        if (!hasIcons) binding.backupIcons.isChecked = false
+        view.applyListInsets()
 
         binding.backupCreate.setOnClickListener {
             if (selection() != null) startFilesForResult(saveBackup, fileName())
@@ -135,7 +132,6 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             profiles = b.backupProfiles.isChecked,
             routes = b.backupRoutes.isChecked,
             settings = b.backupSettings.isChecked,
-            icons = b.backupIcons.isEnabled && b.backupIcons.isChecked,
         )
         if (!selection.any()) {
             snackbar(R.string.backup_select_part).show()
@@ -149,8 +145,8 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         runTask(R.string.backup_creating, R.string.backup_failed, work = {
             app.contentResolver.openOutputStream(uri)?.use { BackupExport.write(selection, it) }
                 ?: error("cannot write $uri")
-        }) { written ->
-            snackbar(getString(R.string.backup_created, included(written))).show()
+        }) {
+            snackbar(getString(R.string.backup_created, included(selection))).show()
         }
     }
 
@@ -197,11 +193,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
-    private fun included(written: BackupExport.Selection): String = listOfNotNull(
-        R.string.backup_part_profiles.takeIf { written.profiles },
-        R.string.backup_part_routes.takeIf { written.routes },
-        R.string.backup_part_settings.takeIf { written.settings },
-        R.string.backup_part_icons.takeIf { written.icons },
+    private fun included(selection: BackupExport.Selection): String = listOfNotNull(
+        R.string.backup_part_profiles.takeIf { selection.profiles },
+        R.string.backup_part_routes.takeIf { selection.routes },
+        R.string.backup_part_settings.takeIf { selection.settings },
     ).joinToString(", ") { getString(it) }
 
     // ------------------------------------------------------------------------------------------------ restore
@@ -252,7 +247,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         return dav
     }
 
-    /** The desktop's restore dialog (dialog_basic_settings.cpp:732-788) plus the Android icon pack. */
+    /** The desktop's restore dialog (dialog_basic_settings.cpp:732-788). */
     private fun showRestoreDialog(backup: BackupRestore.Loaded) {
         val available = BackupRestore.available(backup.contents)
         if (!available.any()) {
@@ -269,7 +264,6 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             view.restoreProfiles to available.profiles,
             view.restoreRoutes to available.routes,
             view.restoreSettings to available.settings,
-            view.restoreIcons to available.icons,
         )) {
             box.isEnabled = on
             box.isChecked = on
@@ -294,7 +288,6 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 profiles = available.profiles && view.restoreProfiles.isChecked,
                 routes = available.routes && view.restoreRoutes.isChecked,
                 settings = available.settings && view.restoreSettings.isChecked,
-                icons = available.icons && view.restoreIcons.isChecked,
             )
             if (!choice.any()) {
                 Toast.makeText(requireContext(), R.string.backup_restore_select_part, Toast.LENGTH_SHORT).show()
@@ -322,7 +315,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         showProgress(R.string.backup_restoring)
         runOnDefaultDispatcher {
             val result = runCatching {
-                if (choice.anyDb()) stopService()
+                stopService()
                 BackupRestore.restore(backup, choice)
             }
             onMainDispatcher {

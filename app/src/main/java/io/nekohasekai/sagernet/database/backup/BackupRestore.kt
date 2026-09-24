@@ -22,7 +22,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonArray
 import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.outbound.json.JsonValues
 import io.nekohasekai.sagernet.route.RouteProfile
-import io.nekohasekai.sagernet.utils.CustomIconManager
 import java.io.File
 import java.io.InputStream
 
@@ -34,10 +33,9 @@ import java.io.InputStream
  */
 object BackupRestore {
 
-    /** The parts to restore; [icons] is the Android icon pack. */
-    data class Choice(val profiles: Boolean, val routes: Boolean, val settings: Boolean, val icons: Boolean) {
-        fun anyDb(): Boolean = profiles || routes || settings
-        fun any(): Boolean = anyDb() || icons
+    /** The parts to restore. */
+    data class Choice(val profiles: Boolean, val routes: Boolean, val settings: Boolean) {
+        fun any(): Boolean = profiles || routes || settings
     }
 
     class RestoreException(message: String) : Exception(message)
@@ -59,35 +57,20 @@ object BackupRestore {
         }
     }
 
-    /** The desktop's available parts (OTP and desktop tray icons are never restored here) plus the icon pack. */
+    /** The desktop's available parts: OTP, the desktop's tray icons and older Android icon packs are never restored here. */
     fun available(contents: ThrBackup.Contents): Choice = Choice(
         profiles = contents.parts.profiles,
         routes = contents.parts.routes,
         settings = contents.parts.settings,
-        icons = iconPack(contents) != null,
     )
-
-    private fun iconPack(contents: ThrBackup.Contents): Map<String, ByteArray>? {
-        val pack = listOf(CustomIconManager.FILE_ICON, CustomIconManager.FILE_TILE).associateWith {
-            contents.kept[ThrBackup.ANDROID_ICONS + it] ?: return null
-        }
-        return pack
-    }
 
     /** Restores [choice] from [backup] and discards it; returns the warnings to show. */
     fun restore(backup: Loaded, choice: Choice): List<String> {
         try {
             val warnings = ArrayList<String>()
-            if (choice.anyDb()) {
+            if (choice.any()) {
                 val staged = stage(backup.database, choice, warnings)
                 commit(staged, choice, backup.contents.isAndroid, warnings)
-            }
-            if (choice.icons) {
-                val pack = iconPack(backup.contents)
-                val result = if (pack == null) null else CustomIconManager.restoreIconPack(pack)
-                if (result !is CustomIconManager.ImportResult.Success) {
-                    warnings.add(app.getString(R.string.backup_warn_icons))
-                }
             }
             return warnings
         } finally {

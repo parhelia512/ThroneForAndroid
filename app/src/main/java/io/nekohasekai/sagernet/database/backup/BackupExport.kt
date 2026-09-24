@@ -19,7 +19,6 @@ import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.outbound.json.JsonArray
 import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.outbound.json.JsonValues
-import io.nekohasekai.sagernet.utils.CustomIconManager
 import java.io.File
 import java.io.OutputStream
 import java.util.concurrent.Callable
@@ -33,29 +32,21 @@ import java.util.concurrent.Callable
  */
 object BackupExport {
 
-    /** The parts to write; [icons] is the Android icon pack, an extra entry the desktop ignores. */
-    data class Selection(val profiles: Boolean, val routes: Boolean, val settings: Boolean, val icons: Boolean) {
-        fun anyDb(): Boolean = profiles || routes || settings
-        fun any(): Boolean = anyDb() || icons
+    /** The parts to write. */
+    data class Selection(val profiles: Boolean, val routes: Boolean, val settings: Boolean) {
+        fun any(): Boolean = profiles || routes || settings
     }
 
-    /** Writes the backup to [out]; returns what was written (no icons when no icon pack is set). */
-    fun write(selection: Selection, out: OutputStream): Selection {
+    /** Writes the backup to [out]: the database entry and nothing else. */
+    fun write(selection: Selection, out: OutputStream) {
+        if (!selection.any()) error(app.getString(R.string.backup_select_part))
         BackupTemp.cleanStale()
         val temp = BackupTemp.newFile(BackupTemp.EXPORT)
         try {
-            val files = LinkedHashMap<String, ThrBackup.Payload>()
-            if (selection.anyDb()) {
-                buildDatabase(temp, selection)
-                files[ThrBackup.DATABASE] = ThrBackup.Payload.FromFile(temp)
-            }
-            val pack = if (selection.icons) CustomIconManager.exportIconPack() else null
-            pack?.forEach { (name, bytes) -> files[ThrBackup.ANDROID_ICONS + name] = ThrBackup.Payload.Bytes(bytes) }
-            val written = selection.copy(icons = pack != null)
-            if (!written.any()) error(app.getString(R.string.backup_select_part))
-            val parts = ThrBackup.Parts(profiles = written.profiles, routes = written.routes, settings = written.settings)
-            ThrBackup.write(out, ThrBackup.androidMeta(parts, BuildConfig.VERSION_NAME, written.icons), files)
-            return written
+            buildDatabase(temp, selection)
+            val parts = ThrBackup.Parts(profiles = selection.profiles, routes = selection.routes, settings = selection.settings)
+            val files = mapOf(ThrBackup.DATABASE to ThrBackup.Payload.FromFile(temp))
+            ThrBackup.write(out, ThrBackup.androidMeta(parts, BuildConfig.VERSION_NAME), files)
         } finally {
             BackupTemp.delete(temp)
         }

@@ -15,9 +15,10 @@ import java.util.Locale
 /**
  * The desktop's `.thrbackup` container (dialog_basic_settings.cpp:492-835): a QDataStream (little-endian, Qt_6_0)
  * of the magic "THRN", a quint32 format version, the compact metadata JSON as a QString (UTF-16LE) and a
- * QMap<QString, QByteArray> of files: [DATABASE] (a SQLite file), [DESKTOP_ICONS]`<name>` (the desktop's tray icons)
- * and, from Android, [ANDROID_ICONS]`<name>`. Formats 1..2 are read as strictly as Qt reads them; only format 2 is
- * written, because the desktop refuses anything newer.
+ * QMap<QString, QByteArray> of files: [DATABASE] (a SQLite file) and [DESKTOP_ICONS]`<name>` (the desktop's tray
+ * icons); older Android builds also wrote `android/custom_icon/<name>`. Only the database is used, every other entry
+ * is skipped. Formats 1..2 are read as strictly as Qt reads them; only format 2 is written, because the desktop
+ * refuses anything newer.
  */
 object ThrBackup {
 
@@ -30,10 +31,6 @@ object ThrBackup {
     const val PLATFORM_ANDROID = "android"
     const val DATABASE = "database"
     const val DESKTOP_ICONS = "icons/"
-    const val ANDROID_ICONS = "android/custom_icon/"
-
-    /** Kept entries (the Android icon pack) larger than this are skipped. */
-    const val MAX_KEPT_ENTRY = 16L shl 20
 
     private val MAGIC = byteArrayOf(0x54, 0x48, 0x52, 0x4E)
     private const val NULL_SIZE = 0xFFFFFFFFL
@@ -58,12 +55,11 @@ object ThrBackup {
         fun any(): Boolean = anyDb() || icons
     }
 
-    /** A parsed container; the database entry went to the file given to [read], [kept] holds the entries asked for. */
+    /** A parsed container; the database entry went to the file given to [read]. */
     class Contents(
         val formatVersion: Int,
         val meta: JsonObject,
         val keys: Set<String>,
-        val kept: Map<String, ByteArray>,
     ) {
         val parts: Parts = partsFromMeta(formatVersion, meta, keys)
         val createdAt: String get() = meta.string("created_at")
@@ -97,15 +93,10 @@ object ThrBackup {
     }
 
     /**
-     * Reads a container. The [DATABASE] entry is streamed into [database] (skipped when null); entries whose key
-     * [keep] accepts are kept in memory up to [MAX_KEPT_ENTRY]; all others are skipped. Trailing bytes are ignored,
-     * like Qt does.
+     * Reads a container. The [DATABASE] entry is streamed into [database] (skipped when null); all other entries are
+     * skipped. Trailing bytes are ignored, like Qt does.
      */
-    fun read(
-        input: InputStream,
-        database: File?,
-        keep: (String) -> Boolean = { it.startsWith(ANDROID_ICONS) },
-    ): Contents {
+    fun read(input: InputStream, database: File?): Contents {
         val r = Reader(if (input is BufferedInputStream) input else BufferedInputStream(input, 64 * 1024))
         if (!hasMagic(r.input)) throw FormatException(Kind.NOT_BACKUP, "Not a valid Throne backup file.")
         val version = r.u32()
@@ -117,23 +108,19 @@ object ThrBackup {
         val count = r.u32()
         if (count == NULL_SIZE) throw corrupt("invalid entry count")
         val keys = LinkedHashSet<String>()
-        val kept = HashMap<String, ByteArray>()
         var i = 0L
         while (i < count) {
             val key = r.qstring() ?: throw corrupt("null entry name")
             val size = r.size() ?: 0L
             keys.add(key)
-            when {
-                key == DATABASE && database != null -> database.outputStream().use { r.copy(size, it) }
-                size <= MAX_KEPT_ENTRY && keep(key) -> kept[key] = r.bytes(size)
-                else -> {
-                    kept.remove(key)
-                    r.copy(size, null)
-                }
+            if (key == DATABASE && database != null) {
+                database.outputStream().use { r.copy(size, it) }
+            } else {
+                r.copy(size, null)
             }
             i++
         }
-        return Contents(version.toInt(), meta, keys, kept)
+        return Contents(version.toInt(), meta, keys)
     }
 
     /** BackupPartsFromMeta (dialog_basic_settings.cpp:496-515); only JSON `true` counts, as QJsonValue::toBool. */
@@ -173,12 +160,15 @@ object ThrBackup {
         out.flush()
     }
 
-    /** The metadata an Android backup carries; `parts.icons` stays false (the desktop's part means its tray icons). */
-    fun androidMeta(parts: Parts, appVersion: String, androidIcons: Boolean, created: Date = Date()): JsonObject =
+    /**
+     * The metadata an Android backup carries. Both `icons` flags stay false: Android writes no icons, and the desktop's
+     * part means its tray icons.
+     */
+    fun androidMeta(parts: Parts, appVersion: String, created: Date = Date()): JsonObject =
         JsonObject().apply {
             this["android"] = JsonObject().apply {
                 this["app_version"] = appVersion
-                this["icons"] = androidIcons
+                this["icons"] = false
             }
             this["backup_version"] = CONTENT_VERSION
             this["created_at"] = textDate(created)
@@ -236,8 +226,6 @@ object ThrBackup {
             }
             return String(chars)
         }
-
-        fun bytes(n: Long): ByteArray = ByteArray(n.toInt()).also { readFully(it, it.size) }
 
         fun copy(n: Long, out: OutputStream?) {
             var left = n

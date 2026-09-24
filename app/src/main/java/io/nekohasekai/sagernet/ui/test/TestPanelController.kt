@@ -1,10 +1,8 @@
 package io.nekohasekai.sagernet.ui.test
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
@@ -12,11 +10,8 @@ import android.text.style.ForegroundColorSpan
 import android.transition.AutoTransition
 import android.transition.TransitionManager
 import android.util.TypedValue
-import android.view.GestureDetector
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.ImageView
@@ -60,7 +55,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -112,7 +106,6 @@ class TestPanelController(
         .inflate(R.layout.layout_test_panel, container, false) as MaterialCardView
     private val content: View = root.findViewById(R.id.test_panel_content)
     private val header: View = root.findViewById(R.id.test_panel_header)
-    private val handle: View = root.findViewById(R.id.test_panel_handle)
     private val icon: ImageView = root.findViewById(R.id.test_panel_icon)
     private val title: TextView = root.findViewById(R.id.test_panel_title)
     private val status: TextView = root.findViewById(R.id.test_panel_status)
@@ -177,7 +170,6 @@ class TestPanelController(
 
     // The bottom sheet's state survives the screen; the side panel does not touch it.
     private var expanded = side || TestSessionClient.panelExpanded
-    private var suppressClick = false
     private var iconKind = Int.MIN_VALUE
 
     @ColorInt
@@ -285,10 +277,6 @@ class TestPanelController(
         if (!side || !rtl) shape.setTopLeftCorner(CornerFamily.ROUNDED, radius)
         if (!side || rtl) shape.setTopRightCorner(CornerFamily.ROUNDED, radius)
         root.shapeAppearanceModel = shape.build()
-        handle.background = GradientDrawable().apply {
-            cornerRadius = 2 * density
-            setColor(ColorUtils.setAlphaComponent(textSecondary, 0x66))
-        }
         progress.okColor = okColor
         progress.failedColor = FAILED_COLOR
         progress.testingColor = ColorUtils.setAlphaComponent(accent, 0x73)
@@ -329,7 +317,6 @@ class TestPanelController(
             height = 0
             weight = 1f
         }
-        handle.isVisible = false
         expandButton.isVisible = false
         header.isClickable = false
         header.isFocusable = false
@@ -349,27 +336,9 @@ class TestPanelController(
         }
     }
 
-    /** The bottom sheet expands and collapses: a tap on the header or the chevron, a fling on the header. */
-    @SuppressLint("ClickableViewAccessibility")
+    /** The bottom sheet expands and collapses with a tap on the header or the chevron. */
     private fun wireSheet() {
-        val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity * 4
-        val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                if (abs(velocityY) < minFling || abs(velocityY) < abs(velocityX)) return false
-                suppressClick = true
-                setExpanded(velocityY < 0)
-                return true
-            }
-        })
-        // Swipe up/down on the header like a bottom sheet; the click itself stays with the view.
-        header.setOnTouchListener { _, event ->
-            if (event.actionMasked == MotionEvent.ACTION_DOWN) suppressClick = false
-            detector.onTouchEvent(event)
-            false
-        }
-        header.setOnClickListener {
-            if (suppressClick) suppressClick = false else setExpanded(!expanded)
-        }
+        header.setOnClickListener { setExpanded(!expanded) }
         expandButton.setOnClickListener { setExpanded(!expanded) }
     }
 

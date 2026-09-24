@@ -7,24 +7,12 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.utils.CustomIconManager
 import android.service.quicksettings.TileService as BaseTileService
 
 @RequiresApi(24)
 class TileService : BaseTileService(), SagerConnection.Callback {
-    private val defaultIcon by lazy { Icon.createWithResource(this, R.drawable.ic_throne_tile) }
+    private val tileIcon by lazy { Icon.createWithResource(this, R.drawable.ic_throne_tile) }
     private var tapPending = false
-
-    private fun getTileIcon(): Icon {
-        val customTileBitmap = if (CustomIconManager.isTileApplied(this)) {
-            CustomIconManager.loadTileAlphaBitmap(this)
-        } else null
-        return if (customTileBitmap != null) {
-            Icon.createWithBitmap(customTileBitmap)
-        } else {
-            defaultIcon
-        }
-    }
 
     private val connection = SagerConnection(SagerConnection.CONNECTION_ID_TILE)
     override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) =
@@ -60,33 +48,17 @@ class TileService : BaseTileService(), SagerConnection.Callback {
     private fun updateTile(serviceState: BaseService.State, profileName: String?) {
         qsTile?.apply {
             label = null
-            val currentIcon = getTileIcon()
+            icon = tileIcon
             when (serviceState) {
-                BaseService.State.Idle -> {
-                    icon = currentIcon
-                    state = Tile.STATE_INACTIVE
-                }
-
-                BaseService.State.Connecting -> {
-                    icon = currentIcon
-                    state = Tile.STATE_ACTIVE
-                }
-
+                BaseService.State.Idle -> state = Tile.STATE_INACTIVE
+                BaseService.State.Connecting -> state = Tile.STATE_ACTIVE
                 BaseService.State.Connected -> {
-                    icon = currentIcon
                     label = profileName
                     state = Tile.STATE_ACTIVE
                 }
 
-                BaseService.State.Stopping -> {
-                    icon = currentIcon
-                    state = Tile.STATE_UNAVAILABLE
-                }
-
-                BaseService.State.Stopped -> {
-                    icon = currentIcon
-                    state = Tile.STATE_INACTIVE
-                }
+                BaseService.State.Stopping -> state = Tile.STATE_UNAVAILABLE
+                BaseService.State.Stopped -> state = Tile.STATE_INACTIVE
             }
             label = label ?: getString(R.string.app_name)
             updateTile()

@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Rule
@@ -88,9 +89,9 @@ class ThrBackupTest {
     fun roundTripKeepsEntriesInQMapOrder() {
         val db = temp.newFile("snapshot.db").apply { writeBytes(sqliteHeader + ByteArray(70_000) { it.toByte() }) }
         val parts = ThrBackup.Parts(profiles = true, settings = true)
-        val meta = ThrBackup.androidMeta(parts, "1.0", androidIcons = true)
+        val meta = ThrBackup.androidMeta(parts, "1.0")
         // UTF-16 order puts the surrogate pair (0xD83D) before U+FFFD, code point order would not.
-        val keys = listOf("icons/�.png", "icons/😀.png", ThrBackup.ANDROID_ICONS + "icon.png")
+        val keys = listOf("icons/�.png", "icons/😀.png", "about.txt")
         val files = LinkedHashMap<String, ThrBackup.Payload>()
         files[ThrBackup.DATABASE] = ThrBackup.Payload.FromFile(db)
         keys.forEachIndexed { i, key -> files[key] = ThrBackup.Payload.Bytes(byteArrayOf(i.toByte())) }
@@ -103,11 +104,10 @@ class ThrBackupTest {
         assertEquals(meta.toCompact(), contents.meta.toCompact())
         assertTrue(contents.isAndroid)
         assertEquals(setOf(ThrBackup.DATABASE) + keys, contents.keys)
-        assertEquals(listOf(ThrBackup.ANDROID_ICONS + "icon.png"), contents.kept.keys.toList())
         assertEquals(ThrBackup.Parts(profiles = true, settings = true), contents.parts)
 
         val written = out.toByteArray()
-        val order = listOf(ThrBackup.ANDROID_ICONS + "icon.png", ThrBackup.DATABASE, "icons/😀.png", "icons/�.png")
+        val order = listOf("about.txt", ThrBackup.DATABASE, "icons/😀.png", "icons/�.png")
         val positions = order.map { key -> indexOf(written, qstring(key)) }
         assertEquals(positions.sorted(), positions)
     }
@@ -123,7 +123,7 @@ class ThrBackupTest {
     @Test
     fun androidMetaIsCompactAndSorted() {
         val created = GregorianCalendar(2026, Calendar.SEPTEMBER, 4, 3, 43, 0).time
-        val meta = ThrBackup.androidMeta(ThrBackup.Parts(routes = true), "2.0", androidIcons = false, created = created)
+        val meta = ThrBackup.androidMeta(ThrBackup.Parts(routes = true), "2.0", created = created)
         assertEquals(
             "{\"android\":{\"app_version\":\"2.0\",\"icons\":false},\"backup_version\":2," +
                 "\"created_at\":\"Fri Sep 4 03:43:00 2026\",\"parts\":{\"icons\":false,\"otp\":false," +
@@ -158,18 +158,60 @@ class ThrBackupTest {
         // a null value is an empty entry; the last of two equal keys wins; trailing bytes are ignored
         val bytes = container(
             2, meta,
-            ThrBackup.ANDROID_ICONS + "icon.png" to byteArrayOf(1),
-            ThrBackup.ANDROID_ICONS + "icon.png" to byteArrayOf(2, 3),
+            ThrBackup.DATABASE to byteArrayOf(1, 2, 3),
             "icons/a.png" to null,
             ThrBackup.DATABASE to sqliteHeader,
         ) + "trailing".toByteArray()
         val (contents, database) = read(bytes)
         assertEquals("Wed Sep 24 03:43:00 2026", contents.createdAt)
         assertEquals("winnt", contents.platform)
-        assertArrayEquals(byteArrayOf(2, 3), contents.kept[ThrBackup.ANDROID_ICONS + "icon.png"])
-        assertTrue("icons/a.png" in contents.keys)
+        assertEquals(setOf(ThrBackup.DATABASE, "icons/a.png"), contents.keys)
         assertArrayEquals(sqliteHeader, database)
         assertEquals(JsonInput.parseObject(meta), contents.meta)
+    }
+
+    @Test
+    fun iconEntriesAreSkipped() {
+        // older Android builds added their icon pack, the desktop adds its tray icons: only the database parts restore
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+        val oldAndroid = container(
+            2,
+            "{\"android\":{\"app_version\":\"1.7.0\",\"icons\":true},\"backup_version\":2,\"parts\":{\"icons\":false," +
+                "\"otp\":false,\"profiles\":true,\"routes\":true,\"settings\":true},\"platform\":\"android\"}",
+            "android/custom_icon/icon.png" to png,
+            "android/custom_icon/tile.png" to png,
+            ThrBackup.DATABASE to sqliteHeader,
+        )
+        val desktop = container(
+            2,
+            "{\"parts\":{\"icons\":true,\"otp\":false,\"profiles\":true,\"routes\":true,\"settings\":true},\"platform\":\"winnt\"}",
+            ThrBackup.DATABASE to sqliteHeader,
+            "icons/Proxy.png" to png,
+            "icons/Tun.png" to png,
+        )
+        val desktopV1 = container(1, null, ThrBackup.DATABASE to sqliteHeader, "icons/Tun.png" to png)
+        val databaseParts = BackupRestore.Choice(profiles = true, routes = true, settings = true)
+        for ((bytes, icons) in listOf(
+            oldAndroid to setOf("android/custom_icon/icon.png", "android/custom_icon/tile.png"),
+            desktop to setOf("icons/Proxy.png", "icons/Tun.png"),
+            desktopV1 to setOf("icons/Tun.png"),
+        )) {
+            val (contents, database) = read(bytes)
+            assertEquals(icons + ThrBackup.DATABASE, contents.keys)
+            assertArrayEquals(sqliteHeader, database)
+            assertEquals(databaseParts, BackupRestore.available(contents))
+        }
+        // an old icons-only backup has nothing left to restore
+        val iconsOnly = container(
+            2,
+            "{\"android\":{\"icons\":true},\"parts\":{\"icons\":false,\"otp\":false,\"profiles\":false,\"routes\":false," +
+                "\"settings\":false},\"platform\":\"android\"}",
+            "android/custom_icon/icon.png" to png,
+            "android/custom_icon/tile.png" to png,
+        )
+        val (contents, database) = read(iconsOnly)
+        assertNull(database)
+        assertFalse(BackupRestore.available(contents).any())
     }
 
     @Test

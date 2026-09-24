@@ -43,12 +43,6 @@
             android:text="@string/backup_part_otp"
             android:visibility="gone" />
 
-        <CheckBox
-            android:id="@+id/restore_icons"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/backup_part_icons" />
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

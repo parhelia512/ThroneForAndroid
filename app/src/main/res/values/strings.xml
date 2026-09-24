@@ -374,29 +374,6 @@
 
     <string name="wireguard_persistent_keepalive">Persistent keepalive interval</string>
 
-    <!-- Custom Icon Pack -->
-    <string name="custom_icon">Custom icon</string>
-    <string name="custom_icon_import">Import icon pack</string>
-    <string name="custom_icon_reset">Reset to default</string>
-    <string name="custom_icon_preview_shortcut">Shortcut icon</string>
-    <string name="custom_icon_shortcut_subtitle">Android doesn\'t let apps use a custom image as their launcher icon, so applying the pack adds a home screen shortcut with this icon instead.</string>
-    <string name="custom_icon_preview_tile">Quick Settings tile</string>
-    <string name="custom_icon_tile_subtitle">The system draws tile icons as a silhouette, so only the transparency of tile.png matters.</string>
-    <string name="custom_icon_apply_pack">Apply icon pack</string>
-    <string name="custom_icon_apply_success">Tile icon updated. Your launcher may ask to add the shortcut.</string>
-    <string name="custom_icon_pin_shortcut_not_supported">Your launcher does not support pinning shortcuts.</string>
-    <string name="custom_icon_no_pack_to_apply">Please import an icon pack first.</string>
-    <string name="custom_icon_tile_state_active">Active (tap to toggle)</string>
-    <string name="custom_icon_tile_state_inactive">Inactive (tap to toggle)</string>
-    <string name="custom_icon_import_success">Icon pack imported successfully</string>
-    <string name="custom_icon_reset_success">Default icons restored</string>
-    <string name="custom_icon_reset_confirm">Restore the default icons?</string>
-    <string name="custom_icon_error_missing">Icon pack must contain: %s</string>
-    <string name="custom_icon_error_dimension">%1$s must be 512x512 pixels (current: %2$dx%3$d)</string>
-    <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
-    <string name="custom_icon_error_security">Security verification failed: %s</string>
-    <string name="custom_icon_requirement_tip">An icon pack is a ZIP file with two 512x512 PNG images: icon.png for a home screen shortcut and tile.png for the Quick Settings tile.</string>
-
     <!-- profile editors -->
     <string name="udp_over_tcp">UDP over TCP</string>
     <string name="enable_tls">Enable TLS</string>
@@ -1572,7 +1549,6 @@
     <string name="backup_part_profiles">Profiles (groups and proxies)</string>
     <string name="backup_part_routes">Routing profiles</string>
     <string name="backup_part_settings">Settings</string>
-    <string name="backup_part_icons">Custom icons</string>
     <string name="backup_part_otp">OTP profiles (not restored on Android)</string>
     <string name="backup_local_summary">Backups use the Throne desktop format (.thrbackup): either app restores them. WebDAV credentials stay on this device.</string>
     <string name="backup_create">Create backup</string>
@@ -1617,7 +1593,6 @@
     <string name="backup_warn_orphan_rules">%d rules of missing routing profiles were skipped.</string>
     <string name="backup_warn_raw_routes">%d raw routing profiles from Throne desktop are kept read-only; Android cannot use them.</string>
     <string name="backup_warn_lan_access">The backup lets other devices connect (inbound address %s); this was turned off. Turn it on again in the inbound settings if you need it.</string>
-    <string name="backup_warn_icons">The custom icons in the backup are not a valid icon pack and were not restored.</string>
 
     <string name="webdav_choose_backup">Choose a backup</string>
     <string name="webdav_no_backups">No .thrbackup files were found in %s.</string>
@@ -1780,10 +1755,5 @@
     <string name="save_fallback_message">This device has no document picker, so the file is saved as:\n%1$s</string>
     <string name="scanner_no_camera">No camera: choose an image with a QR code</string>
     <string name="share_target_missing">No app can receive the file</string>
-    <string name="icon_pack_open_failed">Cannot open the selected file</string>
-    <string name="icon_pack_import_failed">Import failed</string>
-    <string name="icon_pack_temp_dir_failed">Cannot create a temporary directory</string>
-    <string name="icon_pack_unsafe_path">The archive contains an unsafe path: %1$s</string>
-    <string name="icon_pack_extract_failed">Extraction failed</string>
     <string name="try_again_later">Please try again later</string>
 </resources>
