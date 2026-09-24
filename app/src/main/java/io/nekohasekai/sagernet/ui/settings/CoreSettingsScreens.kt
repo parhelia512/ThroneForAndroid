@@ -160,8 +160,6 @@ class CoreSettingsFragment : SettingsScreenFragment(R.xml.settings_core) {
             SettingsRegistry.DISABLE_TRAFFIC_STATS.key, SettingsRegistry.SKIP_CERT.key,
             SettingsRegistry.USE_MOZILLA_CERTS.key, SettingsRegistry.NTP_OUTBOUND.key,
         )
-        // The traffic looper does not run with the notification interval off.
-        pref<Preference>(SettingsRegistry.DISABLE_TRAFFIC_STATS.key).isEnabled = DataStore.speedInterval != 0
 
         bindClashApi()
         bindNtp()

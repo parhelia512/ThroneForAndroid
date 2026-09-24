@@ -94,9 +94,6 @@ class GroupMenu(private val host: ConfigurationFragment) {
             menu.findItem(R.id.action_show_speed)?.isChecked = shown.showSpeed
         }
         menu.findItem(if (host.doubleColumn) R.id.action_layout_double else R.id.action_layout_single)?.isChecked = true
-        menu.findItem(
-            if (host.cardStyle == 1) R.id.action_card_style_stroke else R.id.action_card_style_classic
-        )?.isChecked = true
     }
 
     fun onMenuItemClick(item: MenuItem): Boolean {
@@ -107,8 +104,6 @@ class GroupMenu(private val host: ConfigurationFragment) {
             R.id.action_route_profile -> RouteQuickSwitch.show(host)
             R.id.action_layout_single -> host.setDoubleColumn(false)
             R.id.action_layout_double -> host.setDoubleColumn(true)
-            R.id.action_card_style_classic -> host.setCardStyle(0)
-            R.id.action_card_style_stroke -> host.setCardStyle(1)
             else -> return onGroupItemClick(item, host.currentGroup() ?: return false)
         }
         return true

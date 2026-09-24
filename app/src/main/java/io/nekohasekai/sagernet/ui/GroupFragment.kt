@@ -17,7 +17,6 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.room.InvalidationTracker
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupRepo
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -28,14 +27,12 @@ import io.nekohasekai.sagernet.group.SubscriptionClient
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.confirmAction
-import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.widget.applyListInsets
-import io.nekohasekai.sagernet.widget.updateBasePadding
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -94,7 +91,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group), Toolbar.OnMenuItem
 
         groupListView = view.findViewById(R.id.group_list)
         groupListView.applyListInsets()
-        updateBottomPadding()
         groupListView.layoutManager = FixedLinearLayoutManager(groupListView)
         groupAdapter = GroupAdapter()
         groupListView.adapter = groupAdapter
@@ -117,11 +113,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group), Toolbar.OnMenuItem
                 }
             }
         }
-    }
-
-    fun updateBottomPadding() {
-        if (!::groupListView.isInitialized) return
-        groupListView.updateBasePadding(bottom = dp2px(if (DataStore.showBottomBar) 80 else 4))
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {

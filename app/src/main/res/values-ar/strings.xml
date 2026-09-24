@@ -63,7 +63,6 @@
     <string name="show_direct_speed">عرض السرعة المباشرة</string>
     <string name="allow_access_sum">ربط خوادم الإدخال إلى 0.0.0.0</string>
     <string name="cag_misc">إعدادات متنوعة</string>
-    <string name="speed_interval">الفاصل الزمني لتحديث إشعار السرعة</string>
     <string name="cag_ws">إعدادات WebSocket</string>
     <string name="allow_access">السماح بالاتصالات من الشبكة المحلية</string>
     <string name="route_profile">حدد ملف التعريف…</string>

@@ -338,7 +338,7 @@ class MainActivity : ThemedActivity(),
         showWhenConnected: Boolean,
         animate: Boolean,
     ) {
-        val showControls = fragment is ConfigurationFragment || DataStore.showBottomBar
+        val showControls = fragment is ConfigurationFragment
         binding.stats.useExternalScrollDriver = fragment is ConfigurationFragment
         binding.stats.syncMainControls(
             showControls,
@@ -530,18 +530,6 @@ class MainActivity : ThemedActivity(),
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
-            Key.SHOW_BOTTOM_BAR -> {
-                syncMainControls(
-                    showWhenConnected = DataStore.showBottomBar,
-                    animate = true,
-                )
-                when (val fragment = currentMainFragment
-                    ?: supportFragmentManager.findFragmentById(R.id.fragment_holder)
-                ) {
-                    is GroupFragment -> fragment.updateBottomPadding()
-                    is RouteFragment -> fragment.updateBottomPadding()
-                }
-            }
             // The JSON editors of custom_inbound and dns_object write here from their own activity.
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL,
             SettingsRegistry.CUSTOM_INBOUND.key, SettingsRegistry.DNS_OBJECT.key -> {

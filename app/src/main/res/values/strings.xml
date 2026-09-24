@@ -33,9 +33,6 @@
     <string name="layout">Layout</string>
     <string name="layout_single_column">Single column</string>
     <string name="layout_double_column">Double column</string>
-    <string name="card_style">Card</string>
-    <string name="card_style_classic">Classic</string>
-    <string name="card_style_stroke">Stroke</string>
     <!-- misc -->
     <string name="service_mode">Service mode</string>
     <string name="service_mode_proxy">Proxy only</string>
@@ -49,7 +46,6 @@
     <string name="allow_access_sum">Listen on all interfaces (::) instead of loopback</string>
     <string name="cag_ws">WebSocket settings</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
-    <string name="speed_interval">Speed notification update interval</string>
     <string name="cag_misc">Other</string>
     <string name="show_direct_speed">Show direct speed</string>
     <string name="show_direct_speed_sum">Show the traffic speed without proxy in the notification as
@@ -282,8 +278,6 @@
     <string name="backup">Backup</string>
 
     <string name="packet_encoding">Packet encoding</string>
-    <string name="acquire_wake_lock">Acquire wake lock</string>
-    <string name="acquire_wake_lock_summary">Keep the CPU on</string>
     <string name="hide_from_recent_apps">Hide from recent tasks</string>
     <string name="hide_from_recent_apps_summary">Hide the app from recent tasks when running in background</string>
     <string name="action_switch">Switch</string>
@@ -297,7 +291,6 @@
     <string name="create_shortcut">Create shortcut</string>
     <string name="app_tls_version">Subscription min TLS version</string>
     <string name="hop_interval">Port hopping interval (seconds)</string>
-    <string name="show_bottom_bar">Show connect button on every screen</string>
     <string name="utls_fingerprint">uTLS fingerprint</string>
     <string name="set_panel_url">Set panel URL</string>
     <string name="enable_clash_api">Enable Clash API</string>
@@ -352,11 +345,6 @@
     <string name="wake_reset_connections">Reset outbound connections when device wakes from sleep</string>
     <string name="backup_in_progress">Backup is already in progress</string>
     <string name="restore_in_progress">Restore is already in progress</string>
-    <string name="clear_cache">Clear cache</string>
-    <string name="clear_cache_summary">Delete the app\'s cached files. This can fix some unexpected problems.</string>
-    <string name="clear_cache_confirm">Clear cache?</string>
-    <string name="clear_cache_success">Cache cleared</string>
-    <string name="clear_cache_failed">Failed to clear cache: %s</string>
     <string name="connection_test_timeout">Test timeout (ms)</string>
     <string name="preview_version_hint">This application is a preview version and may contain many problems. If you do not want to test it, please go to GitHub to download the release version!</string>
     <string name="preview_hint_dont_show_again">Don\'t show again</string>

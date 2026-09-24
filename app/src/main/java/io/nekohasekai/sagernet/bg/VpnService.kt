@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.bg
 
-import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,7 +7,6 @@ import android.net.IpPrefix
 import android.net.ProxyInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.os.PowerManager
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.*
@@ -44,14 +42,6 @@ class VpnService : BaseVpnService(),
     override suspend fun startProcesses() {
         DataStore.vpnService = this
         super.startProcesses() // launch proxy instance
-    }
-
-    override var wakeLock: PowerManager.WakeLock? = null
-
-    @SuppressLint("WakelockTimeout")
-    override fun acquireWakeLock() {
-        wakeLock = SagerNet.power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sagernet:vpn")
-            .apply { acquire() }
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")

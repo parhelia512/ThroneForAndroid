@@ -44,11 +44,6 @@
             app:summary="@string/oem_background_summary"
             app:title="@string/oem_background" />
         <SwitchPreference
-            app:icon="@drawable/baseline_developer_board_24"
-            app:key="acquireWakeLock"
-            app:summary="@string/acquire_wake_lock_summary"
-            app:title="@string/acquire_wake_lock" />
-        <SwitchPreference
             app:icon="@drawable/ic_device_data_usage"
             app:key="meteredNetwork"
             app:summary="@string/metered_summary"

@@ -54,7 +54,7 @@ class GeneralSettingsFragment : SettingsScreenFragment(R.xml.settings_general) {
             (activity as? MainActivity)?.applyHideFromRecentApps(newValue as Boolean)
             true
         }
-        reloadOn(Key.ACQUIRE_WAKE_LOCK, Key.METERED_NETWORK)
+        reloadOn(Key.METERED_NETWORK)
 
         alwaysOn = pref(KEY_ALWAYS_ON_VPN)
         alwaysOn.setOnPreferenceClickListener {
@@ -149,10 +149,6 @@ class AppearanceSettingsFragment : SettingsScreenFragment(R.xml.settings_appeara
         }
         pref<SimpleMenuPreference>(Key.APP_LANGUAGE).setOnPreferenceChangeListener { _, newValue ->
             AppLocale.apply(newValue as String)
-            true
-        }
-        pref<SimpleMenuPreference>(Key.SPEED_INTERVAL).setOnPreferenceChangeListener { _, _ ->
-            needReload()
             true
         }
         reloadOn(Key.SHOW_DIRECT_SPEED)

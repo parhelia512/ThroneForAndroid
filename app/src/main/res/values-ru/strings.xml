@@ -7,8 +7,6 @@
 <string name="abc_searchview_description_voice">Голосовой поиск</string>
 <string name="abc_shareactionprovider_share_with">Поделиться с помощью</string>
 <string name="abc_toolbar_collapse_description">Свернуть</string>
-<string name="acquire_wake_lock">Использовать WakeLock</string>
-<string name="acquire_wake_lock_summary">Сохранять CPU включенным</string>
 <string name="action_export_clipboard">Экспорт в буфер обмена</string>
 <string name="action_export_err">Не удалось экспортировать.</string>
 <string name="action_export_file">Экспорт в файл</string>
@@ -242,7 +240,6 @@
 <string name="settings">Настройки</string>
 <string name="share">Поделиться</string>
 <string name="share_qr_nfc">QR-код</string>
-<string name="show_bottom_bar">Показать нижнюю панель, как в SagerNet</string>
 <string name="show_direct_speed">Показать прямую скорость</string>
 <string name="show_direct_speed_sum">Также в уведомлении показывать скорость трафика без прокси</string>
 <string name="show_group_in_notification">Показывать название группы в уведомлении</string>
@@ -252,7 +249,6 @@
 <string name="speed">%s/с</string>
 <string name="speed_detail">Прокси: %1$s↑ %2$s↓ 
 \nПрямой: %3$s↑%4$s↓</string>
-<string name="speed_interval">Интервал обновления уведомлений о скорости</string>
 <string name="ssh_auth_type_none">Без аутентификации</string>
 <string name="ssh_private_key">Закрытый ключ</string>
 <string name="ssh_private_key_passphrase">Парольная фраза закрытого ключа</string>
@@ -300,9 +296,6 @@
     <string name="layout">Макет</string>
     <string name="layout_single_column">Один столбец</string>
     <string name="layout_double_column">Два столбца</string>
-    <string name="card_style">Карточка</string>
-    <string name="card_style_classic">Классический</string>
-    <string name="card_style_stroke">Обводка</string>
     <string name="mux_max_connections">Макс. соединений</string>
     <string name="mux_min_streams">Мин. потоков</string>
     <string name="mux_brutal">TCP Brutal</string>
@@ -339,11 +332,6 @@
     <string name="webdav_create_dir_failed">Не удалось создать каталог резервных копий или получить к нему доступ</string>
     <string name="backup_in_progress">Резервное копирование уже выполняется</string>
     <string name="restore_in_progress">Восстановление уже выполняется</string>
-    <string name="clear_cache">Очистить кэш</string>
-    <string name="clear_cache_summary">Очистить файлы кэша приложения для устранения некоторых неполадок</string>
-    <string name="clear_cache_confirm">Вы уверены, что хотите очистить кэш?</string>
-    <string name="clear_cache_success">Кэш очищен</string>
-    <string name="clear_cache_failed">Не удалось очистить кэш: %s</string>
     <string name="connection_test_timeout">Тайм-аут проверки (мс)</string>
     <string name="xhttp_host">XHTTP Host</string>
     <string name="xhttp_path">XHTTP Path</string>

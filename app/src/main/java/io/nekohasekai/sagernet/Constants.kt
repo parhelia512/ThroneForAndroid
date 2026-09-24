@@ -4,8 +4,6 @@ object Key {
 
     const val DB_PROFILE = "sager_net.db"
 
-    const val CLEAR_CACHE = "clearCache"
-
     // Android-only keys of the configuration store; the desktop keys are in database.SettingsRegistry.
 
     const val APP_THEME = "appTheme"
@@ -22,7 +20,6 @@ object Key {
     const val INDIVIDUAL = "individual"
     const val METERED_NETWORK = "meteredNetwork"
 
-    const val SPEED_INTERVAL = "speedInterval"
     const val SHOW_DIRECT_SPEED = "showDirectSpeed"
     const val SHOW_GROUP_IN_NOTIFICATION = "showGroupInNotification"
     const val NOTIFICATION_ACTIONS = "notificationActions"
@@ -34,12 +31,9 @@ object Key {
     const val LOG_BUF_SIZE = "logBufSize"
     const val ALWAYS_SHOW_ADDRESS = "alwaysShowAddress"
 
-    const val ACQUIRE_WAKE_LOCK = "acquireWakeLock"
     const val HIDE_FROM_RECENT_APPS = "hideFromRecentApps"
     const val PREVIEW_HINT_DISMISSED_VERSION = "previewHintDismissedVersion"
-    const val SHOW_BOTTOM_BAR = "showBottomBar"
     const val GROUP_LAYOUT_MODE = "groupLayoutMode"
-    const val PROFILE_CARD_STYLE = "profileCardStyle"
     const val YACD_URL = "yacdURL"
 
     const val PROFILE_DIRTY = "profileDirty"

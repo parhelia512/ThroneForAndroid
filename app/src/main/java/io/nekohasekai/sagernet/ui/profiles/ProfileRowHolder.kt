@@ -20,7 +20,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.TestShowItems
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.getColorAttr
-import io.nekohasekai.sagernet.ktx.getColour
 import io.nekohasekai.sagernet.ktx.tryToShow
 import io.nekohasekai.sagernet.ui.test.RowPhase
 import moe.matsuri.nb4a.Protocols
@@ -304,27 +303,19 @@ internal class ProfileRowHolder(view: View, private val adapter: ProfileListAdap
         shareButton.isVisible = buttons && !adapter.isCompact && !profile.isChain()
         moreButton.isVisible = buttons
         editButton.isEnabled = !host.isStartedProfile(id)
-        applyCardColors(host.isSelectedProfile(id), selectCheck.isChecked, host.cardStyle)
+        applyCardColors(host.isSelectedProfile(id), selectCheck.isChecked)
     }
 
-    private fun applyCardColors(selected: Boolean, checked: Boolean, cardStyle: Int) {
+    private fun applyCardColors(selected: Boolean, checked: Boolean) {
         val context = card.context
         val surface = context.getColorAttr(R.attr.colorSurface)
-        val primary = context.getColorAttr(R.attr.selectedColorPrimary)
         var background = surface
-        if (cardStyle == 1) {
-            selectedIndicator.isVisible = false
-            card.cardElevation = 0f
-            card.strokeWidth = context.resources.getDimensionPixelSize(
-                if (selected) R.dimen.card_stroke_width_selected else R.dimen.card_stroke_width
-            )
-            card.strokeColor = if (selected) primary else context.getColour(R.color.card_stroke)
-            if (selected) background = ColorUtils.compositeColors(ColorUtils.setAlphaComponent(primary, 26), surface)
-        } else {
-            selectedIndicator.isVisible = selected
-            card.strokeWidth = 0
-            card.cardElevation = context.resources.getDimension(R.dimen.profile_card_elevation_classic)
-            if (selected) background = ColorUtils.compositeColors(ColorUtils.setAlphaComponent(primary, 20), surface)
+        selectedIndicator.isVisible = selected
+        card.strokeWidth = 0
+        card.cardElevation = context.resources.getDimension(R.dimen.profile_card_elevation_classic)
+        if (selected) {
+            val primary = context.getColorAttr(R.attr.selectedColorPrimary)
+            background = ColorUtils.compositeColors(ColorUtils.setAlphaComponent(primary, 20), surface)
         }
         if (checked) {
             val accent = context.getColorAttr(R.attr.colorAccent)

@@ -31,7 +31,6 @@
     <string name="allow_access_sum">Vincular servidores entrantes a 0.0.0.0</string> 
     <string name="cag_ws">Ajustes de WebSocket</string> 
     <string name="ws_max_early_data" translatable="false">Max early data</string> 
-    <string name="speed_interval">Intervalo de actualización de notificación de velocidad</string> 
     <string name="cag_misc">Ajustes misceláneos</string> 
     <string name="show_direct_speed">Mostrar velocidad directa</string> 
     <string name="show_direct_speed_sum">Muestra la velocidad del tráfico sin proxy en la notificación también</string> 
@@ -221,8 +220,6 @@
     <string name="backup">Respaldo</string> 
  
     <string name="packet_encoding">Codificación de paquetes</string>
-    <string name="acquire_wake_lock">Adquirir WakeLock</string>
-    <string name="acquire_wake_lock_summary">Mantener la CPU encendida</string> 
     <string name="action_switch">Cambiar</string> 
 
     <string name="preview_hint_dont_show_again">No volver a mostrar</string>

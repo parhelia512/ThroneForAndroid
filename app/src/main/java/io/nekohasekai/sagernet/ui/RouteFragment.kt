@@ -52,7 +52,6 @@ import io.nekohasekai.sagernet.ui.route.RouteTexts
 import io.nekohasekai.sagernet.ui.settings.RoutingSettingsFragment
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.applyListInsets
-import io.nekohasekai.sagernet.widget.updateBasePadding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -94,7 +93,6 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         list.applyListInsets()
         list.layoutManager = FixedLinearLayoutManager(list)
         list.adapter = adapter
-        updateBottomPadding()
         onServiceStateChanged()
         RouteManager.addListener(onRoutesChanged)
         reload()
@@ -105,11 +103,6 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         progressDialog?.dismiss()
         progressDialog = null
         super.onDestroyView()
-    }
-
-    fun updateBottomPadding() {
-        if (!::list.isInitialized) return
-        list.updateBasePadding(bottom = dp2px(if (DataStore.showBottomBar) 80 else 4))
     }
 
     /** "Update rule-sets" needs a running service (actionUpdate_Rule_Sets is enabled only while a profile runs). */

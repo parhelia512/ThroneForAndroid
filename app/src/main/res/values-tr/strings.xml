@@ -22,7 +22,6 @@
     <string name="show_direct_speed_sum">Vekil sunucu olmadan oluşan veri trafiği hızını da göster</string>
     <string name="show_direct_speed">Direkt Hızı Göster</string>
     <string name="cag_misc">Diğer Ayarlar</string>
-    <string name="speed_interval">Hız Bildirimi Güncelleme Aralığı</string>
     <string name="cag_ws">WebSocket Ayarları</string>
     <string name="allow_access_sum">Gelen sunucu isteklerini 0.0.0.0 üzerine bağla</string>
     <string name="allow_access">Yerel ağdan bağlantılara izin ver</string>

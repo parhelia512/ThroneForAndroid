@@ -23,7 +23,6 @@
     <string name="allow_access">允许来自局域网的连接</string>
     <string name="allow_access_sum">将入站绑定至 0.0.0.0</string>
     <string name="cag_ws">WebSocket 设置</string>
-    <string name="speed_interval">速度通知更新间隔</string>
     <string name="traffic">%1$s↑ %2$s↓</string>
     <string name="speed_detail">代理： %1$s↑ %2$s↓
         \n直连： %3$s↑ %4$s↓</string>
@@ -136,7 +135,6 @@
     <string name="ws_host">WebSocket 主机</string>
     <string name="ws_path">WebSocket 路径</string>
     <string name="http_path">HTTP 路径</string>
-    <string name="show_bottom_bar">像 SagerNet 一样显示底栏</string>
     <string name="utls_fingerprint">uTLS 指纹</string>
     <string name="grpc_service_name">gRPC 服务名称</string>
     <string name="alpn">应用层协议协商</string>
@@ -231,8 +229,6 @@
     <string name="action_copy">复制</string>
     <string name="packet_encoding">包编码</string>
     <string name="action_switch">切换</string>
-    <string name="acquire_wake_lock">获取唤醒锁</string>
-    <string name="acquire_wake_lock_summary">保持 CPU 开启</string>
     <string name="hide_from_recent_apps">从最近任务中隐藏</string>
     <string name="hide_from_recent_apps_summary">应用在后台运行时，在最近任务中隐藏</string>
     <string name="move">移动</string>
@@ -293,17 +289,9 @@
     <string name="wake_reset_connections">当设备从睡眠状态唤醒时重置出站连接</string>
     <string name="backup_in_progress">备份正在进行中</string>
     <string name="restore_in_progress">恢复正在进行中</string>
-    <string name="clear_cache">清理缓存</string>
-    <string name="clear_cache_summary">清理应用缓存文件，解决一些异常问题</string>
-    <string name="clear_cache_confirm">确定要清理缓存吗？</string>
-    <string name="clear_cache_success">缓存已清理</string>
-    <string name="clear_cache_failed">清理缓存失败: %s</string>
     <string name="layout">布局</string>
     <string name="layout_single_column">单列</string>
     <string name="layout_double_column">双列</string>
-    <string name="card_style">卡片</string>
-    <string name="card_style_classic">经典</string>
-    <string name="card_style_stroke">描边</string>
     <string name="connection_test_timeout">测试超时（ms）</string>
     <string name="preview_version_hint">本应用为预览版，可能存在诸多问题。若您不愿参与测试，请前往GitHub下载正式发布版本！</string>
     <string name="preview_hint_dont_show_again">不再显示</string>

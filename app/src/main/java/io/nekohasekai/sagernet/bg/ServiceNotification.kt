@@ -133,12 +133,9 @@ class ServiceNotification(
         update()
     }
 
-    suspend fun postNotificationWakeLockStatus(acquired: Boolean) {
+    suspend fun postConnected() {
         updateActions()
-        useBuilder {
-            it.priority =
-                if (acquired) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW
-        }
+        useBuilder { it.priority = NotificationCompat.PRIORITY_LOW }
         update()
     }
 

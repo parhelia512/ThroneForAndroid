@@ -162,7 +162,6 @@
     <string name="show_direct_speed_sum">Vis også trafikkhastigheten uten proxy i varselet</string>
     <string name="show_direct_speed">Vis direkte hastighet</string>
     <string name="cag_misc">Diverse innstillinger</string>
-    <string name="speed_interval">Oppdateringsintervall for hastighetsvarsling</string>
     <string name="cag_ws">WebSocket -innstillinger</string>
     <string name="allow_access_sum">Bind innkommende servere til 0.0.0.0</string>
     <string name="allow_access">Tillat tilkoblinger fra LAN</string>

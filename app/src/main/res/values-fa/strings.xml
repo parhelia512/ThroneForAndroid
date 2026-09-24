@@ -35,7 +35,6 @@
     <string name="allow_access_sum">اجازه اتصال سرورهای ورودی به 0.0.0.0</string>
     <string name="cag_ws">تنظیمات WebSocket</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
-    <string name="speed_interval">تنظیم فاصله زمانی نمایش سرعت</string>
     <string name="cag_misc">تنظیمات متفرقه</string>
     <string name="show_direct_speed">نمایش سرعت</string>
     <string name="show_direct_speed_sum">نمایش سرعت اتصال، حتی در هنگام غیرفعال بودن پراکسی</string>
@@ -242,8 +241,6 @@
     <string name="backup">پشتیبان‌گیری</string>
 
     <string name="packet_encoding">رمزگذاری بسته</string>
-    <string name="acquire_wake_lock">به دست آوردن WakeLock</string>
-    <string name="acquire_wake_lock_summary">پردازنده را روشن نگه‌می‌دارد.</string>
     <string name="action_switch">سوییچ</string>
 
     <string name="tuic_udp_relay_mode">حالت بازپخش UDP</string>
@@ -255,7 +252,6 @@
     <string name="create_shortcut">ساخت میانبر</string>
     <string name="app_tls_version">نسخه TLS </string>
     <string name="hop_interval">مدت زمان Port hopping (به ثانیه)</string>
-    <string name="show_bottom_bar">نمایش نوار پایین مانند SagerNet</string>
     <string name="utls_fingerprint">اثر انگشت uTLS</string>
     <string name="set_panel_url">تعیین لینک صفحه</string>
     <string name="enable_clash_api">فعال کردن Clash API</string>
@@ -284,9 +280,6 @@
     <string name="layout">چیدمان</string>
     <string name="layout_single_column">تک‌ستونه</string>
     <string name="layout_double_column">دوستونه</string>
-    <string name="card_style">کارت</string>
-    <string name="card_style_classic">کلاسیک</string>
-    <string name="card_style_stroke">حاشیه</string>
     <string name="mux_max_connections">حداکثر اتصال‌ها</string>
     <string name="mux_min_streams">حداقل جریان‌ها</string>
     <string name="mux_brutal">TCP Brutal</string>
@@ -321,11 +314,6 @@
     <string name="padding">Padding</string>
     <string name="backup_in_progress">پشتیبان‌گیری از قبل در حال انجام است</string>
     <string name="restore_in_progress">بازیابی از قبل در حال انجام است</string>
-    <string name="clear_cache">پاک‌سازی حافظهٔ پنهان</string>
-    <string name="clear_cache_summary">پاک‌سازی فایل‌های حافظهٔ پنهان برنامه برای رفع برخی مشکلات غیرعادی</string>
-    <string name="clear_cache_confirm">آیا مطمئنید می‌خواهید حافظهٔ پنهان را پاک کنید؟</string>
-    <string name="clear_cache_success">حافظهٔ پنهان پاک شد</string>
-    <string name="clear_cache_failed">پاک‌سازی حافظهٔ پنهان ناموفق بود: %s</string>
     <string name="connection_test_timeout">مهلت آزمایش (ms)</string>
     <string name="preview_version_hint">این برنامه نسخهٔ پیش‌نمایش است و ممکن است مشکلات زیادی داشته باشد. اگر نمی‌خواهید آن را آزمایش کنید، لطفاً برای دانلود نسخهٔ Release به GitHub بروید!</string>
     <string name="preview_hint_dont_show_again">دوباره نشان نده</string>

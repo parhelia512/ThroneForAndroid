@@ -90,7 +90,6 @@
     <string name="connection_test_available_http">Succès : la négociation HTTP a pris %dms</string>
     <string name="password">Mot de passe</string>
     <string name="allow_access">Autoriser les Connexions depuis le réseau local</string>
-    <string name="speed_interval">Intervalle de mise à jour des notifications de vitesse</string>
     <string name="allow_insecure_sum">Désactivez la vérification des certificats. Lorsque cette option est activée, cette configuration est aussi sécurisée que le texte en clair</string>
     <string name="speed">%s/s</string>
     <string name="action_import_file">Importer depuis un fichier</string>

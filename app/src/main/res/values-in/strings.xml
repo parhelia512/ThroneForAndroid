@@ -37,7 +37,6 @@
     <string name="show_direct_speed_sum">Tampilkan lalu lintas kecepatan koneksi tanpa proksi di notifikasi</string>
     <string name="show_direct_speed">Tampilkan Kecepatan Direk</string>
     <string name="cag_misc">Pengaturan Lainnya</string>
-    <string name="speed_interval">Interval Pembaruan Notifikasi Kecepatan</string>
     <string name="cag_ws">Pengaturan WebSocket</string>
     <string name="allow_access_sum">Ikat server masuk ke 0.0.0.0</string>
     <string name="allow_access">Izinkan koneksi dari LAN</string>

@@ -75,6 +75,9 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
             "override_address", "override_port", "no_drop", "process_name", "process_path", "process_path_regex",
             "wifi_ssid", "wifi_bssid",
         )
+
+        /** Android names apps by package, never by process: these show only when a desktop rule brought a value. */
+        private val DESKTOP_ONLY_KEYS = listOf("process_name", "process_path", "process_path_regex")
     }
 
     private val pbm = PreferenceBindingManager().apply {
@@ -384,6 +387,7 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
             setVisible(effective == "resolve", "strategy")
             setVisible(effective == "sniff", "sniff_override_dest")
             setVisible(routes || effective == "route-options", "override_address", "override_port")
+            for (key in DESKTOP_ONLY_KEYS) findPreference<Preference>(key)?.isVisible = !store.getString(key).isNullOrBlank()
 
             val set = ADVANCED_KEYS.count { key ->
                 val pref = findPreference<Preference>(key)

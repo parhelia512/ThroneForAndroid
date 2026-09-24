@@ -42,7 +42,6 @@
     <string name="show_direct_speed_sum">У апавяшчэнні таксама паказвайце хуткасць руху без проксі</string>
     <string name="show_direct_speed">Паказаць прамую хуткасць</string>
     <string name="cag_misc">Розныя налады</string>
-    <string name="speed_interval">Інтэрвал абнаўлення апавяшчэнняў аб хуткасці</string>
     <string name="cag_ws">Налады WebSocket</string>
     <string name="allow_access_sum">Прывязаць уваходныя серверы да 0.0.0.0</string>
     <string name="allow_access">Дазволіць злучэнне з лакальнай сеткі</string>

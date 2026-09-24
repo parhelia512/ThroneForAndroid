@@ -52,9 +52,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var wifiPermissionAsked by configurationStore.boolean(Key.WIFI_PERMISSION_ASKED)
     /** Why the last start failed, until the next start or until the user dismisses it. */
     var serviceError by configurationStore.string(Key.SERVICE_ERROR)
-    var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
     var groupLayoutMode by configurationStore.stringToInt(Key.GROUP_LAYOUT_MODE) { 0 }
-    var profileCardStyle by configurationStore.stringToInt(Key.PROFILE_CARD_STYLE) { 0 }
 
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
     var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS) { true }
@@ -66,13 +64,11 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var appLanguage by configurationStore.string(Key.APP_LANGUAGE) { "" }
     var serviceMode by configurationStore.string(Key.SERVICE_MODE) { Key.MODE_VPN }
 
-    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL) { 1000 }
     var showGroupInNotification by configurationStore.boolean(Key.SHOW_GROUP_IN_NOTIFICATION)
     var showDirectSpeed by configurationStore.boolean(Key.SHOW_DIRECT_SPEED) { true }
     var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
     var logBufSize by configurationStore.int(Key.LOG_BUF_SIZE) { 0 }
-    var acquireWakeLock by configurationStore.boolean(Key.ACQUIRE_WAKE_LOCK)
     var hideFromRecentApps by configurationStore.boolean(Key.HIDE_FROM_RECENT_APPS)
     // The preview version whose hint was dismissed; the hint stays hidden for that version only
     var previewHintDismissedVersion by configurationStore.string(Key.PREVIEW_HINT_DISMISSED_VERSION) { "" }

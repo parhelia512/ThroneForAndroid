@@ -184,10 +184,9 @@ class TrafficLooper(val data: BaseService.Data, private val sc: CoroutineScope) 
     }
 
     private suspend fun loop() {
-        val delayMs = DataStore.speedInterval.toLong()
+        val delayMs = 1000L
         val showDirectSpeed = DataStore.showDirectSpeed
         val profileTrafficStatistics = !DataStore.disableTrafficStats
-        if (delayMs == 0L) return
 
         while (currentCoroutineContext().isActive) {
             val proxy = data.proxy

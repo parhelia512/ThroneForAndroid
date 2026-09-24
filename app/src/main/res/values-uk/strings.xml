@@ -35,7 +35,6 @@
     <string name="allow_access_sum">Прив’язати вхідні сервери до 0.0.0.0</string>
     <string name="cag_ws">Налаштування WebSocket</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
-    <string name="speed_interval">Інтервал оновлення сповіщення про швидкість</string>
     <string name="cag_misc">Різні налаштування</string>
     <string name="show_direct_speed">Показати пряму швидкість</string>
     <string name="show_direct_speed_sum">У сповіщенні також покажіть швидкість трафіку без проксі-сервера</string>
@@ -238,8 +237,6 @@
     <string name="mtu" translatable="false">MTU</string>
     <string name="backup">Резервне копіювання</string>
     <string name="packet_encoding">Кодування пакетів</string>
-    <string name="acquire_wake_lock">Захоплювати WakeLock</string>
-    <string name="acquire_wake_lock_summary">Не давати процесору заснути</string>
     <string name="action_switch">Перемкнути</string>
     <string name="tuic_udp_relay_mode">Режим ретрансляції UDP</string>
     <string name="tuic_congestion_controller">Контролер перевантаження</string>
@@ -249,7 +246,6 @@
     <string name="create_shortcut">Створити ярлик</string>
     <string name="app_tls_version">Мінімальна версія TLS для підписки</string>
     <string name="hop_interval">Інтервал зміни портів (секунди)</string>
-    <string name="show_bottom_bar">Показувати нижню панель, як у SagerNet</string>
     <string name="utls_fingerprint">Відбиток uTLS</string>
     <string name="set_panel_url">Встановити URL панелі</string>
     <string name="enable_clash_api">Увімкнути Clash API</string>

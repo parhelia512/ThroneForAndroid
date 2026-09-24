@@ -1,25 +1,18 @@
 package io.nekohasekai.sagernet.ui
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
-import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.confirmAction
-import io.nekohasekai.sagernet.ktx.needReload
 import io.nekohasekai.sagernet.ktx.triggerFullRestart
-import java.io.File
 
 /**
  * The settings root: one entry per sub-screen (io.nekohasekai.sagernet.ui.settings, opened by [SettingsFragment]),
- * the backup screen and the reset / cache actions.
+ * the backup screen and the reset action.
  */
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
@@ -49,67 +42,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             }
             true
         }
-
-        findPreference<Preference>(Key.CLEAR_CACHE)!!.setOnPreferenceClickListener {
-            requireContext().confirmAction(getString(R.string.clear_cache_confirm), null, R.string.confirm_clear) {
-                clearAppCache()
-            }
-            true
-        }
-    }
-
-    private fun clearAppCache() {
-        try {
-            val cacheDir = SagerNet.application.cacheDir
-            clearDirFiles(cacheDir, skipFiles = setOf("neko.log"))
-
-            val parentDir = cacheDir.parentFile
-            val relativeCache = File(parentDir, "cache")
-            if (relativeCache.exists() && relativeCache.isDirectory) {
-                clearDirFiles(relativeCache)
-            }
-
-            Toast.makeText(requireContext(), R.string.clear_cache_success, Toast.LENGTH_SHORT).show()
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                needReload()
-            }, 500)
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), getString(R.string.clear_cache_failed, e.message), Toast.LENGTH_SHORT).show()
-            e.printStackTrace()
-        }
-    }
-
-    private fun clearDirFiles(dir: File, skipFiles: Set<String> = emptySet()): Boolean {
-        if (dir.isDirectory) {
-            val children = dir.list() ?: return true
-
-            for (child in children) {
-                val childFile = File(dir, child)
-
-                if (child == "neko.log") {
-                    try {
-                        childFile.writeText("")
-                        continue
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-
-                if (child in skipFiles) {
-                    continue
-                }
-
-                if (childFile.isDirectory) {
-                    clearDirFiles(childFile, skipFiles)
-                } else {
-                    childFile.delete()
-                }
-            }
-
-            return true
-        }
-        return false
     }
 
     private companion object {

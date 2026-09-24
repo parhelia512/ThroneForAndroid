@@ -71,10 +71,5 @@
             app:icon="@drawable/baseline_undo_24"
             app:key="resetSettings"
             app:title="@string/reset_settings" />
-        <Preference
-            app:icon="@drawable/ic_baseline_delete_24"
-            app:key="clearCache"
-            app:summary="@string/clear_cache_summary"
-            app:title="@string/clear_cache" />
     </PreferenceCategory>
 </PreferenceScreen>

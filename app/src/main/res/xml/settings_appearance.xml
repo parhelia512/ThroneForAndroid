@@ -38,9 +38,6 @@
 
     <PreferenceCategory app:title="@string/cag_profile_list">
         <SwitchPreference
-            app:key="showBottomBar"
-            app:title="@string/show_bottom_bar" />
-        <SwitchPreference
             app:icon="@drawable/ic_baseline_center_focus_weak_24"
             app:key="alwaysShowAddress"
             app:summary="@string/always_show_address_sum"
@@ -48,14 +45,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/cag_notification">
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="1000"
-            app:entries="@array/notification_entry"
-            app:entryValues="@array/notification_value"
-            app:icon="@drawable/ic_baseline_shutter_speed_24"
-            app:key="speedInterval"
-            app:title="@string/speed_interval"
-            app:useSimpleSummaryProvider="true" />
         <SwitchPreference
             app:defaultValue="true"
             app:icon="@drawable/ic_baseline_speed_24"

@@ -119,13 +119,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
     val alwaysShowAddress by lazy { DataStore.alwaysShowAddress }
 
-    /**
-     * Double column (groupLayoutMode 1: the compact card, two columns at least; the width may give more) and the card
-     * style, read once per view.
-     */
+    /** Double column (groupLayoutMode 1): the compact card, two columns at least (the width may give more). */
     var doubleColumn = false
-        private set
-    var cardStyle = 0
         private set
 
     val groupMenu = GroupMenu(this)
@@ -200,7 +195,6 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         doubleColumn = DataStore.groupLayoutMode == 1
-        cardStyle = DataStore.profileCardStyle
         readProfileState()
 
         setUpToolbar()
@@ -586,13 +580,6 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         doubleColumn = value
         runOnDefaultDispatcher { DataStore.groupLayoutMode = if (value) 1 else 0 }
         lists.forEach { it.switchLayout() }
-    }
-
-    fun setCardStyle(style: Int) {
-        if (style == cardStyle) return
-        cardStyle = style
-        runOnDefaultDispatcher { DataStore.profileCardStyle = style }
-        lists.forEach { it.adapter.notifyState(null) }
     }
 
     // ------------------------------------------------------------------------------------------------ state

@@ -327,14 +327,6 @@ class BaseService {
             }
 
             try {
-                wakeLock?.release()
-            } catch (error: Throwable) {
-                recordCleanupFailure("wake-lock-release", error)
-            } finally {
-                wakeLock = null
-            }
-
-            try {
                 DefaultNetworkListener.stop(this)
             } catch (error: Throwable) {
                 recordCleanupFailure("network-listener-stop", error)
@@ -504,21 +496,8 @@ class BaseService {
             }
         }
 
-        var wakeLock: PowerManager.WakeLock?
-        fun acquireWakeLock()
-
         suspend fun lateInit() {
-            wakeLock?.apply {
-                release()
-                wakeLock = null
-            }
-
-            if (DataStore.acquireWakeLock) {
-                acquireWakeLock()
-                data.notification?.postNotificationWakeLockStatus(true)
-            } else {
-                data.notification?.postNotificationWakeLockStatus(false)
-            }
+            data.notification?.postConnected()
         }
 
         /** Wi-Fi rules (route, DNS or rule-set ones) need location access and a fresh Wi-Fi state on roaming. */

@@ -55,16 +55,12 @@
     <string name="connection_test_available">成功: HTTPS ハンドシェイクに要した時間は %dms です。</string>
     <string name="cag_misc">その他の設定</string>
     <string name="network">ネットワーク</string>
-    <string name="speed_interval">速度通知のアップデート間隔</string>
     <string name="menu_dashboard">sing-box ダッシュボード</string>
     <string name="action_copy">コピー</string>
     <string name="update_all_subscription">すべてのサブスクリプションを更新</string>
     <string name="layout">レイアウト</string>
     <string name="layout_single_column">1列</string>
     <string name="layout_double_column">2列</string>
-    <string name="card_style">カード</string>
-    <string name="card_style_classic">クラシック</string>
-    <string name="card_style_stroke">枠線</string>
     <string name="allow_insecure">安全でない接続を許可</string>
     <string name="connection_test_available_http">成功: HTTP ハンドシェイクに %dms かかりました</string>
     <string name="dns_routing_message">バイパスルートのドメインを直接 DNS で解決します。DNS リークの可能性に注意してください</string>
@@ -211,8 +207,6 @@
     <string name="naive_insecure_concurrency_summary">悪いネットワーク状況下での堅牢性を高めるため、N 個の同時トンネル接続を使用します。接続数が増えるとトンネリングが検出されやすくなり、安全性が低下します。本プロジェクトはトラフィック解析に対する最強のセキュリティを目指しています。安全でない方法で使用すると、その目的が損なわれます。\n\nどうしても使用する必要がある場合は、まず N=2 を試して問題が解決するか確認してください。ここで 4 接続を超えて使用することは強くお勧めしません。</string>
     <string name="backup">バックアップ</string>
     <string name="packet_encoding">パケットエンコーディング</string>
-    <string name="acquire_wake_lock">WakeLock を取得</string>
-    <string name="acquire_wake_lock_summary">CPU をオンのままにする</string>
     <string name="hide_from_recent_apps">最近のタスクから隠す</string>
     <string name="hide_from_recent_apps_summary">バックグラウンド実行時に最近のタスクからアプリを隠す</string>
     <string name="action_switch">切り替え</string>
@@ -224,7 +218,6 @@
     <string name="create_shortcut">ショートカットを作成</string>
     <string name="app_tls_version">サブスクリプションの最小 TLS バージョン</string>
     <string name="hop_interval">ポートホッピング間隔 (秒)</string>
-    <string name="show_bottom_bar">SagerNet のようなボトムバーを表示</string>
     <string name="utls_fingerprint">uTLS フィンガープリント</string>
     <string name="set_panel_url">パネル URL を設定</string>
     <string name="enable_clash_api">Clash API を有効化</string>
@@ -275,11 +268,6 @@
     <string name="wake_reset_connections">デバイスがスリープから復帰したときにアウトバウンド接続をリセット</string>
     <string name="backup_in_progress">バックアップはすでに進行中です</string>
     <string name="restore_in_progress">復元はすでに進行中です</string>
-    <string name="clear_cache">キャッシュをクリア</string>
-    <string name="clear_cache_summary">一部の異常な問題を解決するためにアプリのキャッシュファイルをクリアします</string>
-    <string name="clear_cache_confirm">キャッシュをクリアしてもよろしいですか？</string>
-    <string name="clear_cache_success">キャッシュをクリアしました</string>
-    <string name="clear_cache_failed">キャッシュのクリアに失敗しました: %s</string>
     <string name="connection_test_timeout">テストタイムアウト (ms)</string>
     <string name="preview_version_hint">このアプリはプレビュー版であり、多くの問題が含まれている可能性があります。テストしたくない場合は、GitHub にアクセスして Release 版をダウンロードしてください！</string>
     <string name="preview_hint_dont_show_again">今後表示しない</string>
