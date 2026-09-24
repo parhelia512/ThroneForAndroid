@@ -1,8 +1,8 @@
 package moe.matsuri.nb4a.utils
 
 /**
- * Best-effort redaction of exported log lines: URL paths/queries and credentials, secret key/value pairs, UUIDs,
- * base64 keys, public IP addresses and, with [hideDestinations], domain names in connection and DNS lines.
+ * Best-effort redaction of exported log lines: URL paths/queries and credentials, secret and server-naming key/value
+ * pairs, UUIDs, base64 keys, public IP addresses and, with [hideDestinations], domain names in connection and DNS lines.
  */
 class LogRedactor(private val hideDestinations: Boolean) {
 
@@ -11,6 +11,13 @@ class LogRedactor(private val hideDestinations: Boolean) {
         val SECRET = Regex(
             """(?i)("?)([\w\-]*(?:password|passwd|pass|secret|token|key|uuid|auth|psk|short_id)[\w\-]*)\1(\s*[:=]\s*)("(?:[^"\\]|\\.)*"|[^\s,;&}\]]+)"""
         )
+        // The logged start config names the servers by domain as well as by IP.
+        val SERVER = Regex(
+            """(?i)("?)(server|server_name|sni|host|address|path|service_name)\1(\s*[:=]\s*)("(?:[^"\\]|\\.)*"|[^\s,;&}\]]+)"""
+        )
+        // The core logs the connected Wi-Fi ("ssid NAME", "SSID=NAME, BSSID=…"); route rules list them as arrays.
+        val WIFI = Regex("""(?i)\b(b?ssid)(\s*[:=]\s*|\s+)("(?:[^"\\]|\\.)*"|[^\s,;]+)""")
+        val WIFI_LIST = Regex("""(?i)("wifi_b?ssid"\s*:\s*)\[[^\]]*]""")
         val UUID = Regex("""\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b""")
         val BASE64 = Regex("""(?<![A-Za-z0-9+/_\-])[A-Za-z0-9+/_\-]{32,}={0,2}(?![A-Za-z0-9+/=_\-])""")
         val IPV4 = Regex("""(?<![\d.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\d.])""")
@@ -25,11 +32,10 @@ class LogRedactor(private val hideDestinations: Boolean) {
             "$scheme://" + (if (credentials.isNotEmpty()) "<redacted>@" else "") + host +
                     (if (rest.isNotEmpty()) "/<redacted>" else "")
         }
-        s = SECRET.replace(s) { m ->
-            val (quote, key, separator, value) = m.destructured
-            val redacted = if (value.startsWith("\"")) "\"<redacted>\"" else "<redacted>"
-            "$quote$key$quote$separator$redacted"
-        }
+        s = redactValues(SECRET, s)
+        s = redactValues(SERVER, s)
+        s = WIFI_LIST.replace(s) { m -> m.groupValues[1] + "[\"<redacted>\"]" }
+        s = WIFI.replace(s) { m -> m.groupValues[1] + m.groupValues[2] + "<redacted>" }
         s = UUID.replace(s, "<uuid>")
         s = BASE64.replace(s) { m ->
             val v = m.value
@@ -47,6 +53,12 @@ class LogRedactor(private val hideDestinations: Boolean) {
             s = DOMAIN.replace(s) { m -> "<domain>.${m.groupValues[1]}" }
         }
         return s
+    }
+
+    private fun redactValues(pairs: Regex, s: String): String = pairs.replace(s) { m ->
+        val (quote, key, separator, value) = m.destructured
+        val redacted = if (value.startsWith("\"")) "\"<redacted>\"" else "<redacted>"
+        "$quote$key$quote$separator$redacted"
     }
 
     private fun isPrivate4(o: List<Int>): Boolean = when {

@@ -47,8 +47,8 @@ internal object SubscriptionRefresh {
         // abort before the first write (no deletion, no update time). Parsing writes nothing, so it runs first.
         val parsed = parse(fetched.body)
         if (parsed.isEmpty()) {
-            val message = str(R.string.subs_empty_aborted, group.name)
-            Logs.w(message)
+            val message = str(R.string.subs_empty_aborted)
+            Logs.w("${group.name}: $message")
             if (notifyErrors) SubscriptionQueue.error(gid, message)
             return
         }

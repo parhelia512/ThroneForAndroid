@@ -138,7 +138,6 @@
     <string name="file_manager_missing">お使いのデバイスには Android 標準のファイルセレクターがありません。Material Files などをインストールしてください。</string>
     <string name="profile_config">プロファイル設定</string>
     <string name="delete">削除</string>
-    <string name="delete_confirm_prompt">このプロファイルを削除してもよろしいですか？</string>
     <string name="share_qr_nfc">QR コード</string>
     <string name="add_profile_methods_scan_qr_code">QR コードをスキャン</string>
     <string name="add_profile_methods_manual_settings">手動設定</string>
@@ -178,12 +177,10 @@
     <string name="http_proxy_bypass_dialog_message">1 行に 1 つ。# で始まる行はコメントです。例: *zhihu.com</string>
     <string name="group_basic">基本</string>
     <string name="subscription">サブスクリプション</string>
-    <string name="confirm">確認</string>
     <string name="service_subscription">サブスクリプション更新サービス</string>
     <string name="subscription_import">サブスクリプションをインポート</string>
     <string name="profile_import">プロファイルをインポート</string>
     <string name="profile_import_message">プロファイル %s をインポートしますか？</string>
-    <string name="clear_profiles_message">このグループをクリアしてもよろしいですか？</string>
     <string name="apps">アプリケーション</string>
     <string name="select_apps">アプリケーションを選択</string>
     <string name="apps_message">%d 個のアプリケーション</string>
@@ -285,7 +282,6 @@
     <string name="preview_version_hint">このアプリはプレビュー版であり、多くの問題が含まれている可能性があります。テストしたくない場合は、GitHub にアクセスして Release 版をダウンロードしてください！</string>
     <string name="preview_hint_dont_show_again">今後表示しない</string>
     <string name="update_dialog_title">新しいバージョンが利用可能です</string>
-    <string name="check_update_no">確認に成功しましたが、更新はありません。</string>
     <string name="reset_settings">デフォルト設定に戻す</string>
     <string name="reset_settings_message">デフォルト設定に戻しますが、ノードやグループなどのデータは保持されます。データを完全に消去するには、システム設定でアプリのデータを直接クリアしてください。</string>
     <string name="xhttp_host">XHTTP Host</string>
@@ -340,5 +336,11 @@
     <string name="custom_icon_error_not_png">%s は有効な PNG 画像ファイルではありません</string>
     <string name="custom_icon_error_security">セキュリティ検証に失敗しました：%s</string>
     <string name="custom_icon_requirement_tip">アイコンパックは 512x512 の icon.png と tile.png を含む ZIP アーカイブである必要があります。</string>
+    <string name="profile_share_config">設定</string>
+    <string name="disconnect">切断</string>
+    <string name="navigation_open_drawer">ナビゲーション ドロワーを開く</string>
+    <string name="navigation_back">戻る</string>
+    <string name="navigation_close">閉じる</string>
+    <string name="navigation_cancel_selection">選択を解除</string>
 </resources>
 

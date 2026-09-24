@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
@@ -43,6 +45,12 @@ class WireGuardSettingsActivity : BindingSettingsActivity<WireGuard>() {
         numberInput("mtu", "worker_count", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4")
         passwordSummary("private_key", "peer.pre_shared_key")
         multilineInput("address", "peer.reserved")
+        // stored one per line, shown on one
+        findPreference<EditTextPreference>("peer.reserved")?.summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { pref ->
+                pref.text.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+                    .ifEmpty { getString(androidx.preference.R.string.not_set) }
+            }
 
         val amnezia = findPreference<PreferenceCategory>("amneziaCategory")
         onSwitch("enable_amnezia") { on ->
@@ -54,7 +62,9 @@ class WireGuardSettingsActivity : BindingSettingsActivity<WireGuard>() {
         }
 
         // edit_wireguard.cpp:39-51
-        WarpGenerate.bindEditorRow(this@WireGuardSettingsActivity, this, WarpClient.TUNNEL_WIREGUARD) { identity ->
+        WarpGenerate.bindEditorRow(
+            this@WireGuardSettingsActivity, this, WarpClient.TUNNEL_WIREGUARD, R.string.warp_wireguard_profile_name,
+        ) { identity ->
             setFieldText("private_key", identity.privateKey)
             setFieldText("peer.public_key", identity.peerPublicKey)
             setFieldText("address", identity.addresses.joinToString("\n"))

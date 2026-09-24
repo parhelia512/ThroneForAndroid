@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.widget
 
+import android.app.Dialog
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
@@ -18,6 +19,7 @@ import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ui.MainActivity
 import java.nio.charset.StandardCharsets
@@ -36,6 +38,10 @@ class QRCodeDialog() : DialogFragment() {
             Pair(KEY_URL, url), Pair(KEY_NAME, displayName)
         )
     }
+
+    /** The rounded surface of the alert dialogs; the platform dialog theme would draw its own. */
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =
+        super.onCreateDialog(savedInstanceState).apply { window?.setBackgroundDrawableResource(R.drawable.bg_dialog) }
 
     /**
      * Based on:
@@ -72,12 +78,16 @@ class QRCodeDialog() : DialogFragment() {
             // Layout
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            val padding = dp2px(24)
+            setPadding(padding, padding, padding, padding)
 
             // QR Code Image View
             addView(ImageView(context).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
                 )
+                // scaled down, still square, when the padded dialog is narrower than the code
+                adjustViewBounds = true
                 setImageBitmap(Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565).apply {
                     for (x in 0 until size) for (y in 0 until size) {
                         setPixel(x, y, if (qrBits.get(x, y)) Color.BLACK else Color.WHITE)

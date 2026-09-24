@@ -79,7 +79,6 @@
     <string name="sni">بيان اسم الخادم</string>
     <string name="add_profile_methods_scan_qr_code">مسح رمز كيو آر</string>
     <string name="share_qr_nfc">رمز كيو آر</string>
-    <string name="delete_confirm_prompt">هل أنت متأكد أنك تريد إزالة هذا ملف التعريف؟</string>
     <string name="delete">إزالة</string>
     <string name="profile_config">تكوين ملف التعريف</string>
     <string name="file_manager_missing">جهازك يفتقر إلى محدد ملفات أندرويد القياسي، يرجى تثبيت واحد، مثل Material Files.</string>
@@ -137,12 +136,10 @@
     <string name="apps_message">%d تطبيقات</string>
     <string name="select_apps">حدد التطبيقات</string>
     <string name="apps">التطبيقات</string>
-    <string name="clear_profiles_message">هل أنت متأكد أنك تريد مسح هذه المجموعة؟</string>
     <string name="profile_import_message">هل تريد تأكيد رغبتك في استيراد ملف التعريف %s؟</string>
     <string name="profile_import">استيراد ملف التعريف</string>
     <string name="subscription_import">اشتراك الاستيراد</string>
     <string name="service_subscription">خدمة تحديث الاشتراك</string>
-    <string name="confirm">أكد</string>
     <string name="subscription">الاشتراك</string>
     <string name="group_basic">أساسي</string>
     <string name="connection_test_timeout_error">نفذ الوقت</string>
@@ -238,5 +235,11 @@
     <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
     <string name="custom_icon_error_security">Security verification failed: %s</string>
     <string name="custom_icon_requirement_tip">Icon pack must be a ZIP archive containing 512x512 icon.png and tile.png.</string>
+    <string name="profile_share_config">ترتيب</string>
+    <string name="disconnect">قطع الاتصال</string>
+    <string name="navigation_open_drawer">فتح لائحة التنقل</string>
+    <string name="navigation_back">رجوع</string>
+    <string name="navigation_close">إغلاق</string>
+    <string name="navigation_cancel_selection">إلغاء التحديد</string>
 </resources>
 

@@ -7,30 +7,37 @@ import android.system.ErrnoException
 import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
 import io.throneproj.mobile.ExchangeContext
 import io.throneproj.mobile.LocalDNSTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import java.net.InetAddress
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
 
+/**
+ * The core reads the answer once these calls return (each runs on a goroutine of its own, bounded by the query
+ * context), so every call blocks until the resolver answers or the core cancels the query.
+ */
 object LocalResolverImpl : LocalDNSTransport {
 
     private const val RCODE_NXDOMAIN = 3
 
-    override fun raw(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-    }
+    override fun raw(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun exchange(ctx: ExchangeContext, message: ByteArray) {
         val signal = CancellationSignal()
-        ctx.onCancel(signal::cancel)
-
+        val done = CountDownLatch(1)
+        // A cancelled DnsResolver query never calls back, so the cancellation releases the wait itself.
+        ctx.onCancel {
+            signal.cancel()
+            done.countDown()
+        }
         val callback = object : DnsResolver.Callback<ByteArray> {
             override fun onAnswer(answer: ByteArray, rcode: Int) {
                 ctx.rawSuccess(answer)
+                done.countDown()
             }
 
             override fun onError(error: DnsResolver.DnsException) {
@@ -41,9 +48,9 @@ object LocalResolverImpl : LocalDNSTransport {
                     Logs.w(error)
                     ctx.errnoCode(114514)
                 }
+                done.countDown()
             }
         }
-
         DnsResolver.getInstance().rawQuery(
             SagerNet.underlyingNetwork,
             message,
@@ -52,89 +59,23 @@ object LocalResolverImpl : LocalDNSTransport {
             signal,
             callback
         )
+        done.await()
     }
 
+    /** Only below API 29, where [raw] is false. */
     override fun lookup(ctx: ExchangeContext, network: String, domain: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val signal = CancellationSignal()
-            ctx.onCancel(signal::cancel)
-
-            val callback = object : DnsResolver.Callback<Collection<InetAddress>> {
-                override fun onAnswer(answer: Collection<InetAddress>, rcode: Int) {
-                    try {
-                        if (rcode == 0) {
-                            ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
-                        } else {
-                            ctx.errorCode(rcode)
-                        }
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                        ctx.errnoCode(114514)
-                    }
-                }
-
-                override fun onError(error: DnsResolver.DnsException) {
-                    try {
-                        val cause = error.cause
-                        if (cause is ErrnoException) {
-                            ctx.errnoCode(cause.errno)
-                        } else {
-                            Logs.w(error)
-                            ctx.errnoCode(114514)
-                        }
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                        ctx.errnoCode(114514)
-                    }
-                }
-            }
-
-            val type = when {
-                network.endsWith("4") -> DnsResolver.TYPE_A
-                network.endsWith("6") -> DnsResolver.TYPE_AAAA
-                else -> null
-            }
-            if (type != null) {
-                DnsResolver.getInstance().query(
-                    SagerNet.underlyingNetwork,
-                    domain,
-                    type,
-                    DnsResolver.FLAG_NO_RETRY,
-                    Dispatchers.IO.asExecutor(),
-                    signal,
-                    callback
-                )
-            } else {
-                DnsResolver.getInstance().query(
-                    SagerNet.underlyingNetwork,
-                    domain,
-                    DnsResolver.FLAG_NO_RETRY,
-                    Dispatchers.IO.asExecutor(),
-                    signal,
-                    callback
-                )
-            }
-        } else {
-            runOnIoDispatcher {
-                try {
-                    val u = SagerNet.underlyingNetwork
-                    val answer = try {
-                        u?.getAllByName(domain)
-                    } catch (e: UnknownHostException) {
-                        null
-                    } ?: InetAddress.getAllByName(domain)
-                    if (answer != null) {
-                        ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
-                    } else {
-                        ctx.errnoCode(114514)
-                    }
-                } catch (e: UnknownHostException) {
-                    ctx.errorCode(RCODE_NXDOMAIN)
-                } catch (e: Exception) {
-                    Logs.w(e)
-                    ctx.errnoCode(114514)
-                }
-            }
+        try {
+            val answer = try {
+                SagerNet.underlyingNetwork?.getAllByName(domain)
+            } catch (e: UnknownHostException) {
+                null
+            } ?: InetAddress.getAllByName(domain)
+            ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
+        } catch (e: UnknownHostException) {
+            ctx.errorCode(RCODE_NXDOMAIN)
+        } catch (e: Exception) {
+            Logs.w(e)
+            ctx.errnoCode(114514)
         }
     }
 

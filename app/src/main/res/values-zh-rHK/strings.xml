@@ -94,5 +94,10 @@
     <string name="custom_icon_error_not_png">%s 不是有效的 PNG 圖片檔案</string>
     <string name="custom_icon_error_security">安全檢查失敗：%s</string>
     <string name="custom_icon_requirement_tip">圖示包須為 ZIP 壓縮包，內含 512x512 的 icon.png 與 tile.png。</string>
+    <string name="disconnect">中斷連線</string>
+    <string name="navigation_open_drawer">開啟導覽匣</string>
+    <string name="navigation_back">返回</string>
+    <string name="navigation_close">關閉</string>
+    <string name="navigation_cancel_selection">取消選取</string>
 </resources>
 

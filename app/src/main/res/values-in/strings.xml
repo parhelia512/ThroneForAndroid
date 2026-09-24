@@ -28,8 +28,8 @@
     <string name="connection_test_available">Sukses: handshake HTTPS butuh %dms</string>
     <string name="connection_test_testing">Mengetes…</string>
     <string name="speed">%s/s</string>
-    <string name="speed_detail">Proksi： %1$s↑ %2$s↓
-\nDirek： %3$s↑ %4$s↓</string>
+    <string name="speed_detail">Proksi: %1$s↑ %2$s↓
+\nDirek: %3$s↑ %4$s↓</string>
     <string name="traffic">%1$s↑ %2$s↓</string>
     <string name="allow_insecure_sum">Nonaktifkan pengecekan sertifikat. Saat diaktifkan, konfigurasi ini seaman teks biasa</string>
     <string name="allow_insecure">Izinkan Koneksi Tidak Aman</string>
@@ -150,5 +150,11 @@
     <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
     <string name="custom_icon_error_security">Security verification failed: %s</string>
     <string name="custom_icon_requirement_tip">Icon pack must be a ZIP archive containing 512x512 icon.png and tile.png.</string>
+    <string name="profile_share_config">Konfigurasi</string>
+    <string name="disconnect">Putuskan sambungan</string>
+    <string name="navigation_open_drawer">Buka panel navigasi</string>
+    <string name="navigation_back">Kembali</string>
+    <string name="navigation_close">Tutup</string>
+    <string name="navigation_cancel_selection">Batalkan pilihan</string>
 </resources>
 

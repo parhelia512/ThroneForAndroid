@@ -15,7 +15,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.room.InvalidationTracker
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
@@ -28,6 +27,7 @@ import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.group.SubscriptionClient
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -129,12 +129,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group), Toolbar.OnMenuItem
             R.id.action_new_group -> startActivity(Intent(requireContext(), GroupSettingsActivity::class.java))
 
             // dialog_manage_groups: every subscription, skip_auto_update included
-            R.id.action_update_all -> MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.grp_confirmation)
-                .setMessage(R.string.grp_update_all_confirm)
-                .setPositiveButton(R.string.yes) { _, _ -> runOnDefaultDispatcher { SubscriptionClient.refreshAll(false) } }
-                .setNegativeButton(R.string.no, null)
-                .show()
+            R.id.action_update_all -> requireContext().confirmAction(
+                getString(R.string.grp_update_all_confirm), null, R.string.group_update,
+            ) { runOnDefaultDispatcher { SubscriptionClient.refreshAll(false) } }
         }
         return true
     }
@@ -159,29 +156,23 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group), Toolbar.OnMenuItem
     }
 
     private fun confirmClear(group: ProxyGroup) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.grp_confirmation)
-            .setMessage(R.string.clear_profiles_message)
-            .setPositiveButton(R.string.yes) { _, _ ->
-                runOnDefaultDispatcher {
-                    val outcome = ProfileManager.batchDeleteProfiles(ProfileManager.memberIds(group.id))
-                    if (outcome.kept.isNotEmpty()) withContext(Dispatchers.Main) {
-                        snackbar(R.string.grp_running_kept).show()
-                    }
+        requireContext().confirmAction(
+            getString(R.string.confirm_clear_group), group.displayName(), R.string.confirm_clear,
+        ) {
+            runOnDefaultDispatcher {
+                val outcome = ProfileManager.batchDeleteProfiles(ProfileManager.memberIds(group.id))
+                if (outcome.kept.isNotEmpty()) withContext(Dispatchers.Main) {
+                    snackbar(R.string.grp_running_kept).show()
                 }
             }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        }
     }
 
     /** GroupItem::on_remove_clicked: never the last group; a running profile of the group is stopped first. */
     private fun confirmRemove(group: ProxyGroup) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.grp_confirmation)
-            .setMessage(getString(R.string.grp_remove_confirm, group.displayName()))
-            .setPositiveButton(R.string.yes) { _, _ -> runOnDefaultDispatcher { GroupRepo.delete(group.id) } }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        requireContext().confirmAction(getString(R.string.confirm_remove_group), group.displayName(), R.string.delete) {
+            runOnDefaultDispatcher { GroupRepo.delete(group.id) }
+        }
     }
 
     private data class Row(val group: ProxyGroup, val count: Long)

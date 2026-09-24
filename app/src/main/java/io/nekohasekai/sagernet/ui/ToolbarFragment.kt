@@ -25,6 +25,7 @@ open class ToolbarFragment : Fragment {
         view.findViewById<AppBarLayout>(R.id.appbar)?.applyTopInset()
         toolbar = view.findViewById(R.id.toolbar)
         toolbar?.setNavigationIcon(R.drawable.ic_navigation_menu)
+        toolbar?.setNavigationContentDescription(R.string.navigation_open_drawer)
         // White theme: the toolbar is white, so the menu, title and navigation icon turn dark
         if (Theme.isWhiteTheme()) {
             toolbar?.apply {

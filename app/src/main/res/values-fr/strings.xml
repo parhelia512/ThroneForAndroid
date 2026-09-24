@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_import_err">Échec de l\'importation.</string>
-    <string name="delete_confirm_prompt">Êtes-vous sûr(e) de vouloir retirer ce profil \?</string>
     <string name="delete">Retirer</string>
     <string name="add_profile_methods_scan_qr_code">Scannez le code QR</string>
     <string name="share_qr_nfc">Code QR</string>
@@ -13,11 +12,9 @@
     <string name="night_mode">Mode nuit</string>
     <string name="lines">%d lignes</string>
     <string name="subscription">Abonnement</string>
-    <string name="confirm">Confirmer</string>
     <string name="apps_message">%d applications</string>
     <string name="select_apps">Sélectionnez les applications</string>
     <string name="apps">Applications</string>
-    <string name="clear_profiles_message">Êtes-vous sûr(e) de vouloir supprimer ce groupe \?</string>
     <string name="profile_import_message">Confirmez-vous que vous voulez importer le profil %s \?</string>
     <string name="service_mode">Mode service</string>
     <string name="group_update">Mettre à jour</string>
@@ -80,8 +77,8 @@
     <string name="username_opt">Nom d\'utilisateur (facultatif)</string>
     <string name="encryption">Cryptage</string>
     <string name="stop">Arrêter</string>
-    <string name="speed_detail">Proxy： %1$s↑ %2$s↓
-\nDirecte： %3$s↑ %4$s↓</string>
+    <string name="speed_detail">Proxy: %1$s↑ %2$s↓
+\nDirecte: %3$s↑ %4$s↓</string>
     <string name="subscriptions">Souscriptions</string>
     <string name="cag_misc">Paramètres divers</string>
     <string name="enable_dns_routing">Activer le routage DNS</string>
@@ -193,5 +190,11 @@
     <string name="custom_icon_error_not_png">%s n\'est pas une image PNG valide</string>
     <string name="custom_icon_error_security">Échec de la vérification de sécurité : %s</string>
     <string name="custom_icon_requirement_tip">Le pack d\'icônes doit être une archive ZIP contenant icon.png et tile.png en 512x512.</string>
+    <string name="profile_share_config">Configuration</string>
+    <string name="disconnect">Déconnecter</string>
+    <string name="navigation_open_drawer">Ouvrir le panneau de navigation</string>
+    <string name="navigation_back">Retour</string>
+    <string name="navigation_close">Fermer</string>
+    <string name="navigation_cancel_selection">Annuler la sélection</string>
 </resources>
 

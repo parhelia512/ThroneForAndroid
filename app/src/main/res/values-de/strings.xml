@@ -60,5 +60,11 @@
     <string name="custom_icon_error_not_png">%s ist keine gültige PNG-Datei</string>
     <string name="custom_icon_error_security">Sicherheitsprüfung fehlgeschlagen: %s</string>
     <string name="custom_icon_requirement_tip">Das Symbolpaket muss ein ZIP-Archiv sein, das icon.png und tile.png in 512x512 enthält.</string>
+    <string name="profile_share_config">Konfiguration</string>
+    <string name="disconnect">Verbindung trennen</string>
+    <string name="navigation_open_drawer">Navigationsleiste öffnen</string>
+    <string name="navigation_back">Zurück</string>
+    <string name="navigation_close">Schließen</string>
+    <string name="navigation_cancel_selection">Auswahl aufheben</string>
 </resources>
 

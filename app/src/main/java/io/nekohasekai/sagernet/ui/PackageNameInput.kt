@@ -28,7 +28,7 @@ object PackageNameInput {
             addView(input)
         }
         MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.picker_add_package)
+            .setTitle(R.string.picker_add_package_title)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val names = input.text.toString().split(Regex("[\\s,]+")).filter { it.isNotEmpty() }

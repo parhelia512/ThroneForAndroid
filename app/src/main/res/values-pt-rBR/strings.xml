@@ -53,5 +53,11 @@
     <string name="custom_icon_error_not_png">%s não é uma imagem PNG válida</string>
     <string name="custom_icon_error_security">Falha na verificação de segurança: %s</string>
     <string name="custom_icon_requirement_tip">O pacote deve ser um arquivo ZIP contendo icon.png e tile.png de 512x512.</string>
+    <string name="profile_share_config">Configuração</string>
+    <string name="disconnect">Desconectar</string>
+    <string name="navigation_open_drawer">Abrir gaveta de navegação</string>
+    <string name="navigation_back">Voltar</string>
+    <string name="navigation_close">Fechar</string>
+    <string name="navigation_cancel_selection">Cancelar seleção</string>
 </resources>
 

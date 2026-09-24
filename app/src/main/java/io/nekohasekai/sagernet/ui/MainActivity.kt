@@ -178,6 +178,7 @@ class MainActivity : ThemedActivity(),
     override fun onResume() {
         super.onResume()
         MessageStore.setCurrentActivity(this)
+        DataStore.serviceError.takeIf { it.isNotEmpty() }?.let(::showServiceError)
 
         if (DataStore.hideFromRecentApps) {
             applyHideFromRecentApps(DataStore.hideFromRecentApps)
@@ -412,7 +413,26 @@ class MainActivity : ThemedActivity(),
             showWhenConnected = state == BaseService.State.Connected,
             animate = animateControls,
         )
-        if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
+        if (state == BaseService.State.Connecting) errorBar?.dismiss()
+        if (msg == null) return
+        if (msg == DataStore.serviceError) showServiceError(msg) else snackbar(getString(R.string.vpn_error, msg)).show()
+    }
+
+    private var errorBar: Snackbar? = null
+    private var errorShown = ""
+
+    /** A failed start stays until the next start, Logs or a swipe; the service keeps it for a later visit. */
+    private fun showServiceError(message: String) {
+        if (errorBar?.isShownOrQueued == true && errorShown == message) return
+        errorShown = message
+        errorBar = snackbar(message).setDuration(Snackbar.LENGTH_INDEFINITE)
+            .setAction(R.string.menu_log) { displayFragmentWithId(R.id.nav_logcat) }
+            .addCallback(object : Snackbar.Callback() {
+                override fun onDismissed(transientBottomBar: Snackbar, event: Int) {
+                    if (event == DISMISS_EVENT_SWIPE || event == DISMISS_EVENT_ACTION) DataStore.serviceError = ""
+                }
+            })
+            .also { it.show() }
     }
 
     override fun snackbarInternal(text: CharSequence): Snackbar {

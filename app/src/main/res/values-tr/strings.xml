@@ -13,8 +13,8 @@
     <string name="connection_test_available">Başarılı: HTTPS el sıkışması %dms sonra gerçekleşti</string>
     <string name="connection_test_testing">Test ediliyor…</string>
     <string name="speed">%s/s</string>
-    <string name="speed_detail">Vekil Sunucu： %1$s↑ %2$s↓
-\nDirekt： %3$s↑ %4$s↓</string>
+    <string name="speed_detail">Vekil Sunucu: %1$s↑ %2$s↓
+\nDirekt: %3$s↑ %4$s↓</string>
     <string name="traffic">%1$s↑ %2$s↓</string>
     <string name="allow_insecure_sum">Sertifika doğrulamasını devre dışı bırakır, Etkinleştirildikten sonra yapılandırma düz metin olarak korunur</string>
     <string name="allow_insecure">Güvenliksiz Bağlantıyı Etkinleştir</string>
@@ -91,12 +91,10 @@
     <string name="apps_message">%d Uygulama</string>
     <string name="select_apps">Uygulama Seç</string>
     <string name="apps">Uygulamalar</string>
-    <string name="clear_profiles_message">Bu grubu temizlemek istediğinize emin misiniz\?</string>
     <string name="profile_import_message">%s profilini gerçekten içe aktarmak istiyor musunuz\?</string>
     <string name="profile_import">Profili içe aktar</string>
     <string name="subscription_import">Aboneliği içe aktar</string>
     <string name="service_subscription">Abonelik Güncelleme Servisi</string>
-    <string name="confirm">Doğrula</string>
     <string name="subscription">Abonelik</string>
     <string name="group_basic">Basit</string>
     <string name="connection_test_timeout_error">Zaman Aşımı</string>
@@ -139,7 +137,6 @@
     </plurals>
     <string name="add_profile_methods_scan_qr_code">QR Kodu Tara</string>
     <string name="share_qr_nfc">QR kodu</string>
-    <string name="delete_confirm_prompt">Bu profili kaldırmak istediğinize emin misiniz\?</string>
     <string name="delete">Kaldır</string>
     <string name="action_import_err">İçe aktarma başarısız oldu.</string>
     <string name="action_import_msg">Başarıyla içe aktarıldı!</string>
@@ -238,5 +235,11 @@
     <string name="custom_icon_error_not_png">%s geçerli bir PNG resmi değil</string>
     <string name="custom_icon_error_security">Güvenlik doğrulaması başarısız: %s</string>
     <string name="custom_icon_requirement_tip">Simge paketi 512x512 icon.png ve tile.png içeren bir ZIP arşivi olmalıdır.</string>
+    <string name="profile_share_config">Yapılandırma</string>
+    <string name="disconnect">Bağlantıyı kes</string>
+    <string name="navigation_open_drawer">Gezinme çekmecesini aç</string>
+    <string name="navigation_back">Geri</string>
+    <string name="navigation_close">Kapat</string>
+    <string name="navigation_cancel_selection">Seçimi iptal et</string>
 </resources>
 

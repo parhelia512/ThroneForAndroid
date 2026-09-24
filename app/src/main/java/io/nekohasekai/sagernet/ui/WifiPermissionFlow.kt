@@ -37,7 +37,12 @@ class WifiPermissionFlow(private val activity: ComponentActivity) {
         ActivityResultContracts.StartActivityForResult()
     ) { next() }
 
+    /**
+     * A call while a walk-through runs is dropped: a second one would stack its rationale on the first and leave that
+     * one open over an activity that may finish when the walk-through ends.
+     */
     fun run(onDone: (granted: Boolean) -> Unit = {}) {
+        if (this.onDone != null) return
         this.onDone = onDone
         step = null
         next()

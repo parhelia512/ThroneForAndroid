@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui.profiles
 
 import android.view.MenuItem
+import androidx.annotation.StringRes
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -9,6 +10,8 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupRepo
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.ktx.confirmAction
+import io.nekohasekai.sagernet.ktx.nameList
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 
@@ -109,7 +112,7 @@ class SelectionMode(private val host: ConfigurationFragment) {
         finish()
     }
 
-    /** on_menu_delete_triggered: "Remove %1 item(s) ?" unless skip_delete_confirmation, the running profile stopped. */
+    /** on_menu_delete_triggered: asks unless skip_delete_confirmation; the running profile is stopped. */
     private fun delete(ids: List<Long>) {
         if (ids.isEmpty()) return
         val run = {
@@ -120,20 +123,30 @@ class SelectionMode(private val host: ConfigurationFragment) {
             run()
             return
         }
-        MaterialAlertDialogBuilder(host.requireContext())
-            .setTitle(R.string.profiles_confirmation)
-            .setMessage(host.getString(R.string.profiles_remove_items_confirm, ids.size))
-            .setPositiveButton(R.string.yes) { _, _ -> run() }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        val title = host.resources.getQuantityString(R.plurals.confirm_remove_profiles, ids.size, ids.size)
+        confirm(ids, title, R.string.delete, run)
     }
 
     private fun clearResults(ids: List<Long>) {
         val gid = groupId
-        finish()
+        confirm(ids, host.getString(R.string.confirm_clear_test_results), R.string.confirm_clear) {
+            finish()
+            host.launchIo {
+                ProfileManager.clearTestResults(ids)
+                GroupRepo.postReload(gid)
+            }
+        }
+    }
+
+    /** [title] above the names of [ids] in list order. */
+    private fun confirm(ids: List<Long>, title: String, @StringRes action: Int, run: () -> Unit) {
         host.launchIo {
-            ProfileManager.clearTestResults(ids)
-            GroupRepo.postReload(gid)
+            val position = ids.withIndex().associate { it.value to it.index }
+            val names = ProfileManager.getProfiles(ids).sortedBy { position[it.id] }.map { it.displayName() }
+            host.onUi {
+                val context = requireContext()
+                context.confirmAction(title, context.nameList(names), action, run)
+            }
         }
     }
 

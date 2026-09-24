@@ -12,12 +12,12 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent">
 
         <LinearLayout
             android:id="@+id/content_lin"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:focusable="true"
             android:orientation="vertical"
             android:paddingBottom="12dp">
@@ -117,47 +117,30 @@
 
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/middle_row"
+            <TextView
+                android:id="@+id/profile_address"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:ellipsize="middle"
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp"
                 android:paddingBottom="4dp"
+                android:singleLine="true"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="?android:attr/textColorSecondary"
                 android:visibility="gone"
-                tools:visibility="visible">
+                tools:text="engage.cloudflareclient.com:2408"
+                tools:visibility="visible" />
 
-                <TextView
-                    android:id="@+id/profile_address"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minLines="1"
-                    android:text="@string/server_address"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?android:attr/textColorSecondary" />
+            <!-- Takes the height the double-column grid adds to match a taller neighbour: the type lines line up. -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/traffic_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/traffic"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?android:attr/textColorSecondary" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/bottom_row"
+            <io.nekohasekai.sagernet.ui.profiles.TypeLineLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp">
 
@@ -165,36 +148,43 @@
                     android:id="@+id/profile_type"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:singleLine="true"
                     android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?android:textColorSecondary" />
-
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
+                    android:textColor="?android:textColorSecondary"
+                    tools:text="Trojan" />
 
                 <com.google.android.material.progressindicator.CircularProgressIndicator
                     android:id="@+id/test_progress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:indeterminate="true"
                     android:visibility="gone"
                     app:indicatorSize="12dp"
                     app:trackThickness="2dp" />
 
                 <TextView
-                    android:id="@+id/profile_status"
+                    android:id="@+id/profile_result"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:gravity="end"
-                    android:singleLine="true"
-                    android:ellipsize="end"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
                     android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?android:textColorSecondary" />
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:visibility="gone"
+                    tools:text="🇩🇪 135 ms"
+                    tools:visibility="visible" />
 
-            </LinearLayout>
+                <TextView
+                    android:id="@+id/traffic_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textColor="?android:attr/textColorSecondary"
+                    tools:text="19 kB↑ 35 kB↓" />
+
+            </io.nekohasekai.sagernet.ui.profiles.TypeLineLayout>
 
             <TextView
                 android:id="@+id/profile_error"

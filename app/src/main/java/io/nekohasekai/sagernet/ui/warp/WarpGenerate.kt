@@ -80,24 +80,30 @@ object WarpGenerate {
 
     /**
      * Wires the "Generate WARP identity" row of a profile editor. [fill] gets the editor's current screen, which an
-     * "Edit as JSON" round trip may have rebuilt while the registration ran.
+     * "Edit as JSON" round trip may have rebuilt while the registration ran; a profile without a name gets [name].
      */
     fun bindEditorRow(
         activity: AppCompatActivity,
         screen: PreferenceFragmentCompat,
         tunnelType: String,
+        @StringRes name: Int,
         fill: PreferenceFragmentCompat.(WarpClient.Identity) -> Unit,
     ) {
         screen.findPreference<Preference>(KEY_EDITOR_ROW)?.setOnPreferenceClickListener { button ->
             generate(activity, activity, button, tunnelType, R.string.warp_identity_failed) { identity ->
                 val current = activity.supportFragmentManager.findFragmentById(R.id.settings)
-                ((current as? PreferenceFragmentCompat) ?: screen).fill(identity)
+                val target = (current as? PreferenceFragmentCompat) ?: screen
+                target.fill(identity)
+                target.findPreference<EditTextPreference>(KEY_NAME)?.let {
+                    if (it.text.isNullOrBlank()) it.text = activity.getString(name)
+                }
             }
             true
         }
     }
 
     private const val KEY_EDITOR_ROW = "warpGenerate"
+    private const val KEY_NAME = "name"
 }
 
 /** Sets a field through its preference, which writes the backing store and marks a profile editor dirty. */

@@ -32,6 +32,7 @@ import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeLi
 import io.nekohasekai.sagernet.group.DeviceDetails
 import io.nekohasekai.sagernet.group.RequestIdentity
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ui.settings.DefaultSummaryProvider
 import io.nekohasekai.sagernet.widget.ListListener
 import kotlinx.coroutines.Dispatchers
@@ -240,17 +241,13 @@ class GroupSettingsActivity : ThemedActivity(R.layout.layout_config_settings), O
     }
 
     private fun confirmRemove() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.grp_confirmation)
-            .setMessage(getString(R.string.grp_remove_confirm, ProxyGroup(name = DataStore.groupName.trim()).displayName()))
-            .setPositiveButton(R.string.yes) { _, _ ->
-                lifecycleScope.launch {
-                    withContext(Dispatchers.IO) { GroupRepo.delete(editingId) }
-                    finish()
-                }
+        val name = ProxyGroup(name = DataStore.groupName.trim()).displayName()
+        confirmAction(getString(R.string.confirm_remove_group), name, R.string.delete) {
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) { GroupRepo.delete(editingId) }
+                finish()
             }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        }
     }
 
     // ------------------------------------------------------------------------------------------------ load / save

@@ -16,6 +16,10 @@ internal class TestSessionModel(
     val testCurrent: Boolean,
 ) {
     var speedMode = TestUiState.SPEED_MODE_FULL
+
+    /** Effective `speed_test_timeout_ms` and `test_concurrent`, for the speed test's time-based progress. */
+    var speedTimeoutMs = 0
+    var concurrency = 0
     var session = 0
     var running = true
     var preparing = true
@@ -63,12 +67,18 @@ internal class TestSessionModel(
 
     private var windowStart = 0
     private var windowLeft = 0
+    private var windowSize = 0
+    private var windowAt = 0L
 
     private var live: Live? = null
 
     private class Live(val profileId: Long, val t0: Long) {
         var name = ""
         var stage = ""
+
+        /** The budget phase the profile reached ([phaseOf]) and when it began. */
+        var phase = 0
+        var phaseAt = t0
         var dlBps = 0.0
         var ulBps = 0.0
         var dlBytes = 0L
@@ -105,7 +115,13 @@ internal class TestSessionModel(
             rows[id] = RowState(RowPhase.QUEUED)
         }
         total = if (testCurrent) 1 else order.size
-        if (testCurrent) order.firstOrNull()?.let { markTesting(it) } else if (batched) openWindow()
+        if (testCurrent) {
+            order.firstOrNull()?.let { markTesting(it) }
+            windowSize = 1
+            windowAt = SystemClock.elapsedRealtime()
+        } else if (batched) {
+            openWindow()
+        }
         rowsDirty = true
     }
 
@@ -168,6 +184,11 @@ internal class TestSessionModel(
         }
         l.name = snapshot.profileName.ifEmpty { names[id].orEmpty() }
         l.stage = snapshot.stage
+        val phase = phaseOf(snapshot.stage)
+        if (phase > l.phase) {
+            l.phase = phase
+            l.phaseAt = now
+        }
         l.dlBps = bps(snapshot.downloadSpeed, snapshot.downloadBitsPerSecond)
         l.ulBps = bps(snapshot.uploadSpeed, snapshot.uploadBitsPerSecond)
         l.dlBytes = snapshot.downloadBytes
@@ -283,8 +304,51 @@ internal class TestSessionModel(
             countries = countries,
             distinctIps = ips.size,
             speed = speed,
+            testingProgress = testingProgress(),
             removed = if (removed.isEmpty()) emptySet() else removed.toSet(),
         )
+    }
+
+    /**
+     * Speed tests advance the testing slot with time over the known maxima of their phases ([phaseBudgets]), jumping
+     * to the next phase when the snapshots show it began early, and stay below [PROGRESS_CAP] until the result.
+     * Country lookups have no snapshots: their whole batch moves over its lookup rounds.
+     */
+    private fun testingProgress(): TestingProgress? {
+        if (kind != TestSpec.KIND_SPEED || !running) return null
+        if (speedMode == TestUiState.SPEED_MODE_COUNTRY) {
+            val parallel = if (concurrency > 0) concurrency else DEFAULT_COUNTRY_CONCURRENCY
+            val rounds = ((windowSize + parallel - 1) / parallel).coerceAtLeast(1)
+            return TestingProgress(0f, PROGRESS_CAP, windowAt, rounds * DISCOVERY_MS)
+        }
+        val l = live?.takeIf { rows[it.profileId]?.phase == RowPhase.TESTING } ?: return TestingProgress.NONE
+        val budgets = phaseBudgets()
+        val phase = min(l.phase, budgets.size - 1)
+        val before = budgets.take(phase).sum()
+        val all = budgets.sum().toFloat()
+        return TestingProgress(
+            PROGRESS_CAP * before / all, PROGRESS_CAP * (before + budgets[phase]) / all, l.phaseAt, budgets[phase],
+        )
+    }
+
+    /** Longest run of each phase in ms: server discovery, then download and/or upload bounded by the timeout. */
+    private fun phaseBudgets(): List<Long> {
+        val transfer = speedTimeoutMs.toLong().coerceAtLeast(1L)
+        return when (speedMode) {
+            TestUiState.SPEED_MODE_FULL -> listOf(DISCOVERY_MS, transfer, transfer)
+            TestUiState.SPEED_MODE_SIMPLE_DOWNLOAD -> listOf(transfer)
+            else -> listOf(DISCOVERY_MS, transfer)
+        }
+    }
+
+    /** The [phaseBudgets] index a snapshot stage belongs to; "latency" is a transfer that has not moved bytes yet. */
+    private fun phaseOf(stage: String): Int = when {
+        speedMode == TestUiState.SPEED_MODE_SIMPLE_DOWNLOAD -> 0
+        stage == SpeedTestSnapshot.STAGE_UPLOAD && speedMode == TestUiState.SPEED_MODE_FULL -> 2
+        stage == SpeedTestSnapshot.STAGE_LATENCY || stage == SpeedTestSnapshot.STAGE_DOWNLOAD ||
+            stage == SpeedTestSnapshot.STAGE_UPLOAD -> 1
+
+        else -> 0
     }
 
     // A test of the running connection may report under another id than the one we guessed.
@@ -309,6 +373,8 @@ internal class TestSessionModel(
             windowLeft++
             markTesting(id)
         }
+        windowSize = windowLeft
+        windowAt = SystemClock.elapsedRealtime()
     }
 
     private fun advanceWindow(id: Long) {
@@ -411,6 +477,14 @@ internal class TestSessionModel(
     companion object {
         const val BATCH = 100
         const val MAX_SAMPLES = 600
+
+        /** getSpeedtestServer (core probe.go): the server list fetch (FetchServersTimeout, 8 s) plus its 4 s ping. */
+        const val DISCOVERY_MS = 12_000L
+
+        /** BatchSpeedTest's country lookup concurrency when test_concurrent is not positive. */
+        const val DEFAULT_COUNTRY_CONCURRENCY = 5
+
+        const val PROGRESS_CAP = 0.95f
 
         fun bps(text: String?, parsed: Long): Double =
             if (parsed > 0) parsed.toDouble() else GroupSort.bitrateToBps(text).coerceAtLeast(0.0)

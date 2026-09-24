@@ -51,6 +51,10 @@
         <item name="actionOverflowMenuStyle">@style/Widget.SagerNet.PopupMenu.Overflow</item>
         <item name="bottomSheetDialogTheme">@style/ThemeOverlay.SagerNet.BottomSheetDialog</item>
         <item name="materialButtonStyle">@style/Widget.SagerNet.Button</item>
+        <item name="textAppearanceButton">@style/TextAppearance.SagerNet.Button</item>
+        <item name="tabStyle">@style/Widget.SagerNet.TabLayout</item>
+        <item name="dialogButtonColor">?attr/primaryOrTextPrimary</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.SagerNet</item>
 
     </style>
 
@@ -105,6 +109,9 @@
         <item name="actionOverflowMenuStyle">@style/Widget.SagerNet.PopupMenu.Overflow</item>
         <item name="bottomSheetDialogTheme">@style/ThemeOverlay.SagerNet.BottomSheetDialog</item>
         <item name="materialButtonStyle">@style/Widget.SagerNet.Button</item>
+        <item name="textAppearanceButton">@style/TextAppearance.SagerNet.Button</item>
+        <item name="tabStyle">@style/Widget.SagerNet.TabLayout</item>
+        <item name="dialogButtonColor">?attr/primaryOrTextPrimary</item>
 
         <item name="android:dialogCornerRadius">@dimen/dialog_corner_radius</item>
 
@@ -112,25 +119,71 @@
 
     </style>
 
+    <!-- Dialog activities sized by their content (the updater) instead of the dialog theme's fixed 95% height -->
+    <style name="ThemeOverlay.SagerNet.Dialog.WrapHeight" parent="">
+        <item name="windowFixedHeightMajor">@null</item>
+        <item name="windowFixedHeightMinor">@null</item>
+    </style>
+
+    <!-- Every alert dialog: MaterialAlertDialogBuilder, and AppCompat's builder (the preference dialogs) through
+         ThemeOverlay.SagerNet.AlertDialog. The Material 3 layout keeps the buttons on the 24dp content margins. -->
     <style name="ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet">
+        <item name="alertDialogStyle">@style/MaterialAlertDialog.SagerNet</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.SagerNet.Dialog</item>
-        <item name="buttonBarPositiveButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Primary
-        </item>
-        <item name="buttonBarNegativeButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Primary
-        </item>
-        <item name="buttonBarNeutralButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Flush.Primary
-        </item>
+        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.SagerNet.Title.Text</item>
+        <item name="buttonBarButtonStyle">@style/Widget.SagerNet.Button.TextButton.Dialog</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.SagerNet.Button.TextButton.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.SagerNet.Button.TextButton.Dialog</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.SagerNet.Button.TextButton.Dialog.Flush</item>
     </style>
 
-    <style name="Widget.MaterialComponents.Button.TextButton.Dialog.Primary">
-        <item name="android:textColor">?primaryOrTextPrimary</item>
+    <style name="MaterialAlertDialog.SagerNet" parent="MaterialAlertDialog.Material3">
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.SagerNet.Dialog</item>
     </style>
 
-    <style name="Widget.MaterialComponents.Button.TextButton.Dialog.Flush.Primary">
-        <item name="android:textColor">?primaryOrTextPrimary</item>
+    <style name="MaterialAlertDialog.SagerNet.Title.Text" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textAppearance">?attr/textAppearanceHeadline6</item>
+    </style>
+
+    <!-- Sentence case with Material 3's label spacing instead of spaced-out capitals: textAppearanceButton (buttons,
+         snackbar actions), the dialog buttons and the tabs -->
+    <style name="TextAppearance.SagerNet.Button" parent="TextAppearance.MaterialComponents.Button">
+        <item name="android:textAllCaps">false</item>
+        <item name="textAllCaps">false</item>
+        <item name="android:letterSpacing">0.00714</item>
+    </style>
+
+    <!-- Tab colours stay the theme attrs the layouts pass (tabTextColor and the rest) -->
+    <style name="Widget.SagerNet.TabLayout" parent="Widget.MaterialComponents.TabLayout">
+        <item name="tabTextAppearance">@style/TextAppearance.SagerNet.Button</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.SagerNet.Pill" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="Widget.SagerNet.Button.TextButton.Dialog" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textAppearance">@style/TextAppearance.SagerNet.Button</item>
+        <item name="android:textColor">@color/dialog_button_text</item>
+        <item name="rippleColor">@color/dialog_button_ripple</item>
+        <item name="android:paddingLeft">12dp</item>
+        <item name="android:paddingRight">12dp</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.SagerNet.Pill</item>
+    </style>
+
+    <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush">
+        <item name="android:layout_marginStart">0dp</item>
+        <item name="android:layout_marginLeft">0dp</item>
+    </style>
+
+    <!-- Section notes (category summaries) wrap instead of being cut to one line -->
+    <style name="PreferenceThemeOverlay.SagerNet" parent="PreferenceThemeOverlay">
+        <item name="preferenceCategoryStyle">@style/Preference.Category.SagerNet</item>
+    </style>
+
+    <style name="Preference.Category.SagerNet" parent="Preference.Category.Material">
+        <item name="android:layout">@layout/layout_preference_category</item>
     </style>
 
     <style name="Widget.MaterialComponents.Chip.Choice.SagerNet">
@@ -210,6 +263,20 @@
         <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.SagerNet.Button</item>
     </style>
 
+    <!-- Secondary actions next to a filled button: text and ripple in the dialog buttons' tone, which stays readable
+         where colorPrimary is not (white and black themes, dark purples at night) -->
+    <style name="Widget.SagerNet.Button.OutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.SagerNet.Button</item>
+        <item name="android:textColor">@color/dialog_button_text</item>
+        <item name="rippleColor">@color/dialog_button_ripple</item>
+    </style>
+
+    <style name="Widget.SagerNet.Button.TextButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.SagerNet.Button</item>
+        <item name="android:textColor">@color/dialog_button_text</item>
+        <item name="rippleColor">@color/dialog_button_ripple</item>
+    </style>
+
     <style name="ShapeAppearance.SagerNet.NavItem" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">@dimen/nav_item_corner_radius</item>
@@ -249,6 +316,7 @@
         <item name="colorAccent">@color/material_blue_grey_200</item>
         <item name="colorMaterial100">@color/material_blue_grey_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue_grey</item>
+        <item name="dialogButtonColor">@color/dialog_button_blue_grey</item>
     </style>
 
     <style name="Theme.SagerNet.Brown" parent="Theme.SagerNet">
@@ -257,6 +325,7 @@
         <item name="colorAccent">@color/material_brown_200</item>
         <item name="colorMaterial100">@color/material_brown_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_brown</item>
+        <item name="dialogButtonColor">@color/dialog_button_brown</item>
     </style>
 
     <style name="Theme.SagerNet.Cyan" parent="Theme.SagerNet">
@@ -281,6 +350,7 @@
         <item name="colorAccent">@color/material_deep_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_purple_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_purple</item>
+        <item name="dialogButtonColor">@color/dialog_button_deep_purple</item>
     </style>
 
     <style name="Theme.SagerNet.Green" parent="Theme.SagerNet">
@@ -305,6 +375,7 @@
         <item name="colorAccent">@color/material_indigo_accent_200</item>
         <item name="colorMaterial100">@color/material_indigo_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_indigo</item>
+        <item name="dialogButtonColor">@color/dialog_button_indigo</item>
     </style>
 
     <style name="Theme.SagerNet.LightBlue" parent="Theme.SagerNet">
@@ -345,6 +416,7 @@
         <item name="colorAccent">@color/material_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_purple_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_purple</item>
+        <item name="dialogButtonColor">@color/dialog_button_purple</item>
     </style>
 
     <style name="Theme.SagerNet.Red" parent="Theme.SagerNet">
@@ -394,6 +466,7 @@
         <item name="colorAccent">@color/material_blue_grey_200</item>
         <item name="colorMaterial100">@color/material_blue_grey_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue_grey</item>
+        <item name="dialogButtonColor">@color/dialog_button_blue_grey</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.Brown" parent="Theme.SagerNet.Dialog">
@@ -402,6 +475,7 @@
         <item name="colorAccent">@color/material_brown_200</item>
         <item name="colorMaterial100">@color/material_brown_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_brown</item>
+        <item name="dialogButtonColor">@color/dialog_button_brown</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.Cyan" parent="Theme.SagerNet.Dialog">
@@ -426,6 +500,7 @@
         <item name="colorAccent">@color/material_deep_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_purple_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_purple</item>
+        <item name="dialogButtonColor">@color/dialog_button_deep_purple</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.Green" parent="Theme.SagerNet.Dialog">
@@ -450,6 +525,7 @@
         <item name="colorAccent">@color/material_indigo_accent_200</item>
         <item name="colorMaterial100">@color/material_indigo_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_indigo</item>
+        <item name="dialogButtonColor">@color/dialog_button_indigo</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.LightBlue" parent="Theme.SagerNet.Dialog">
@@ -490,6 +566,7 @@
         <item name="colorAccent">@color/material_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_purple_100</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_purple</item>
+        <item name="dialogButtonColor">@color/dialog_button_purple</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.Red" parent="Theme.SagerNet.Dialog">

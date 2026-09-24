@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui.test
 
 import io.nekohasekai.sagernet.bg.test.TestSpec
+import kotlin.math.min
 
 enum class RowPhase { QUEUED, TESTING, DONE }
 
@@ -71,6 +72,22 @@ data class LatencyHistogram(
 /** One throughput sample of the profile in flight: [t] seconds since its test began, [bps] bits per second. */
 data class SpeedSample(val t: Float, val bps: Float, val upload: Boolean)
 
+/**
+ * How far the testing rows of a speed test are, as a share of their slot: [from] at [since] (elapsedRealtime), then
+ * growing linearly to [to] over [durationMs] and holding there until the next phase or the result.
+ */
+data class TestingProgress(val from: Float, val to: Float, val since: Long, val durationMs: Long) {
+
+    fun at(now: Long): Float =
+        if (durationMs <= 0 || now <= since) from else from + (to - from) * min(1f, (now - since).toFloat() / durationMs)
+
+    fun settled(now: Long): Boolean = now - since >= durationMs
+
+    companion object {
+        val NONE = TestingProgress(0f, 0f, 0L, 0L)
+    }
+}
+
 /** The profile a speed test measures right now (from the 100 ms snapshots). */
 data class SpeedLive(
     val profileId: Long,
@@ -122,6 +139,8 @@ data class TestUiState(
     val countries: List<CountryCount> = emptyList(),
     val distinctIps: Int = 0,
     val speed: SpeedLive? = null,
+    /** Speed tests: the testing rows' progress over the phase budgets; null draws them whole (URL / IP batches). */
+    val testingProgress: TestingProgress? = null,
     /** Failed profiles removed from the panel's "Remove unavailable". */
     val removed: Set<Long> = emptySet(),
 ) {

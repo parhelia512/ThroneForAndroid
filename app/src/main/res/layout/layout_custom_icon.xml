@@ -35,37 +35,23 @@
                     android:textAppearance="?attr/textAppearanceBody2"
                     android:textColor="?android:attr/textColorSecondary" />
 
-                <LinearLayout
+                <Button
+                    android:id="@+id/btn_import_pack"
+                    style="@style/Widget.SagerNet.Button"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
+                    android:text="@string/custom_icon_import"
+                    android:textColor="?whiteOrTextPrimary"
+                    app:cornerRadius="24dp" />
 
-                    <Button
-                        android:id="@+id/btn_import_pack"
-                        style="@style/Widget.SagerNet.Button"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/custom_icon_import"
-                        android:textColor="?whiteOrTextPrimary"
-                        app:cornerRadius="24dp" />
-
-                    <Space
-                        android:layout_width="12dp"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btn_reset_default"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/custom_icon_reset"
-                        android:textColor="?primaryOrTextPrimary"
-                        app:cornerRadius="24dp" />
-
-                </LinearLayout>
+                <Button
+                    android:id="@+id/btn_reset_default"
+                    style="@style/Widget.SagerNet.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/custom_icon_reset"
+                    app:cornerRadius="24dp" />
 
             </LinearLayout>
 
@@ -136,12 +122,20 @@
                     android:text="@string/custom_icon_preview_tile"
                     android:textAppearance="?attr/textAppearanceHeadline6" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/custom_icon_tile_subtitle"
+                    android:textAppearance="?attr/textAppearanceCaption"
+                    android:textColor="?android:attr/textColorSecondary" />
+
                 <!-- Pill that mimics the system Quick Settings tile -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_simulated_tile"
                     android:layout_width="match_parent"
                     android:layout_height="72dp"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="12dp"
                     android:clickable="true"
                     android:focusable="true"
                     app:cardCornerRadius="24dp"
@@ -197,14 +191,15 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Apply the icon pack -->
+        <!-- Apply the icon pack, as wide as the cards -->
         <Button
             android:id="@+id/btn_apply_pack"
             style="@style/Widget.SagerNet.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginVertical="12dp"
+            android:layout_marginHorizontal="8dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
             android:text="@string/custom_icon_apply_pack"
             android:textColor="?whiteOrTextPrimary"
             app:cornerRadius="24dp" />

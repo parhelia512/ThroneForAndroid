@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui.profiles
 
+import androidx.annotation.PluralsRes
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
@@ -13,6 +14,8 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.TestShowItems
 import io.nekohasekai.sagernet.group.SubscriptionClient
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.confirmAction
+import io.nekohasekai.sagernet.ktx.nameList
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
@@ -21,27 +24,25 @@ import io.nekohasekai.sagernet.ui.MainActivity
 /** The desktop's group actions on the current tab (mainwindow_profiles.cpp, mainwindow_setup.cpp). */
 internal object GroupActions {
 
-    /** removeListPreviewLimit: names listed in a removal confirmation. */
-    private const val PREVIEW_LIMIT = 20
-
     fun updateSubscription(group: ProxyGroup) {
         if (group.isSubscription) SubscriptionClient.refreshGroup(group.id, showDiff = true)
     }
 
     /** RefreshAll() without onlyAllowed: skip_auto_update groups are included. */
     fun updateAll(host: ConfigurationFragment) {
-        MaterialAlertDialogBuilder(host.requireContext())
-            .setTitle(R.string.profiles_confirmation)
-            .setMessage(R.string.profiles_update_all_confirm)
-            .setPositiveButton(R.string.yes) { _, _ -> SubscriptionClient.refreshAll(onlyAllowed = false) }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        host.requireContext().confirmAction(
+            host.getString(R.string.grp_update_all_confirm), null, R.string.group_update,
+        ) { SubscriptionClient.refreshAll(onlyAllowed = false) }
     }
 
-    fun clearTestResults(host: ConfigurationFragment, groupId: Long) {
-        host.launchIo {
-            ProfileManager.clearGroupTestResults(groupId)
-            GroupRepo.postReload(groupId)
+    fun clearTestResults(host: ConfigurationFragment, group: ProxyGroup) {
+        host.requireContext().confirmAction(
+            host.getString(R.string.confirm_clear_test_results), group.displayName(), R.string.confirm_clear,
+        ) {
+            host.launchIo {
+                ProfileManager.clearGroupTestResults(group.id)
+                GroupRepo.postReload(group.id)
+            }
         }
     }
 
@@ -55,7 +56,7 @@ internal object GroupActions {
                 if (duplicates.isEmpty()) {
                     snackbar(R.string.profiles_no_duplicates).show()
                 } else {
-                    confirmRemoval(this, skip, getString(R.string.profiles_remove_items_confirm, duplicates.size), duplicates) {
+                    confirmRemoval(this, skip, R.plurals.confirm_remove_duplicates, duplicates) {
                         deleteProfiles(this, duplicates.map { it.id }, stopRunning = true)
                     }
                 }
@@ -72,8 +73,7 @@ internal object GroupActions {
                 if (unavailable.isEmpty()) {
                     snackbar(R.string.profiles_no_unavailable).show()
                 } else {
-                    val question = getString(R.string.profiles_remove_unavailable_confirm, unavailable.size)
-                    confirmRemoval(this, skip, question, unavailable) {
+                    confirmRemoval(this, skip, R.plurals.confirm_remove_unavailable, unavailable) {
                         deleteProfiles(this, unavailable.map { it.id }, stopRunning = false)
                     }
                 }
@@ -90,8 +90,7 @@ internal object GroupActions {
                 if (insecure.isEmpty()) {
                     snackbar(R.string.profiles_no_insecure).show()
                 } else {
-                    val question = getString(R.string.profiles_remove_insecure_confirm, insecure.size)
-                    confirmRemoval(this, skip, question, insecure) {
+                    confirmRemoval(this, skip, R.plurals.confirm_remove_insecure, insecure) {
                         deleteProfiles(this, insecure.map { it.id }, stopRunning = true)
                     }
                 }
@@ -100,32 +99,30 @@ internal object GroupActions {
     }
 
     /** The core validates in `:bg`; the confirmation comes first since the list is only known there. */
-    fun removeInvalid(host: ConfigurationFragment, groupId: Long) {
+    fun removeInvalid(host: ConfigurationFragment, group: ProxyGroup) {
         host.launchIo {
             val skip = DataStore.skipDeleteConfirmation
             host.onUi {
                 if (skip) {
-                    groupAction(this, groupId, "remove_invalid")
+                    groupAction(this, group.id, "remove_invalid")
                 } else {
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle(R.string.profiles_confirmation)
-                        .setMessage(R.string.profiles_remove_invalid_confirm)
-                        .setPositiveButton(R.string.yes) { _, _ -> groupAction(this, groupId, "remove_invalid") }
-                        .setNegativeButton(R.string.no, null)
-                        .show()
+                    requireContext().confirmAction(
+                        getString(R.string.confirm_remove_invalid),
+                        getString(R.string.confirm_remove_invalid_message, group.displayName()),
+                        R.string.delete,
+                    ) { groupAction(this, group.id, "remove_invalid") }
                 }
             }
         }
     }
 
     /** on_menu_resolve_domain_triggered: always asks. */
-    fun resolveDomains(host: ConfigurationFragment, groupId: Long) {
-        MaterialAlertDialogBuilder(host.requireContext())
-            .setTitle(R.string.profiles_confirmation)
-            .setMessage(R.string.profiles_resolve_domains_confirm)
-            .setPositiveButton(R.string.yes) { _, _ -> groupAction(host, groupId, "resolve_domains") }
-            .setNegativeButton(R.string.no, null)
-            .show()
+    fun resolveDomains(host: ConfigurationFragment, group: ProxyGroup) {
+        host.requireContext().confirmAction(
+            host.getString(R.string.confirm_resolve_domains),
+            host.getString(R.string.confirm_resolve_domains_message, group.displayName()),
+            R.string.confirm_resolve,
+        ) { groupAction(host, group.id, "resolve_domains") }
     }
 
     private fun groupAction(host: ConfigurationFragment, groupId: Long, action: String) {
@@ -152,21 +149,18 @@ internal object GroupActions {
     private fun confirmRemoval(
         host: ConfigurationFragment,
         skip: Boolean,
-        question: String,
+        @PluralsRes question: Int,
         profiles: List<ProxyEntity>,
         remove: () -> Unit,
     ) {
         if (skip) return remove()
-        val preview = buildString {
-            profiles.take(PREVIEW_LIMIT).forEach { append('\n').append(it.outbound.displayTypeAndName()) }
-            if (profiles.size > PREVIEW_LIMIT) append("\n...")
-        }
-        MaterialAlertDialogBuilder(host.requireContext())
-            .setTitle(R.string.profiles_confirmation)
-            .setMessage(question + "\n" + preview)
-            .setPositiveButton(R.string.yes) { _, _ -> remove() }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        val context = host.requireContext()
+        context.confirmAction(
+            context.resources.getQuantityString(question, profiles.size, profiles.size),
+            context.nameList(profiles.map { it.displayName() }),
+            R.string.delete,
+            remove,
+        )
     }
 
     /** BatchDeleteProfiles with the caller's stopRunningProfile; a kept running profile is reported. */
@@ -214,17 +208,21 @@ internal object GroupActions {
     }
 
     /** The running service resets its counters too (and stores the zeros); a stopped one leaves it to the table. */
-    fun clearTraffic(host: ConfigurationFragment, groupId: Long) {
-        val service = (host.activity as? MainActivity)?.connection?.service
-        host.listFor(groupId)?.adapter?.clearTraffic()
-        host.launchIo {
-            val ids = ProfileManager.memberIds(groupId).toLongArray()
-            try {
-                service?.resetTraffic(ids)
-            } catch (e: Exception) {
-                Logs.w(e)
+    fun clearTraffic(host: ConfigurationFragment, group: ProxyGroup) {
+        host.requireContext().confirmAction(
+            host.getString(R.string.confirm_clear_traffic), group.displayName(), R.string.confirm_clear,
+        ) {
+            val service = (host.activity as? MainActivity)?.connection?.service
+            host.listFor(group.id)?.adapter?.clearTraffic()
+            host.launchIo {
+                val ids = ProfileManager.memberIds(group.id).toLongArray()
+                try {
+                    service?.resetTraffic(ids)
+                } catch (e: Exception) {
+                    Logs.w(e)
+                }
+                ProfileManager.resetTraffic(ids)
             }
-            ProfileManager.resetTraffic(ids)
         }
     }
 }

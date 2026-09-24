@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
 import android.os.Bundle
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
@@ -11,11 +12,14 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.GravityCompat
-import androidx.core.view.isGone
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -44,6 +48,7 @@ import io.nekohasekai.sagernet.ui.profiles.ProfileImports
 import io.nekohasekai.sagernet.ui.profiles.ProfileItemMenu
 import io.nekohasekai.sagernet.ui.profiles.ProfileListFragment
 import io.nekohasekai.sagernet.ui.profiles.ProfilesDbWatcher
+import io.nekohasekai.sagernet.ui.profiles.ProfilesHeader
 import io.nekohasekai.sagernet.ui.profiles.ProfilesPagerAdapter
 import io.nekohasekai.sagernet.ui.profiles.SelectionMode
 import io.nekohasekai.sagernet.ui.test.TestPanelController
@@ -57,6 +62,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * The profiles screen: one tab per group in `display_order` (the desktop main window's group tabs), the current tab is
@@ -81,6 +87,15 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         private const val ARG_HIDE_AUTO_SELECTORS = "hide_auto_selectors"
         private const val STATE_SORT_DESCENDING = "sort_descending"
 
+        /** Below this height (a phone in landscape) the header hides while the list scrolls down. */
+        private const val COMPACT_HEIGHT_DP = 480
+
+        /** From this width in landscape the test panel stands beside the list: 40 % of the width, 320 to 420 dp. */
+        private const val SIDE_PANEL_MIN_WINDOW_DP = 600
+        private const val SIDE_PANEL_FRACTION = 0.4f
+        private const val SIDE_PANEL_MIN_DP = 320
+        private const val SIDE_PANEL_MAX_DP = 420
+
         /**
          * The picker: a tap returns the profile to the activity, a [SelectCallback]; [selected] is highlighted.
          * [hideAutoSelectors] for slots that need a fixed server (front / landing proxy, chain hops).
@@ -104,8 +119,11 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
     val alwaysShowAddress by lazy { DataStore.alwaysShowAddress }
 
-    /** Double column (groupLayoutMode 1) and the card style, read once per view. */
-    var gridLayout = false
+    /**
+     * Double column (groupLayoutMode 1: the compact card, two columns at least; the width may give more) and the card
+     * style, read once per view.
+     */
+    var doubleColumn = false
         private set
     var cardStyle = 0
         private set
@@ -124,6 +142,11 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     private lateinit var panelContainer: ViewGroup
     private var searchView: SearchView? = null
     private var testPanel: TestPanelController? = null
+    private var header: ProfilesHeader? = null
+
+    /** Wide landscape: the test panel stands at the end side, beside the list (read once per view). */
+    private var sidePanel = false
+    private var sidePanelShown = false
 
     private val lists = LinkedHashSet<ProfileListFragment>()
     private var shownGroupId = 0L
@@ -134,7 +157,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     private var subscriptionStates: Map<Long, Int> = emptyMap()
     private val busyGroups = HashSet<Long>()
 
-    /** Height of the test panel over the lists (they pad their bottom by it). */
+    /** Height of the test panel above the navigation bar (the lists pad their bottom by at least it). */
     var panelHeight = 0
         private set
 
@@ -176,7 +199,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        gridLayout = DataStore.groupLayoutMode == 1
+        doubleColumn = DataStore.groupLayoutMode == 1
         cardStyle = DataStore.profileCardStyle
         readProfileState()
 
@@ -188,8 +211,22 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         panelContainer = view.findViewById(R.id.test_panel_container)
         tabLayout.applyInsetPadding(horizontal = true)
         runtimeStatus.applyInsetPadding(horizontal = true)
-        // above the stats bar (the XML margin) and the navigation bar
-        panelContainer.applyInsetMargin(bottom = true, horizontal = true)
+        // the panel keeps its content above the navigation bar, the stats bar and the FAB itself
+        panelContainer.applyInsetMargin(horizontal = true)
+        val config = resources.configuration
+        header = ProfilesHeader(
+            view as ViewGroup, view.findViewById(R.id.toolbar), tabLayout, runtimeStatus,
+            autoHide = config.screenHeightDp < COMPACT_HEIGHT_DP && !SagerNet.isTv,
+            pinned = ::headerPinned,
+            frozen = { lists.any { it.adapter.dragging } },
+        )
+        ViewCompat.setOnApplyWindowInsetsListener(view) { root, insets ->
+            if (insets.isVisible(WindowInsetsCompat.Type.ime())) root.post { header?.update() }
+            insets
+        }
+        sidePanel = !select && config.screenWidthDp >= SIDE_PANEL_MIN_WINDOW_DP &&
+            config.screenWidthDp > config.screenHeightDp
+        if (sidePanel) setUpSidePanel(view)
 
         pagerAdapter = ProfilesPagerAdapter(this)
         pager.adapter = pagerAdapter
@@ -232,7 +269,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         }
 
         if (!select) {
-            testPanel = TestPanelController(this, panelContainer).apply {
+            testPanel = TestPanelController(this, panelContainer, side = sidePanel).apply {
                 onSelectProfile = { id -> selectProfile(id, toggleOnTv = false) }
                 onHeightChanged = { height ->
                     if (height != panelHeight) {
@@ -240,6 +277,14 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                         lists.forEach { it.updateBottomPadding() }
                     }
                 }
+                onVisibilityChanged = { visible ->
+                    if (sidePanel) {
+                        sidePanelShown = visible
+                        updatePagerMargin()
+                    }
+                }
+                floatingViews = (activity as? MainActivity)?.binding?.let { listOf(it.fab, it.stats) }.orEmpty()
+                setProfileState(selectedProxy, if (serviceStarted) currentProfile else 0L)
             }
         }
     }
@@ -250,6 +295,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         DataStore.profileCacheStore.unregisterChangeListener(editingGroupListener)
         testPanel = null
         panelHeight = 0
+        header = null
+        sidePanelShown = false
         pager.unregisterOnPageChangeCallback(pageCallback)
         mediator?.detach()
         mediator = null
@@ -262,6 +309,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     override fun onKeyDown(ketCode: Int, event: KeyEvent): Boolean {
         // only pulls focus in when nothing has it: the toolbar, tabs and panel stay reachable by D-pad
         if (activity?.currentFocus == null) currentList()?.focusList()
+        // a hidden header comes back on the way up, so the toolbar and the tabs stay reachable
+        if (ketCode == KeyEvent.KEYCODE_DPAD_UP) header?.show()
         return super.onKeyDown(ketCode, event)
     }
 
@@ -274,7 +323,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             toolbar.menu.findItem(R.id.action_add)?.isVisible = false
             toolbar.menu.findItem(R.id.action_misc)?.isVisible = false
             arguments?.getInt(ARG_TITLE)?.takeIf { it != 0 }?.let(toolbar::setTitle)
-            setNavigationIcon(R.drawable.ic_navigation_close)
+            setNavigationIcon(R.drawable.ic_navigation_close, R.string.navigation_close)
             toolbar.setNavigationOnClickListener { requireActivity().finish() }
         } else {
             toolbar.inflateMenu(R.menu.profile_selection_menu)
@@ -302,9 +351,10 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     }
 
     /** The navigation icon in the toolbar's colours (the white theme draws it dark, as ToolbarFragment does). */
-    private fun setNavigationIcon(@DrawableRes icon: Int) {
+    private fun setNavigationIcon(@DrawableRes icon: Int, @StringRes description: Int) {
         val toolbar = toolbar ?: return
         toolbar.setNavigationIcon(icon)
+        toolbar.setNavigationContentDescription(description)
         if (Theme.isWhiteTheme()) {
             toolbar.navigationIcon?.setTint(ContextCompat.getColor(requireContext(), R.color.black))
         }
@@ -323,6 +373,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         query = newText
         applyQuery()
         updateBackCallback()
+        header?.update()
         return false
     }
 
@@ -378,7 +429,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             groups.forEachIndexed { index, group -> tabLayout.getTabAt(index)?.text = tabLabel(group) }
         }
         val single = groups.size < 2
-        tabLayout.isGone = single
+        header?.tabsWanted = !single
         toolbar?.elevation = if (single) 0f else dp2px(4).toFloat()
         val index = pagerAdapter.indexOf(targetGroupId).takeIf { it >= 0 } ?: 0
         if (pager.currentItem != index) pager.setCurrentItem(index, false)
@@ -398,6 +449,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         selection.finish()
         applyQuery()
         updateGroupProgress()
+        header?.show()
     }
 
     fun attachList(list: ProfileListFragment) {
@@ -412,6 +464,24 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     fun listFor(groupId: Long): ProfileListFragment? = lists.firstOrNull { it.groupId == groupId }
 
     fun currentList(): ProfileListFragment? = listFor(currentGroupId)
+
+    /** A list scrolled by [dy] (0 after a layout): the current tab's hides and shows the header in a compact height. */
+    fun onListScrolled(list: ProfileListFragment, dy: Int) {
+        if (list.groupId == currentGroupId) header?.onListScrolled(list.list, dy)
+    }
+
+    /** The header is sliding: list scrolls now come from the lists moving on screen, not from the user. */
+    val headerMoving: Boolean get() = header?.moving == true
+
+    /** The header stays as it is during a row drag; a selection the drag left behind brings it back. */
+    fun onDragEnded() {
+        header?.update()
+    }
+
+    /** What keeps the header shown: the selection's actions, the search, the keyboard. */
+    private fun headerPinned(): Boolean =
+        selection.active || query.isNotEmpty() || searchView?.isIconified == false ||
+            view?.let { ViewCompat.getRootWindowInsets(it) }?.isVisible(WindowInsetsCompat.Type.ime()) == true
 
     override suspend fun groupAdd(group: ProxyGroup) {
         onMainDispatcher { reloadGroups(switchTo = group.id) }
@@ -493,15 +563,16 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             toolbar.menu.setGroupVisible(R.id.group_selection_toolbar, active)
             if (active) {
                 searchView?.clearFocus()
-                setNavigationIcon(R.drawable.ic_navigation_close)
+                setNavigationIcon(R.drawable.ic_navigation_close, R.string.navigation_cancel_selection)
                 toolbar.title = resources.getQuantityString(R.plurals.profiles_selected, selection.count, selection.count)
             } else {
-                setNavigationIcon(R.drawable.ic_navigation_menu)
+                setNavigationIcon(R.drawable.ic_navigation_menu, R.string.navigation_open_drawer)
                 toolbar.setTitle(R.string.app_name)
             }
         }
         if (::pager.isInitialized) pager.isUserInputEnabled = !active
         updateBackCallback()
+        header?.update()
         lists.forEach { it.adapter.notifyState(null) }
     }
 
@@ -510,10 +581,10 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         listFor(selection.groupId)?.adapter?.notifyState(ids)
     }
 
-    fun setGridLayout(grid: Boolean) {
-        if (grid == gridLayout) return
-        gridLayout = grid
-        runOnDefaultDispatcher { DataStore.groupLayoutMode = if (grid) 1 else 0 }
+    fun setDoubleColumn(value: Boolean) {
+        if (value == doubleColumn) return
+        doubleColumn = value
+        runOnDefaultDispatcher { DataStore.groupLayoutMode = if (value) 1 else 0 }
         lists.forEach { it.switchLayout() }
     }
 
@@ -549,6 +620,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         selectedProxy = selected
         currentProfile = current
         serviceStarted = started
+        testPanel?.setProfileState(selected, if (started) current else 0L)
         changed.removeAll { it <= 0L }
         if (changed.isNotEmpty()) lists.forEach { it.adapter.notifyState(changed) }
     }
@@ -587,13 +659,51 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     fun setRuntimeStatus(text: CharSequence?, onClick: (() -> Unit)? = null) {
         if (!::runtimeStatus.isInitialized) return
         runtimeStatus.text = text
-        runtimeStatus.isVisible = !text.isNullOrEmpty()
+        header?.statusWanted = !text.isNullOrEmpty()
         if (onClick != null) {
             runtimeStatus.setOnClickListener { onClick() }
         } else {
             runtimeStatus.setOnClickListener(null)
             runtimeStatus.isClickable = false
         }
+    }
+
+    // ------------------------------------------------------------------------------------------------ side panel
+
+    /**
+     * Wide landscape: the test panel stands at the end side, from under the header down to the bottom edge, 40 % of
+     * the fragment's width within 320 to 420 dp; the pager gives it that width while it is shown.
+     */
+    private fun setUpSidePanel(root: View) {
+        val density = resources.displayMetrics.density
+        fun widthFor(fragmentWidth: Float) = (fragmentWidth * SIDE_PANEL_FRACTION)
+            .coerceIn(SIDE_PANEL_MIN_DP * density, SIDE_PANEL_MAX_DP * density).roundToInt()
+        panelContainer.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+            width = widthFor(resources.configuration.screenWidthDp * density)
+            height = ViewGroup.LayoutParams.MATCH_PARENT
+            gravity = Gravity.END
+        }
+        // the configuration's width only estimates the fragment's
+        root.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+            val width = widthFor((right - left).toFloat())
+            if (width != panelContainer.layoutParams.width) root.post {
+                if (view == null) return@post
+                panelContainer.updateLayoutParams<ViewGroup.LayoutParams> { this.width = width }
+                updatePagerMargin()
+            }
+        }
+    }
+
+    /**
+     * The pager ends where the side panel starts while it is shown. The lists keep their end inset padding, which then
+     * lies under the panel's end inset margin: the rows end 4 dp before the panel, no double gap.
+     */
+    private fun updatePagerMargin() {
+        val end = if (sidePanelShown) panelContainer.layoutParams.width else 0
+        val params = pager.layoutParams as ViewGroup.MarginLayoutParams
+        if (params.marginEnd == end) return
+        params.marginEnd = end
+        pager.layoutParams = params
     }
 
     // ------------------------------------------------------------------------------------------------ helpers

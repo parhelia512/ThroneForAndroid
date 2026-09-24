@@ -468,10 +468,16 @@ class BaseService {
                 } catch (error: Throwable) {
                     recordCleanupFailure("service-finish", error)
                     if (keepNotification) {
-                        stopRunner(false, "${getString(R.string.service_failed)}: ${error.readableMessage}")
+                        failRunner("${getString(R.string.service_failed)} ${error.readableMessage}")
                     }
                 }
             }
+        }
+
+        /** A start that failed: MainActivity keeps showing [message] until the next start, also on a later visit. */
+        fun failRunner(message: String) {
+            if (data.state != State.Stopping) DataStore.serviceError = message
+            stopRunner(false, message)
         }
 
         fun persistStats() {
@@ -591,6 +597,7 @@ class BaseService {
                 data.closeReceiverRegistered = true
             }
 
+            if (DataStore.serviceError.isNotEmpty()) DataStore.serviceError = ""
             data.changeState(State.Connecting)
             // startForeground before anything can stop the service (see the link above).
             val title = ServiceNotification.genTitle(profile)
@@ -613,7 +620,7 @@ class BaseService {
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
                 } catch (_: UnknownHostException) {
-                    stopRunner(false, getString(R.string.invalid_server))
+                    failRunner(getString(R.string.invalid_server))
                 } catch (exc: Throwable) {
                     // gomobile surfaces Go errors as go.Universe$proxyerror: message only, no stack worth logging
                     if (exc.javaClass.name.endsWith("proxyerror")) {
@@ -621,9 +628,7 @@ class BaseService {
                     } else {
                         Logs.w(exc)
                     }
-                    stopRunner(
-                        false, "${getString(R.string.service_failed)}: ${exc.readableMessage}"
-                    )
+                    failRunner("${getString(R.string.service_failed)} ${exc.readableMessage}")
                 } finally {
                     data.connectingJob = null
                 }

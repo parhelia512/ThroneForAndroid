@@ -101,9 +101,11 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings),
             ?.takeIf { nested } ?: getString(R.string.settings)
         if (nested) {
             toolbar.setNavigationIcon(R.drawable.baseline_arrow_back_24)
+            toolbar.setNavigationContentDescription(R.string.navigation_back)
             toolbar.setNavigationOnClickListener { childFragmentManager.popBackStack() }
         } else {
             toolbar.setNavigationIcon(R.drawable.ic_navigation_menu)
+            toolbar.setNavigationContentDescription(R.string.navigation_open_drawer)
             toolbar.setNavigationOnClickListener {
                 (activity as? MainActivity)?.binding?.drawerLayout?.openDrawer(GravityCompat.START)
             }

@@ -47,5 +47,10 @@
     <string name="custom_icon_error_not_png">%s is geen geldige PNG-afbeelding</string>
     <string name="custom_icon_error_security">Beveiligingscontrole mislukt: %s</string>
     <string name="custom_icon_requirement_tip">Pictogrampakket moet een ZIP-bestand zijn met 512x512 icon.png en tile.png.</string>
+    <string name="disconnect">Verbinding verbreken</string>
+    <string name="navigation_open_drawer">Navigatiemenu openen</string>
+    <string name="navigation_back">Terug</string>
+    <string name="navigation_close">Sluiten</string>
+    <string name="navigation_cancel_selection">Selectie annuleren</string>
 </resources>
 

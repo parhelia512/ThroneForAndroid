@@ -223,7 +223,8 @@ class AppListActivity : ThemedActivity() {
 
         // the app bar fits system windows (status bar foreground); the list pads the navigation bar
         binding.list.applyListInsets(ime = true, horizontal = false)
-        binding.collapsing.applyInsetPadding(horizontal = true)
+        binding.toolbar.applyInsetPadding(horizontal = true)
+        binding.header.applyInsetPadding(horizontal = true)
 
         binding.search.addTextChangedListener { refilter() }
 

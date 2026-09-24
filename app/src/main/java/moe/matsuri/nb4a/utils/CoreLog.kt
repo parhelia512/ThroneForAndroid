@@ -11,7 +11,6 @@ import java.nio.channels.FileChannel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 // Shared by both processes: every line is an O_APPEND write on one inode. At the size cap the newest half is kept in
 // place under a file lock (both processes may hit the cap; the loser re-checks the size), so a process that opened
@@ -25,9 +24,8 @@ object CoreLog {
 
     private val lock = Any()
     private var stream: FileOutputStream? = null
-    private val timestamp = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    // Local time like the desktop's log.
+    private val timestamp = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US)
 
     val file: File get() = File(app.filesDir, FILE_NAME)
     val previousFile: File get() = File(app.filesDir, PREVIOUS_FILE_NAME)
@@ -46,10 +44,14 @@ object CoreLog {
         return FileOutputStream(file, true).also { stream = it }
     }
 
+    // The core colours its lines for terminals; the Log screen and exports are plain text.
+    private val ansiColor = Regex("\u001B\\[[0-9;]*m")
+
     fun write(line: String) {
         if (!enabled()) return
         val stamp = synchronized(timestamp) { timestamp.format(Date()) }
-        val bytes = "$stamp $line\n".toByteArray()
+        val text = if (line.indexOf('\u001B') >= 0) ansiColor.replace(line, "") else line
+        val bytes = "$stamp $text\n".toByteArray()
         synchronized(lock) {
             runCatching {
                 val out = stream()
@@ -113,8 +115,12 @@ object CoreLog {
         return try {
             val length = target.length()
             FileInputStream(target).use { input ->
-                if (maxBytes in 1 until length) input.skip(length - maxBytes)
-                input.readBytes()
+                if (maxBytes !in 1 until length) return input.readBytes()
+                input.skip(length - maxBytes)
+                val tail = input.readBytes()
+                // The cut lands mid-line: start at the next full line.
+                val start = tail.indexOf('\n'.code.toByte()) + 1
+                tail.copyOfRange(start, tail.size)
             }
         } catch (e: Exception) {
             e.stackTraceToString().toByteArray()

@@ -65,6 +65,7 @@ object Key {
     const val LOG_EXPORT_REDACT = "logExportRedact"
     const val HWID_FALLBACK = "hwidFallback"
     const val WIFI_PERMISSION_ASKED = "wifiPermissionAsked"
+    const val SERVICE_ERROR = "serviceError"
 
     const val WEBDAV_SERVER = "webdavServer"
     const val WEBDAV_USERNAME = "webdavUsername"

@@ -152,7 +152,6 @@
     <!-- profile -->
     <string name="profile_config">Конфігурація профілю</string>
     <string name="delete">Видалити</string>
-    <string name="delete_confirm_prompt">Ви впевнені, що хочете видалити цей профіль?</string>
     <string name="share_qr_nfc">QR-код</string>
     <string name="add_profile_methods_scan_qr_code">Сканувати QR-код</string>
     <string name="add_profile_methods_manual_settings">Ручні налаштування</string>
@@ -204,12 +203,10 @@
     <string name="connection_test_timeout">Час очікування минув</string>
     <string name="group_basic">Основні</string>
     <string name="subscription">Підписка</string>
-    <string name="confirm">Підтвердити</string>
     <string name="service_subscription">Служба оновлення підписок</string>
     <string name="subscription_import">Імпортувати підписку</string>
     <string name="profile_import">Імпортувати профіль</string>
     <string name="profile_import_message">Підтвердьте, що ви хочете імпортувати профіль %s?</string>
-    <string name="clear_profiles_message">Ви впевнені, що хочете очистити цю групу?</string>
     <string name="apps">Програми</string>
     <string name="select_apps">Вибрати програми</string>
     <string name="apps_message">%d програм</string>
@@ -313,5 +310,11 @@
     <string name="custom_icon_error_not_png">%s не є коректним зображенням PNG</string>
     <string name="custom_icon_error_security">Помилка перевірки безпеки: %s</string>
     <string name="custom_icon_requirement_tip">Набір іконок має бути ZIP-архівом, що містить icon.png та tile.png розміром 512x512.</string>
+    <string name="profile_share_config">Конфігурація</string>
+    <string name="disconnect">Відключити</string>
+    <string name="navigation_open_drawer">Відкрити панель навігації</string>
+    <string name="navigation_back">Назад</string>
+    <string name="navigation_close">Закрити</string>
+    <string name="navigation_cancel_selection">Скасувати вибір</string>
 </resources>
 

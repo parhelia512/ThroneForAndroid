@@ -50,6 +50,8 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     /** The generated HWID used when ANDROID_ID is unavailable. */
     var hwidFallback by configurationStore.string(Key.HWID_FALLBACK)
     var wifiPermissionAsked by configurationStore.boolean(Key.WIFI_PERMISSION_ASKED)
+    /** Why the last start failed, until the next start or until the user dismisses it. */
+    var serviceError by configurationStore.string(Key.SERVICE_ERROR)
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
     var groupLayoutMode by configurationStore.stringToInt(Key.GROUP_LAYOUT_MODE) { 0 }
     var profileCardStyle by configurationStore.stringToInt(Key.PROFILE_CARD_STYLE) { 0 }

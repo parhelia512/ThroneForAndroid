@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import kotlinx.coroutines.*
@@ -26,6 +27,7 @@ class TrafficLooper(val data: BaseService.Data, private val sc: CoroutineScope) 
         var persistedRx = rx
         var persistedTx = tx
         var changed = false
+        var credited = false
     }
 
     private var job: Job? = null
@@ -44,7 +46,21 @@ class TrafficLooper(val data: BaseService.Data, private val sc: CoroutineScope) 
         val trafficUpdates: ArrayList<TrafficData>,
     )
 
+    /** Bytes a speed test stored for a profile counted here: they join its totals as already persisted. */
+    private val credits = ProfileManager.CreditListener { profileId, rx, tx ->
+        stateMutex.withLock {
+            profiles[profileId]?.apply {
+                this.rx += rx
+                this.tx += tx
+                persistedRx += rx
+                persistedTx += tx
+                credited = true
+            }
+        }
+    }
+
     suspend fun stop() {
+        ProfileManager.removeCreditListener(credits)
         job?.cancelAndJoin()
         job = null
         if (DataStore.disableTrafficStats) return
@@ -76,16 +92,17 @@ class TrafficLooper(val data: BaseService.Data, private val sc: CoroutineScope) 
     }
 
     /** Writes what moved since the last write as an increment, so traffic credited meanwhile (speed tests) stays. */
-    private suspend fun persist(item: ProfileTraffic) {
+    private fun persist(item: ProfileTraffic) {
         val rx = item.rx - item.persistedRx
         val tx = item.tx - item.persistedTx
         if (rx == 0L && tx == 0L) return
-        ProfileManager.addTraffic(item.id, rx, tx)
+        SagerDatabase.proxyDao.addTraffic(item.id, rx, tx)
         item.persistedRx = item.rx
         item.persistedTx = item.tx
     }
 
     fun start() {
+        ProfileManager.addCreditListener(credits)
         job = sc.launch { loop() }
     }
 
@@ -148,7 +165,10 @@ class TrafficLooper(val data: BaseService.Data, private val sc: CoroutineScope) 
         if (!proxy.isInitialized()) return false
         val updater = ensureUpdater(proxy)
         updater.updateAll()
-        for (item in profiles.values) item.changed = false
+        for (item in profiles.values) {
+            item.changed = item.credited
+            item.credited = false
+        }
         for ((tag, items) in tagProfiles) {
             val stat = updater.stats[tag] ?: continue
             if (stat.rx == 0L && stat.tx == 0L) continue

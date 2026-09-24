@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutUpdateBinding
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ui.ThemedActivity
@@ -46,6 +47,7 @@ class UpdateActivity : ThemedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        theme.applyStyle(R.style.ThemeOverlay_SagerNet_Dialog_WrapHeight, true)
         binding = LayoutUpdateBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setFinishOnTouchOutside(false)
@@ -93,9 +95,15 @@ class UpdateActivity : ThemedActivity() {
             }
 
             State.UpToDate -> {
-                Toast.makeText(this, R.string.check_update_no, Toast.LENGTH_SHORT).show()
-                UpdateManager.dismiss()
-                finish()
+                val channel = if (DataStore.allowBetaUpdate) R.string.update_channel_beta else R.string.update_channel_stable
+                show(
+                    getString(R.string.update_up_to_date),
+                    getString(R.string.update_current_version, BuildConfig.VERSION_NAME) + "\n" + getString(channel),
+                )
+                buttons(positive = getString(android.R.string.ok) to {
+                    UpdateManager.dismiss()
+                    finish()
+                })
             }
 
             is State.Available -> renderOffer(state.offer)
@@ -135,8 +143,8 @@ class UpdateActivity : ThemedActivity() {
             }
 
             is State.Failed -> {
-                show(getString(R.string.update_failed), state.message)
                 val offer = state.offer
+                show(getString(if (offer == null) R.string.update_check_failed else R.string.update_failed), state.message)
                 buttons(
                     neutral = getString(R.string.update_action_browser) to { openReleasePage(offer) },
                     negative = getString(R.string.update_action_close) to {

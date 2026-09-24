@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,6 +28,8 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.core.widget.ImageViewCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -37,7 +40,6 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.shape.CornerFamily
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -47,33 +49,54 @@ import io.nekohasekai.sagernet.database.GroupSort
 import io.nekohasekai.sagernet.database.GroupSortAction
 import io.nekohasekai.sagernet.database.GroupSortMethod
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.ktx.confirmAction
+import io.nekohasekai.sagernet.ktx.nameList
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
+import io.nekohasekai.sagernet.widget.bars
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * The bulk-test panel of the profiles screen, inflated into [container] (a slot dedicated to it at the bottom of
  * the profile list; the controller replaces its children and toggles its visibility). Construct it in
  * `onViewCreated`: it follows [TestSessionClient.state] for the view lifecycle, appears when a session starts and
  * stays after it ends until dismissed.
+ *
+ * With [side] the slot stands beside the list instead (a wide landscape window, its full height): the panel is always
+ * expanded, its body takes the height the header leaves, and it slides in from the end.
  */
-class TestPanelController(private val fragment: Fragment, private val container: ViewGroup) {
+class TestPanelController(
+    private val fragment: Fragment,
+    private val container: ViewGroup,
+    private val side: Boolean = false,
+) {
 
     /** Selects a profile like a tap in the list; by default the panel selects it and reloads a running service. */
     var onSelectProfile: ((profileId: Long) -> Unit)? = null
 
-    /** Called when the panel appears or goes away. */
+    /** Called when the panel starts to appear, and when it has gone (after sliding out). */
     var onVisibilityChanged: ((visible: Boolean) -> Unit)? = null
 
-    /** The panel's height in pixels while shown, 0 when hidden (e.g. to pad the list it overlays). */
+    /**
+     * The panel's height in pixels above the navigation bar while shown, 0 when hidden (e.g. to pad the list it
+     * overlays). The panel reaches down to the bottom of [container]'s parent. Always 0 beside the list.
+     */
     var onHeightChanged: ((height: Int) -> Unit)? = null
+
+    /**
+     * Views of other hierarchies floating over the bottom of the panel (MainActivity's FAB and stats bar): the content
+     * stays above them wherever they are, e.g. while the stats bar hides on scroll.
+     */
+    var floatingViews: List<View> = emptyList()
 
     val isShown: Boolean get() = shown
 
@@ -87,6 +110,7 @@ class TestPanelController(private val fragment: Fragment, private val container:
 
     private val root = LayoutInflater.from(context)
         .inflate(R.layout.layout_test_panel, container, false) as MaterialCardView
+    private val content: View = root.findViewById(R.id.test_panel_content)
     private val header: View = root.findViewById(R.id.test_panel_header)
     private val handle: View = root.findViewById(R.id.test_panel_handle)
     private val icon: ImageView = root.findViewById(R.id.test_panel_icon)
@@ -97,11 +121,11 @@ class TestPanelController(private val fragment: Fragment, private val container:
     private val expandButton: ImageView = root.findViewById(R.id.test_panel_expand)
     private val liveLine: TextView = root.findViewById(R.id.test_panel_live)
     private val progress: SegmentedProgressView = root.findViewById(R.id.test_panel_progress)
-    private val actionsScroll: View = root.findViewById(R.id.test_panel_actions_scroll)
-    private val connectAction: MaterialButton = root.findViewById(R.id.test_panel_action_connect)
-    private val sortAction: MaterialButton = root.findViewById(R.id.test_panel_action_sort)
-    private val removeAction: MaterialButton = root.findViewById(R.id.test_panel_action_remove)
-    private val stopOtherAction: MaterialButton = root.findViewById(R.id.test_panel_action_stop_other)
+    private val actions: View = root.findViewById(R.id.test_panel_actions)
+    private val connectAction: Chip = root.findViewById(R.id.test_panel_action_connect)
+    private val sortAction: Chip = root.findViewById(R.id.test_panel_action_sort)
+    private val removeAction: Chip = root.findViewById(R.id.test_panel_action_remove)
+    private val stopOtherAction: Chip = root.findViewById(R.id.test_panel_action_stop_other)
     private val body: TestPanelScrollView = root.findViewById(R.id.test_panel_body)
     private val okCount: TextView = root.findViewById(R.id.test_panel_ok_count)
     private val failedCount: TextView = root.findViewById(R.id.test_panel_failed_count)
@@ -147,9 +171,12 @@ class TestPanelController(private val fragment: Fragment, private val container:
     @ColorInt
     private val trackColor = ColorUtils.setAlphaComponent(textPrimary, 0x1F)
 
+    private val rtl = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
     private var rendered: TestUiState? = null
     private var shown = false
-    private var expanded = TestSessionClient.panelExpanded
+
+    // The bottom sheet's state survives the screen; the side panel does not touch it.
+    private var expanded = side || TestSessionClient.panelExpanded
     private var suppressClick = false
     private var iconKind = Int.MIN_VALUE
 
@@ -157,6 +184,16 @@ class TestPanelController(private val fragment: Fragment, private val container:
     private var iconTint = 0
     private var legendFor: LatencyHistogram? = null
     private var reportedHeight = -1
+    private var selectedId = 0L
+    private var runningId = 0L
+    private var bottomInset = 0
+    private val clearanceGap = (4 * density).roundToInt()
+    private val location = IntArray(2)
+
+    private val clearanceListener = ViewTreeObserver.OnPreDrawListener {
+        updateClearance()
+        true
+    }
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = setExpanded(false)
@@ -179,10 +216,24 @@ class TestPanelController(private val fragment: Fragment, private val container:
         root.isVisible = false
         container.isVisible = false
         style()
+        if (side) fillSlot()
         wire()
         applyExpanded()
         // Posted: the listener runs inside the layout pass and the callback may re-layout the list.
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> root.post(::reportHeight) }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            bottomInset = insets.bars().bottom
+            root.post(::reportHeight)
+            insets
+        }
+        // Every frame: the stats bar and the FAB move without any layout of this hierarchy.
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) = v.viewTreeObserver.addOnPreDrawListener(clearanceListener)
+
+            override fun onViewDetachedFromWindow(v: View) =
+                v.viewTreeObserver.removeOnPreDrawListener(clearanceListener)
+        })
+        if (root.isAttachedToWindow) root.viewTreeObserver.addOnPreDrawListener(clearanceListener)
         fragment.activity?.onBackPressedDispatcher?.addCallback(owner, backCallback)
         owner.lifecycleScope.launch {
             owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -200,8 +251,9 @@ class TestPanelController(private val fragment: Fragment, private val container:
         }
     }
 
+    /** The bottom sheet's body shows or collapses (beside the list it always shows). */
     fun setExpanded(value: Boolean) {
-        if (expanded == value) return
+        if (side || expanded == value) return
         expanded = value
         TestSessionClient.panelExpanded = value
         if (shown) TransitionManager.beginDelayedTransition(root, AutoTransition().setDuration(EXPAND_MS))
@@ -213,16 +265,26 @@ class TestPanelController(private val fragment: Fragment, private val container:
         backCallback.isEnabled = shown && expanded
     }
 
+    /**
+     * The selected profile and the running one (0 while stopped): "Connect to fastest" is not offered for the selected
+     * one, and "Remove unavailable" leaves the running one alone like the desktop's clearUnavailableProfiles.
+     */
+    fun setProfileState(selectedId: Long, runningId: Long) {
+        if (this.selectedId == selectedId && this.runningId == runningId) return
+        this.selectedId = selectedId
+        this.runningId = runningId
+        rendered?.takeIf { it.active }?.let(::renderActions)
+    }
+
     // ------------------------------------------------------------------------------------------------ setup
 
     private fun style() {
         val radius = context.resources.getDimension(R.dimen.card_corner_radius)
-        root.shapeAppearanceModel = root.shapeAppearanceModel.toBuilder()
-            .setTopLeftCorner(CornerFamily.ROUNDED, radius)
-            .setTopRightCorner(CornerFamily.ROUNDED, radius)
-            .setBottomLeftCornerSize(0f)
-            .setBottomRightCornerSize(0f)
-            .build()
+        // the bottom sheet rounds its top; beside the list only the corner between the list and the header is round
+        val shape = root.shapeAppearanceModel.toBuilder().setAllCornerSizes(0f)
+        if (!side || !rtl) shape.setTopLeftCorner(CornerFamily.ROUNDED, radius)
+        if (!side || rtl) shape.setTopRightCorner(CornerFamily.ROUNDED, radius)
+        root.shapeAppearanceModel = shape.build()
         handle.background = GradientDrawable().apply {
             cornerRadius = 2 * density
             setColor(ColorUtils.setAlphaComponent(textSecondary, 0x66))
@@ -247,18 +309,49 @@ class TestPanelController(private val fragment: Fragment, private val container:
         stopButton.rippleColor = ripple
         ImageViewCompat.setImageTintList(closeButton, ColorStateList.valueOf(textSecondary))
         ImageViewCompat.setImageTintList(expandButton, ColorStateList.valueOf(textSecondary))
-        connectAction.backgroundTintList = ColorStateList.valueOf(accent)
+        connectAction.chipBackgroundColor = ColorStateList.valueOf(accent)
         connectAction.setTextColor(if (ColorUtils.calculateLuminance(accent) > 0.5) Color.BLACK else Color.WHITE)
-        for (button in listOf(sortAction, removeAction, stopOtherAction)) {
-            button.setTextColor(accent)
-            button.strokeColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 0x80))
-            button.rippleColor = ripple
+        for (chip in listOf(sortAction, removeAction, stopOtherAction)) {
+            chip.chipBackgroundColor = ColorStateList.valueOf(Color.TRANSPARENT)
+            chip.chipStrokeColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 0x80))
+            chip.chipStrokeWidth = density
+            chip.setTextColor(accent)
+            chip.rippleColor = ripple
         }
-        body.maxHeight = (context.resources.displayMetrics.heightPixels * BODY_MAX_FRACTION).toInt()
+        if (!side) body.maxHeight = (context.resources.displayMetrics.heightPixels * BODY_MAX_FRACTION).toInt()
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+    /** Beside the list: the slot's whole height, the body taking what the header leaves; nothing to collapse. */
+    private fun fillSlot() {
+        root.updateLayoutParams<ViewGroup.LayoutParams> { height = ViewGroup.LayoutParams.MATCH_PARENT }
+        content.updateLayoutParams<ViewGroup.LayoutParams> { height = ViewGroup.LayoutParams.MATCH_PARENT }
+        body.updateLayoutParams<LinearLayout.LayoutParams> {
+            height = 0
+            weight = 1f
+        }
+        handle.isVisible = false
+        expandButton.isVisible = false
+        header.isClickable = false
+        header.isFocusable = false
+        header.background = null
+    }
+
     private fun wire() {
+        if (!side) wireSheet()
+        stopButton.setOnClickListener { TestSessionClient.stop() }
+        closeButton.setOnClickListener { TestSessionClient.dismiss() }
+        connectAction.setOnClickListener { rendered?.let(::connectFastest) }
+        sortAction.setOnClickListener { rendered?.let(::sort) }
+        removeAction.setOnClickListener { rendered?.let(::removeUnavailable) }
+        stopOtherAction.setOnClickListener {
+            TestSessionClient.stopBackgroundSession()
+            TestSessionClient.dismiss()
+        }
+    }
+
+    /** The bottom sheet expands and collapses: a tap on the header or the chevron, a fling on the header. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun wireSheet() {
         val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity * 4
         val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
@@ -278,19 +371,11 @@ class TestPanelController(private val fragment: Fragment, private val container:
             if (suppressClick) suppressClick = false else setExpanded(!expanded)
         }
         expandButton.setOnClickListener { setExpanded(!expanded) }
-        stopButton.setOnClickListener { TestSessionClient.stop() }
-        closeButton.setOnClickListener { TestSessionClient.dismiss() }
-        connectAction.setOnClickListener { rendered?.let(::connectFastest) }
-        sortAction.setOnClickListener { rendered?.let(::sort) }
-        removeAction.setOnClickListener { rendered?.let(::removeUnavailable) }
-        stopOtherAction.setOnClickListener {
-            TestSessionClient.stopBackgroundSession()
-            TestSessionClient.dismiss()
-        }
     }
 
     private fun applyExpanded() {
         body.isVisible = expanded
+        if (side) return
         expandButton.setImageResource(
             if (expanded) R.drawable.ic_baseline_expand_more_24 else R.drawable.ic_baseline_expand_less_24
         )
@@ -312,37 +397,68 @@ class TestPanelController(private val fragment: Fragment, private val container:
             if (expanded) renderBody(s)
         }
         rendered = s
-        backCallback.isEnabled = shown && expanded
+        backCallback.isEnabled = shown && expanded && !side
     }
 
     private fun setShown(show: Boolean) {
         if (shown == show) return
         shown = show
         root.animate().cancel()
+        // the bottom sheet rises from below, the side panel comes in from the end
         val offset = 24 * density
+        val offsetX = if (!side) 0f else if (rtl) -offset else offset
+        val offsetY = if (side) 0f else offset
         if (show) {
+            updateClearance()
             container.isVisible = true
             root.isVisible = true
             root.alpha = 0f
-            root.translationY = offset
-            root.animate().alpha(1f).translationY(0f).setDuration(SHOW_MS).start()
+            root.translationX = offsetX
+            root.translationY = offsetY
+            root.animate().alpha(1f).translationX(0f).translationY(0f).setDuration(SHOW_MS).start()
+            onVisibilityChanged?.invoke(true)
         } else {
-            root.animate().alpha(0f).translationY(offset).setDuration(HIDE_MS).withEndAction {
+            root.animate().alpha(0f).translationX(offsetX).translationY(offsetY).setDuration(HIDE_MS).withEndAction {
                 if (!shown) {
                     root.isVisible = false
                     container.isVisible = false
                     reportHeight()
+                    onVisibilityChanged?.invoke(false)
                 }
             }.start()
         }
-        onVisibilityChanged?.invoke(show)
     }
 
     private fun reportHeight() {
-        val height = if (shown && root.isVisible) root.height else 0
+        // beside the list the panel covers no rows
+        val height = if (!side && shown && root.isVisible) (root.height - bottomInset).coerceAtLeast(0) else 0
         if (height == reportedHeight) return
         reportedHeight = height
         onHeightChanged?.invoke(height)
+    }
+
+    /**
+     * The panel reaches the bottom of its slot, under the navigation bar and the floating views; its content ends
+     * above whichever of them reaches highest over that edge.
+     */
+    private fun updateClearance() {
+        if (!shown) return
+        val slot = container.parent as? View ?: return
+        slot.getLocationInWindow(location)
+        val bottom = location[1] + slot.height
+        // across the panel's own width: a FAB beside the panel leaves its content where it is
+        container.getLocationInWindow(location)
+        val left = location[0]
+        val right = left + container.width
+        var clearance = bottomInset
+        for (view in floatingViews) {
+            if (!view.isShown || view.alpha == 0f) continue
+            view.getLocationInWindow(location)
+            if (location[0] >= right || location[0] + view.width * view.scaleX <= left) continue
+            val reach = bottom - location[1]
+            if (reach > 0) clearance = max(clearance, reach + clearanceGap)
+        }
+        if (content.paddingBottom != clearance) content.updatePadding(bottom = clearance)
     }
 
     private fun renderHeader(s: TestUiState) {
@@ -416,7 +532,9 @@ class TestPanelController(private val fragment: Fragment, private val container:
     }
 
     private fun renderProgress(s: TestUiState) {
-        progress.setCounts(s.ok, s.failed, if (s.running) s.testing else 0, s.total, s.running && s.total == 0)
+        progress.setCounts(
+            s.ok, s.failed, if (s.running) s.testing else 0, s.total, s.running && s.total == 0, s.testingProgress,
+        )
         progress.contentDescription =
             context.getString(R.string.test_panel_progress_description, s.done, s.total, s.ok, s.failed)
     }
@@ -424,11 +542,11 @@ class TestPanelController(private val fragment: Fragment, private val container:
     private fun renderActions(s: TestUiState) {
         val canAct = s.finished && !s.testCurrent
         val best = s.ranking.firstOrNull()
-        connectAction.isVisible = canAct && best != null
+        connectAction.isVisible = canAct && best != null && best.profileId != selectedId
         if (connectAction.isVisible) {
             connectAction.setTextIfChanged(
                 context.getString(
-                    if (DataStore.serviceState.started) R.string.test_panel_action_connect_fastest
+                    if (runningId > 0) R.string.test_panel_action_connect_fastest
                     else R.string.test_panel_action_select_fastest
                 )
             )
@@ -442,13 +560,15 @@ class TestPanelController(private val fragment: Fragment, private val container:
                 )
             )
         }
-        val removable = if (canAct && s.kind != TestSpec.KIND_IP) s.failedIds().size else 0
+        val removable = if (canAct && s.kind != TestSpec.KIND_IP) removableIds(s).size else 0
         removeAction.isVisible = removable > 0
         if (removable > 0) removeAction.setTextIfChanged(context.getString(R.string.test_panel_action_remove, removable))
         stopOtherAction.isVisible = s.finished && s.failure == TestFailure.BUSY
-        actionsScroll.isVisible = connectAction.isVisible || sortAction.isVisible || removeAction.isVisible ||
+        actions.isVisible = connectAction.isVisible || sortAction.isVisible || removeAction.isVisible ||
             stopOtherAction.isVisible
     }
+
+    private fun removableIds(s: TestUiState): List<Long> = s.failedIds().filter { it != runningId }
 
     private fun renderBody(s: TestUiState) {
         okCount.setTextIfChanged(s.ok.toString())
@@ -772,12 +892,14 @@ class TestPanelController(private val fragment: Fragment, private val container:
     }
 
     private fun removeUnavailable(s: TestUiState) {
-        val candidates = s.failedIds()
+        val candidates = removableIds(s)
         if (candidates.isEmpty()) return
         runOnDefaultDispatcher {
             // auto_clear_unavailable may already have deleted them in :bg.
-            val existing = ProfileManager.getProfiles(candidates).map { it.id }
-            val existingSet = existing.toHashSet()
+            val position = candidates.withIndex().associate { it.value to it.index }
+            val existing = ProfileManager.getProfiles(candidates).sortedBy { position[it.id] }
+            val existingIds = existing.map { it.id }
+            val existingSet = existingIds.toHashSet()
             val gone = candidates.filter { it !in existingSet }
             if (gone.isNotEmpty()) TestSessionClient.markRemoved(gone)
             if (existing.isEmpty()) return@runOnDefaultDispatcher
@@ -785,13 +907,15 @@ class TestPanelController(private val fragment: Fragment, private val container:
             onMainDispatcher {
                 if (!fragment.isAdded) return@onMainDispatcher
                 if (skipConfirmation) {
-                    deleteProfiles(existing)
+                    deleteProfiles(existingIds)
                 } else {
-                    MaterialAlertDialogBuilder(context)
-                        .setTitle(context.getString(R.string.test_panel_remove_confirm, existing.size))
-                        .setPositiveButton(R.string.yes) { _, _ -> deleteProfiles(existing) }
-                        .setNegativeButton(R.string.no, null)
-                        .show()
+                    context.confirmAction(
+                        context.resources.getQuantityString(
+                            R.plurals.confirm_remove_unavailable, existing.size, existing.size
+                        ),
+                        context.nameList(existing.map { it.displayName() }),
+                        R.string.delete,
+                    ) { deleteProfiles(existingIds) }
                 }
             }
         }
@@ -800,7 +924,7 @@ class TestPanelController(private val fragment: Fragment, private val container:
     private fun deleteProfiles(ids: List<Long>) {
         runOnDefaultDispatcher {
             val running = ProfileManager.runningProfileId()
-            val outcome = ProfileManager.batchDeleteProfiles(ids)
+            val outcome = ProfileManager.batchDeleteProfiles(ids, stopRunning = false)
             TestSessionClient.markRemoved(outcome.deleted)
             val keptRunning = running > 0 && running in outcome.kept
             onMainDispatcher {

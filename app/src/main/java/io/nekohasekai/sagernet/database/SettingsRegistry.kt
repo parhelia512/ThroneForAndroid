@@ -332,7 +332,7 @@ object SettingsRegistry {
         Key.WEBDAV_SERVER, Key.WEBDAV_USERNAME, Key.WEBDAV_PASSWORD, Key.WEBDAV_PATH,
         Key.PROFILE_CURRENT, Key.PROFILE_ID, Key.PREVIEW_HINT_DISMISSED_VERSION,
         Key.UPDATE_CHECK_AUTO, Key.UPDATE_SKIPPED_VERSION_CODE, Key.RESUME_AFTER_UPDATE, Key.BATTERY_PROMPT_SHOWN,
-        Key.LOG_EXPORT_REDACT, Key.HWID_FALLBACK, Key.WIFI_PERMISSION_ASKED,
+        Key.LOG_EXPORT_REDACT, Key.HWID_FALLBACK, Key.WIFI_PERMISSION_ASKED, Key.SERVICE_ERROR,
     )
 
     /** Keys a backup never exports and a restore never overwrites (R10 §8.3). */
@@ -340,7 +340,7 @@ object SettingsRegistry {
     val DEVICE_LOCAL_KEYS: Set<String> = setOf(
         Key.WEBDAV_SERVER, Key.WEBDAV_USERNAME, Key.WEBDAV_PASSWORD, Key.WEBDAV_PATH,
         Key.BATTERY_PROMPT_SHOWN, Key.HWID_FALLBACK, Key.RESUME_AFTER_UPDATE, Key.UPDATE_SKIPPED_VERSION_CODE,
-        Key.WIFI_PERMISSION_ASKED,
+        Key.WIFI_PERMISSION_ASKED, Key.SERVICE_ERROR,
     )
 
     // ------------------------------------------------------------------------------------------------ lookup

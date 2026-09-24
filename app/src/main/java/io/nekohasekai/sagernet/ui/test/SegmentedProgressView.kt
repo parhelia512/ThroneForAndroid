@@ -13,7 +13,10 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** A rounded bar split into working / failed / testing segments over a grey pending track. */
+/**
+ * A rounded bar split into working / failed / testing segments over a grey pending track. With a [TestingProgress]
+ * the testing segment fills its slot over time instead of showing whole.
+ */
 class SegmentedProgressView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -42,16 +45,20 @@ class SegmentedProgressView @JvmOverloads constructor(
     private var testing = 0
     private var total = 0
     private var indeterminate = false
+    private var progress: TestingProgress? = null
 
-    fun setCounts(ok: Int, failed: Int, testing: Int, total: Int, indeterminate: Boolean) {
+    fun setCounts(
+        ok: Int, failed: Int, testing: Int, total: Int, indeterminate: Boolean, progress: TestingProgress? = null,
+    ) {
         if (this.ok == ok && this.failed == failed && this.testing == testing && this.total == total &&
-            this.indeterminate == indeterminate
+            this.indeterminate == indeterminate && this.progress == progress
         ) return
         this.ok = ok
         this.failed = failed
         this.testing = testing
         this.total = total
         this.indeterminate = indeterminate
+        this.progress = progress
         invalidate()
     }
 
@@ -88,18 +95,27 @@ class SegmentedProgressView @JvmOverloads constructor(
             postInvalidateOnAnimation()
         } else if (total > 0) {
             var x = left
-            x = segment(canvas, x, right, top, bottom, w, ok, okColor)
-            x = segment(canvas, x, right, top, bottom, w, failed, failedColor)
-            segment(canvas, x, right, top, bottom, w, testing, testingColor)
+            x = segment(canvas, x, right, top, bottom, ok, w * ok / total, okColor)
+            x = segment(canvas, x, right, top, bottom, failed, w * failed / total, failedColor)
+            val slot = w * testing / total
+            val p = progress
+            val now = SystemClock.elapsedRealtime()
+            segment(canvas, x, right, top, bottom, testing, if (p == null) slot else slot * p.at(now), testingColor)
+            if (p != null && testing > 0 && !p.settled(now)) {
+                // Redrawn once the growing part has moved by about a pixel.
+                val pixelsPerMs = slot * (p.to - p.from) / p.durationMs
+                postInvalidateDelayed(if (pixelsPerMs > 0f) max(FRAME_MS, (1f / pixelsPerMs).toLong()) else FRAME_MS)
+            }
         }
         canvas.restoreToCount(save)
     }
 
     private fun segment(
-        canvas: Canvas, x: Float, right: Float, top: Float, bottom: Float, w: Float, count: Int, @ColorInt color: Int,
+        canvas: Canvas, x: Float, right: Float, top: Float, bottom: Float, count: Int, share: Float,
+        @ColorInt color: Int,
     ): Float {
         if (count <= 0 || x >= right) return x
-        val end = min(x + max(w * count / total, minSegment), right)
+        val end = min(x + max(share, minSegment), right)
         paint.color = color
         canvas.drawRect(x, top, end, bottom, paint)
         return end
@@ -107,5 +123,6 @@ class SegmentedProgressView @JvmOverloads constructor(
 
     private companion object {
         const val SWEEP_MS = 1400L
+        const val FRAME_MS = 16L
     }
 }

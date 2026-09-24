@@ -50,7 +50,12 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
 
     val groupId = fragment.groupId
     val host: ConfigurationFragment? get() = fragment.host
-    val isGrid: Boolean get() = fragment.isGrid
+
+    /** The compact card of double column mode. */
+    val isCompact: Boolean get() = fragment.isCompact
+
+    /** Cards side by side: a grid row pairs their heights. */
+    private val multiColumn: Boolean get() = fragment.isMultiColumn
 
     var group: ProxyGroup? = null
         private set
@@ -177,6 +182,7 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
         val first = !loaded
         loaded = true
         publish(changed, displayChanged)
+        fragment.showEmpty(memberIds.isEmpty())
         if (first) fragment.onFirstLoad()
     }
 
@@ -208,7 +214,7 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
         ids.clear()
         ids.addAll(next)
         // grid rows re-pair after any insert/remove, which changes the neighbour alignment
-        if (isGrid || old.isEmpty() || old.size + next.size > DIFF_LIMIT) {
+        if (multiColumn || old.isEmpty() || old.size + next.size > DIFF_LIMIT) {
             notifyDataSetChanged()
             return
         }
@@ -289,7 +295,7 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
 
     /** The optional rows of the other cards of [position]'s grid row. */
     fun neighbourRows(position: Int): Int {
-        if (position == RecyclerView.NO_POSITION || !isGrid) return 0
+        if (position == RecyclerView.NO_POSITION || !multiColumn) return 0
         val layoutManager = fragment.list.layoutManager as? FixedGridLayoutManager ?: return 0
         val span = layoutManager.spanCount
         val start = layoutManager.rowIndexOf(position) * span
@@ -304,7 +310,7 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
     }
 
     fun refreshRowNeighbours(position: Int) {
-        if (position == RecyclerView.NO_POSITION || !isGrid) return
+        if (position == RecyclerView.NO_POSITION || !multiColumn) return
         val layoutManager = fragment.list.layoutManager as? FixedGridLayoutManager ?: return
         val span = layoutManager.spanCount
         val start = layoutManager.rowIndexOf(position) * span
@@ -375,9 +381,10 @@ internal class ProfileListAdapter(private val fragment: ProfileListFragment) :
             val order = ids.toList()
             memberIds = order + memberIds.filter { it in hidden }
             runOnDefaultDispatcher { ProfileManager.setOrder(groupId, order) }
-            if (isGrid) notifyDataSetChanged()
+            if (multiColumn) notifyDataSetChanged()
         }
         host?.selection?.onDragFinished(moved)
+        host?.onDragEnded()
         if (reloadAgain) reload()
     }
 

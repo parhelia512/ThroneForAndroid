@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ktx
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -16,6 +17,23 @@ fun Context.alert(text: String): AlertDialog {
 }
 
 fun Fragment.alert(text: String) = requireContext().alert(text)
+
+/** Asks before an action: [title] is the question, [message] names what it affects, then Cancel and [action] (a verb). */
+fun Context.confirmAction(title: CharSequence, message: CharSequence?, @StringRes action: Int, onConfirm: () -> Unit) {
+    MaterialAlertDialogBuilder(this)
+        .setTitle(title)
+        .setMessage(message)
+        .setNegativeButton(android.R.string.cancel, null)
+        .setPositiveButton(action) { _, _ -> onConfirm() }
+        .show()
+}
+
+/** [names] one per line; past [limit] the rest is only counted. */
+fun Context.nameList(names: List<String>, limit: Int = 10): String {
+    val shown = names.take(limit).joinToString("\n")
+    val more = names.size - limit
+    return if (more > 0) shown + "\n" + resources.getQuantityString(R.plurals.confirm_more_names, more, more) else shown
+}
 
 internal fun Context.resolveActivity(): WrappedHostResolution<Activity> = resolveWrappedHost(
     initial = this,

@@ -12,11 +12,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.content.pm.ShortcutManagerCompat
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.TileService
 import io.nekohasekai.sagernet.databinding.LayoutCustomIconBinding
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -89,17 +89,12 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
         }
 
         binding.btnResetDefault.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.custom_icon_reset)
-                .setMessage(R.string.custom_icon_reset_confirm)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    CustomIconManager.reset(requireContext())
-                    snackbar(getString(R.string.custom_icon_reset_success)).show()
-                    refreshPreview()
-                    notifyTileUpdate()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            requireContext().confirmAction(getString(R.string.custom_icon_reset_confirm), null, R.string.confirm_restore) {
+                CustomIconManager.reset(requireContext())
+                snackbar(getString(R.string.custom_icon_reset_success)).show()
+                refreshPreview()
+                notifyTileUpdate()
+            }
         }
 
         binding.btnApplyPack.setOnClickListener {

@@ -33,6 +33,7 @@ import io.nekohasekai.sagernet.databinding.LayoutProgressListBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteProfileItemBinding
 import io.nekohasekai.sagernet.group.RemoteRouteUpdater
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.needReload
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -234,12 +235,9 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             doDelete()
             return
         }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.confirm)
-            .setMessage(getString(R.string.route_delete_prompt, profile.name))
-            .setPositiveButton(R.string.yes) { _, _ -> doDelete() }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        requireContext().confirmAction(getString(R.string.confirm_remove_route_profile), profile.name, R.string.delete) {
+            doDelete()
+        }
     }
 
     private fun lastProfileError() = message(R.string.route_profile_invalid_title, getString(R.string.route_delete_last))

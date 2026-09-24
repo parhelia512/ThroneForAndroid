@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.outbound.Outbound
 import java.io.IOException
 import java.sql.SQLException
 import java.util.concurrent.Callable
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * The profile repository (the desktop's ProfilesRepo plus the list edits of Group.cpp) over `profiles`. A group's
@@ -22,6 +23,11 @@ object ProfileManager {
         suspend fun onRemoved(groupId: Long, profileId: Long)
     }
 
+    /** Told about the bytes [addTraffic] credits, in the process that credits them. */
+    fun interface CreditListener {
+        suspend fun onCredited(profileId: Long, rx: Long, tx: Long)
+    }
+
     /** The result of [batchDeleteProfiles]: [kept] holds the requested ids that were not deleted. */
     class DeleteOutcome(
         @JvmField val ok: Boolean,
@@ -33,6 +39,7 @@ object ProfileManager {
     private const val CHUNK = 500
 
     private val listeners = ArrayList<Listener>()
+    private val creditListeners = CopyOnWriteArrayList<CreditListener>()
 
     private val dao get() = SagerDatabase.proxyDao
 
@@ -54,6 +61,14 @@ object ProfileManager {
         synchronized(listeners) {
             listeners.remove(listener)
         }
+    }
+
+    fun addCreditListener(listener: CreditListener) {
+        creditListeners.add(listener)
+    }
+
+    fun removeCreditListener(listener: CreditListener) {
+        creditListeners.remove(listener)
     }
 
     // ------------------------------------------------------------------------------------------------ reads
@@ -153,8 +168,13 @@ object ProfileManager {
         dao.updateTraffic(profileId, rx, tx)
     }
 
+    /**
+     * Bytes moved around the running box's tracker (speed tests, TestRunner::creditTraffic): stored, and handed to the
+     * [CreditListener]s so the traffic looper's live totals, which the rows show, include them.
+     */
     suspend fun addTraffic(profileId: Long, rx: Long, tx: Long) {
         dao.addTraffic(profileId, rx, tx)
+        for (listener in creditListeners) listener.onCredited(profileId, rx, tx)
     }
 
     suspend fun resetTraffic(profileIds: LongArray) {

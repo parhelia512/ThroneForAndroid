@@ -36,7 +36,9 @@ class MasqueSettingsActivity : BindingSettingsActivity<Masque>() {
         QuicBlock.setup(this)
 
         // EditMasque::applyWarpIdentity (edit_masque.cpp:92-111)
-        WarpGenerate.bindEditorRow(this@MasqueSettingsActivity, this, WarpClient.TUNNEL_MASQUE) { identity ->
+        WarpGenerate.bindEditorRow(
+            this@MasqueSettingsActivity, this, WarpClient.TUNNEL_MASQUE, R.string.warp_masque_profile_name,
+        ) { identity ->
             setFieldText("private_key", identity.privateKey)
             setFieldText("peer_public_key", identity.peerPublicKey)
             setFieldText("address", identity.addresses.joinToString("\n"))

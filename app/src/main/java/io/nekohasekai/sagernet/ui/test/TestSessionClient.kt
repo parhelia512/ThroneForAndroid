@@ -193,9 +193,13 @@ object TestSessionClient {
             val spec = try {
                 val resolved = resolve()
                 val speedMode = if (resolved.speedMode >= 0) resolved.speedMode else DataStore.speedTestMode
+                val speedTimeoutMs = resolved.speedTimeoutMs.takeIf { it > 0 } ?: DataStore.speedTestTimeoutMs
+                val concurrency = resolved.concurrency.takeIf { it > 0 } ?: DataStore.testConcurrent
                 synchronized(lock) {
                     if (!m.running) return@launch
                     m.speedMode = speedMode
+                    m.speedTimeoutMs = speedTimeoutMs
+                    m.concurrency = concurrency
                     if (resolved.scopeLabel.isNotEmpty()) m.scopeLabel = resolved.scopeLabel
                     m.setIds(resolved.profileIds)
                     publishLocked()

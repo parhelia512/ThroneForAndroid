@@ -3,7 +3,6 @@ package io.nekohasekai.sagernet.ui.profiles
 import android.view.View
 import io.nekohasekai.sagernet.ui.SaveDocument
 import androidx.appcompat.widget.PopupMenu
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.test.TestSpec
@@ -12,6 +11,7 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.ktx.snackbar
@@ -49,8 +49,9 @@ class ProfileItemMenu(private val host: ConfigurationFragment) {
         val popup = PopupMenu(anchor.context, anchor)
         popup.menuInflater.inflate(R.menu.double_column_item_menu, popup.menu)
         val menu = popup.menu
-        menu.findItem(R.id.action_edit).isVisible = adapter.isGrid
-        menu.findItem(R.id.action_share).isVisible = adapter.isGrid && !profile.isChain()
+        // the compact card has no edit / share buttons
+        menu.findItem(R.id.action_edit).isVisible = adapter.isCompact
+        menu.findItem(R.id.action_share).isVisible = adapter.isCompact && !profile.isChain()
         // positions of the stored order: a filtered list says nothing about it (like the desktop's drag and drop)
         val index = adapter.memberIds.indexOf(profile.id)
         val movable = !adapter.isFiltered && index >= 0
@@ -102,11 +103,12 @@ class ProfileItemMenu(private val host: ConfigurationFragment) {
             adapter.removeWithUndo(profile)
             return
         }
-        MaterialAlertDialogBuilder(host.requireContext())
-            .setTitle(R.string.delete_confirm_prompt)
-            .setPositiveButton(R.string.yes) { _, _ -> adapter.removeWithUndo(profile) }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        val context = host.requireContext()
+        context.confirmAction(
+            context.resources.getQuantityString(R.plurals.confirm_remove_profiles, 1, 1),
+            profile.displayName(),
+            R.string.delete,
+        ) { adapter.removeWithUndo(profile) }
     }
 
     fun showShare(anchor: View, profile: ProxyEntity) {

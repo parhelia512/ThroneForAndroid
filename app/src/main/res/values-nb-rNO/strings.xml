@@ -3,7 +3,6 @@
     <string name="apps_message">%d programmer</string>
     <string name="select_apps">Velg programmer</string>
     <string name="apps">Programmer</string>
-    <string name="confirm">Bekreft</string>
     <string name="connection_test_timeout_error">Tidsavbrudd</string>
     <string name="connection_test_clear_results">Tøm testresultater</string>
     <string name="connection_test">Tilkoblingstest</string>
@@ -70,7 +69,6 @@
     <string name="mixed_inbound_disabled">Deaktivert</string>
     <string name="disable_mixed_inbound_proxy_toast">Deaktivering gjelder bare i TUN-modus; gjeldende lytteport: %1$d</string>
     <string name="service_mode_proxy">Kun mellomtjener</string>
-    <string name="clear_profiles_message">Er du sikker på at du vil slette denne gruppen\?</string>
     <string name="profile_import_message">Bekreft at du vil importere profilen %s\?</string>
     <string name="profile_import">Importer profil</string>
     <string name="subscription_import">Importer abonnement</string>
@@ -97,7 +95,6 @@
         <item quantity="other">%d fullmakter lagt til</item>
     </plurals>
     <string name="add_profile_methods_manual_settings">Manuelle innstillinger</string>
-    <string name="delete_confirm_prompt">Er du sikker på at du vil fjerne denne profilen\?</string>
     <string name="profile_config">Profilkonfigurasjon</string>
     <string name="file_manager_missing">Enheten din mangler en standard filvelger for Android. Installer en, for eksempel materialfiler.</string>
     <string name="action_import_err">Kunne ikke importere.</string>
@@ -155,8 +152,8 @@
     <string name="connection_test_available_http">Suksess: HTTP håndtrykk tok %dms</string>
     <string name="connection_test_available">Suksess: HTTPS håndtrykk tok %dms</string>
     <string name="connection_test_testing">Tester…</string>
-    <string name="speed_detail">Proxy： %1$s↑ %2$s↓
-\nDirekte： %3$s↑ %4$s↓</string>
+    <string name="speed_detail">Proxy: %1$s↑ %2$s↓
+\nDirekte: %3$s↑ %4$s↓</string>
     <string name="allow_insecure_sum">Deaktiver sertifikatkontroll. Når den er aktivert, er denne konfigurasjonen like sikker som ren tekst</string>
     <string name="allow_insecure">Tillat usikker</string>
     <string name="security_settings">Sikkerhetsinnstillinger</string>
@@ -231,5 +228,11 @@
     <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
     <string name="custom_icon_error_security">Security verification failed: %s</string>
     <string name="custom_icon_requirement_tip">Icon pack must be a ZIP archive containing 512x512 icon.png and tile.png.</string>
+    <string name="profile_share_config">Konfigurasjon</string>
+    <string name="disconnect">Koble fra</string>
+    <string name="navigation_open_drawer">Åpne navigasjonsskuffen</string>
+    <string name="navigation_back">Tilbake</string>
+    <string name="navigation_close">Lukk</string>
+    <string name="navigation_cancel_selection">Avbryt valg</string>
 </resources>
 

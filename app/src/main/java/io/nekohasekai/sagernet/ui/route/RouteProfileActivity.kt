@@ -29,6 +29,7 @@ import io.nekohasekai.sagernet.databinding.LayoutRouteRuleItemBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteRulesTitleBinding
 import io.nekohasekai.sagernet.group.RemoteRouteUpdater
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.route.OutboundIds
 import io.nekohasekai.sagernet.route.RouteProfile
 import io.nekohasekai.sagernet.route.RouteRule
@@ -338,12 +339,11 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
             doFetch()
             return
         }
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.route_profile_fetch_title)
-            .setMessage(R.string.route_profile_fetch_confirm)
-            .setPositiveButton(R.string.yes) { _, _ -> doFetch() }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        confirmAction(
+            getString(R.string.confirm_replace_rules),
+            getString(R.string.route_profile_fetch_confirm),
+            R.string.confirm_replace,
+        ) { doFetch() }
     }
 
     /** The editor's "Fetch" (RouteItem.cpp:263-346): the fetched rules replace the edited ones; the typed name stays. */

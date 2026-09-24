@@ -59,17 +59,14 @@
 <string name="chain_settings">Настройки цепочки</string>
 <string name="character_counter_content_description">Введено символов: %1$d из %2$d</string>
 <string name="character_counter_overflowed_content_description">Превышено ограничение на количество символов (%1$d из %2$d)</string>
-<string name="check_update_no">Обновления не найдены.</string>
 <string name="circular_reference">Циклическая ссылка</string>
 <string name="circular_reference_sum">Маршрут не может содержать сам себя.</string>
 <string name="clear_logcat">Очистить журнал</string>
-<string name="clear_profiles_message">Вы уверены, что хотите очистить эту группу?</string>
 <string name="clear_selections">Очистить выбранное</string>
 <string name="clear_text_end_icon_content_description">Очистить текстовое поле</string>
 <string name="clear_traffic_statistics">Очистить статистику трафика</string>
 <string name="cleartext_http_warning">Передача HTTP-трафика в виде открытого текста небезопасна</string>
 <string name="clipboard_empty">Буфер обмена пуст</string>
-<string name="confirm">Подтвердить</string>
 <string name="connect">Подключиться</string>
 <string name="connecting">Подключение…</string>
 <string name="connection_test_available">HTTPS-соединение установлено за %d мс</string>
@@ -85,7 +82,6 @@
 <string name="create_shortcut">Создать ярлык</string>
 <string name="custom_config">Пользовательская конфигурация</string>
 <string name="delete">Удалить</string>
-<string name="delete_confirm_prompt">Вы уверены, что хотите удалить этот профиль?</string>
 <string name="direct_dns">Прямой DNS</string>
 <string name="disable">Отключить</string>
 <string name="dns_routing_message">Разрешить домены в обходных маршрутах с помощью Direct DNS. Помните о потенциальных утечках DNS</string>
@@ -252,8 +248,8 @@
 <string name="side_sheet_accessibility_pane_title">Боковая панель</string>
 <string name="sni">SNI (индикация имени сервера)</string>
 <string name="speed">%s/с</string>
-<string name="speed_detail">Прокси ：%1$s↑ %2$s↓ 
-\nПрямой ：%3$s↑%4$s↓</string>
+<string name="speed_detail">Прокси: %1$s↑ %2$s↓ 
+\nПрямой: %3$s↑%4$s↓</string>
 <string name="speed_interval">Интервал обновления уведомлений о скорости</string>
 <string name="ssh_auth_type_none">Без аутентификации</string>
 <string name="ssh_private_key">Закрытый ключ</string>
@@ -399,5 +395,11 @@
     <string name="custom_icon_error_not_png">%s не является корректным изображением PNG</string>
     <string name="custom_icon_error_security">Ошибка проверки безопасности: %s</string>
     <string name="custom_icon_requirement_tip">Набор иконок должен быть ZIP-архивом, содержащим icon.png и tile.png размером 512x512.</string>
+    <string name="profile_share_config">Конфигурация</string>
+    <string name="disconnect">Отключиться</string>
+    <string name="navigation_open_drawer">Открыть панель навигации</string>
+    <string name="navigation_back">Назад</string>
+    <string name="navigation_close">Закрыть</string>
+    <string name="navigation_cancel_selection">Отменить выбор</string>
 </resources>
 

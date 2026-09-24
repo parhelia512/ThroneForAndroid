@@ -31,10 +31,11 @@
         android:textAppearance="?attr/textAppearanceCaption"
         android:visibility="gone" />
 
+    <!-- Wraps a short message; the weight shrinks long release notes so the buttons stay on screen. -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/message_scroll"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:layout_weight="1">
 
@@ -56,7 +57,7 @@
 
         <Button
             android:id="@+id/neutral"
-            style="@style/Widget.MaterialComponents.Button.TextButton.Dialog"
+            style="@style/Widget.SagerNet.Button.TextButton.Dialog.Flush"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone" />
@@ -68,14 +69,14 @@
 
         <Button
             android:id="@+id/negative"
-            style="@style/Widget.MaterialComponents.Button.TextButton.Dialog"
+            style="@style/Widget.SagerNet.Button.TextButton.Dialog"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone" />
 
         <Button
             android:id="@+id/positive"
-            style="@style/Widget.MaterialComponents.Button.TextButton.Dialog"
+            style="@style/Widget.SagerNet.Button.TextButton.Dialog"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone" />

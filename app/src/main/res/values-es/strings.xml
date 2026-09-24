@@ -39,7 +39,7 @@
     <string name="allow_insecure">Permitir inseguro</string> 
     <string name="allow_insecure_sum">Desactiva la comprobación de certificados. Cuando está activada, esta configuración es tan segura como el texto sin formato</string> 
     <string name="traffic" translatable="false">%1$s↑ %2$s↓</string> 
-    <string name="speed_detail">Proxy： %1$s↑ %2$s↓\nDirecto： %3$s↑ %4$s↓</string> 
+    <string name="speed_detail">Proxy: %1$s↑ %2$s↓\nDirecto: %3$s↑ %4$s↓</string> 
     <string name="speed">%s/s</string> 
     <string name="connection_test_testing">Probando…</string> 
     <string name="connection_test_available">Éxito: el protocolo de enlace HTTPS tomó %dms</string> 
@@ -136,7 +136,6 @@
     <!-- profile --> 
     <string name="profile_config">Configuración de perfil</string> 
     <string name="delete">Eliminar</string> 
-    <string name="delete_confirm_prompt">¿Está seguro de que desea eliminar este perfil?</string> 
     <string name="share_qr_nfc">Código QR</string> 
     <string name="add_profile_methods_scan_qr_code">Escanear código QR</string> 
     <string name="add_profile_methods_manual_settings">Ajustes manuales</string> 
@@ -184,12 +183,10 @@
     <string name="connection_test_timeout_error">Se acabó el tiempo</string> 
     <string name="group_basic">Básico</string> 
     <string name="subscription">Suscripción</string> 
-    <string name="confirm">Confirmar</string> 
     <string name="service_subscription">Servicio de actualización de suscripción</string> 
     <string name="subscription_import">Importar suscripción</string> 
     <string name="profile_import">Importar perfil</string> 
     <string name="profile_import_message">¿Confirma que desea importar el perfil %s?</string> 
-    <string name="clear_profiles_message">¿Estás seguro de que quieres borrar este grupo?</string> 
     <string name="apps">Aplicaciones</string> 
     <string name="select_apps">Seleccionar aplicaciones</string> 
     <string name="apps_message">%d aplicaciones</string> 
@@ -263,5 +260,11 @@
     <string name="custom_icon_error_not_png">%s no es una imagen PNG válida</string>
     <string name="custom_icon_error_security">Error de verificación de seguridad: %s</string>
     <string name="custom_icon_requirement_tip">El paquete de iconos debe ser un ZIP que contenga icon.png y tile.png de 512x512.</string>
+    <string name="profile_share_config">Configuración</string>
+    <string name="disconnect">Desconectar</string>
+    <string name="navigation_open_drawer">Abrir panel de navegación</string>
+    <string name="navigation_back">Atrás</string>
+    <string name="navigation_close">Cerrar</string>
+    <string name="navigation_cancel_selection">Cancelar selección</string>
 </resources>
 

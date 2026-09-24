@@ -95,7 +95,6 @@
     <!-- profile -->
     <string name="profile_config">服务器配置</string>
     <string name="delete">删除</string>
-    <string name="delete_confirm_prompt">您确定要删除这个服务器配置吗\?</string>
     <string name="share_qr_nfc">二维码</string>
     <string name="add_profile_methods_scan_qr_code">扫描二维码</string>
     <string name="add_profile_methods_manual_settings">手动输入</string>
@@ -187,12 +186,10 @@
     <string name="http_proxy_bypass_dialog_message">一行一个，# 开头代表注释。示例：*zhihu.com</string>
     <string name="group_basic">基本</string>
     <string name="subscription">订阅</string>
-    <string name="confirm">确认</string>
     <string name="service_subscription">订阅更新服务</string>
     <string name="subscription_import">导入订阅</string>
     <string name="profile_import">导入配置</string>
     <string name="profile_import_message">确认要导入配置 %s？</string>
-    <string name="clear_profiles_message">您确定要清空该分组吗\?</string>
     <string name="remote_dns">远程 DNS</string>
     <string name="direct_dns">直连 DNS</string>
     <string name="enable_dns_routing">启用 DNS 路由</string>
@@ -309,7 +306,6 @@
     <string name="preview_version_hint">本应用为预览版，可能存在诸多问题。若您不愿参与测试，请前往GitHub下载正式发布版本！</string>
     <string name="preview_hint_dont_show_again">不再显示</string>
     <string name="update_dialog_title">发现新版本</string>
-    <string name="check_update_no">检查成功，但没有更新。</string>
     <string name="reset_settings">恢复默认设置</string>
     <string name="reset_settings_message">恢复默认设置，但节点、分组等数据将保留。如需完全清除数据，请在系统设置中直接清除应用数据。</string>
     <string name="xhttp_host">XHTTP 主机</string>
@@ -367,4 +363,10 @@
     <string name="custom_icon_error_not_png">%s 不是有效的 PNG 图片文件</string>
     <string name="custom_icon_error_security">安全校验失败：%s</string>
     <string name="custom_icon_requirement_tip">图标包须为 ZIP 压缩包，内含 512x512 的 icon.png 与 tile.png。</string>
+    <string name="profile_share_config">配置</string>
+    <string name="disconnect">断开连接</string>
+    <string name="navigation_open_drawer">打开抽屉式导航栏</string>
+    <string name="navigation_back">返回</string>
+    <string name="navigation_close">关闭</string>
+    <string name="navigation_cancel_selection">取消选择</string>
 </resources>

@@ -43,7 +43,7 @@
     <string name="allow_insecure">اتصال محافظت نشده</string>
     <string name="allow_insecure_sum">اگر بررسی گواهی‌ها غیرفعال باشد، اتصال بدون رمزنگاری خواهد بود.</string>
     <string name="traffic" translatable="false">%1$s↑ %2$s↓</string>
-    <string name="speed_detail">سرعت： %1$s↑ %2$s↓\nمستقیم： %3$s↑ %4$s↓</string>
+    <string name="speed_detail">سرعت: %1$s↑ %2$s↓\nمستقیم: %3$s↑ %4$s↓</string>
     <string name="speed">%s/s</string>
     <string name="connection_test_testing">در حال آزمایش</string>
     <string name="connection_test_available">اتصال موفق! سرعت برقراری ارتباط HTTPS: %dms</string>
@@ -152,7 +152,6 @@
     <!-- profile -->
     <string name="profile_config">پیکربندی پراکسی</string>
     <string name="delete">حذف</string>
-    <string name="delete_confirm_prompt">آیا مطمئن هستید که می‌خواهید این پراکسی را حذف کنید؟</string>
     <string name="share_qr_nfc">کد QR</string>
     <string name="add_profile_methods_scan_qr_code">اسکن از کد QR</string>
     <string name="add_profile_methods_manual_settings">تنظیمات دستی</string>
@@ -202,12 +201,10 @@
     <string name="http_proxy_bypass_dialog_message">در هر خط یک مورد. خطوطی که با # شروع می‌شوند نظر هستند. مثال: *zhihu.com</string>
     <string name="group_basic">ابتدایی</string>
     <string name="subscription">اشتراک</string>
-    <string name="confirm">تأیید</string>
     <string name="service_subscription">سرویس به‌روزسانی اشتراک</string>
     <string name="subscription_import">وارد کردن اشتراک</string>
     <string name="profile_import">اضافه کردن پراکسی</string>
     <string name="profile_import_message">تأیید می‌کنید که می‌خواهید پراکسی %s اضافه شود؟</string>
-    <string name="clear_profiles_message">آیا می‌خواهید پراکسی‌های این گروه را پاک کنید؟</string>
     <string name="apps">برنامه‌ها</string>
     <string name="select_apps">انتخاب برنامه‌های مورد نظر</string>
     <string name="apps_message">%d برنامه</string>
@@ -331,7 +328,6 @@
     <string name="preview_version_hint">این برنامه نسخهٔ پیش‌نمایش است و ممکن است مشکلات زیادی داشته باشد. اگر نمی‌خواهید آن را آزمایش کنید، لطفاً برای دانلود نسخهٔ Release به GitHub بروید!</string>
     <string name="preview_hint_dont_show_again">دوباره نشان نده</string>
     <string name="update_dialog_title">نسخهٔ جدید در دسترس است</string>
-    <string name="check_update_no">بررسی موفق بود، اما به‌روزرسانی‌ای نیست.</string>
     <string name="reset_settings">بازگردانی تنظیمات پیش‌فرض</string>
     <string name="reset_settings_message">بازگردانی تنظیمات پیش‌فرض؛ اما داده‌هایی مانند گره‌ها و گروه‌ها حفظ می‌شوند. برای پاک‌سازی کامل داده‌ها، داده‌های برنامه را مستقیماً در تنظیمات سیستم پاک کنید.</string>
     <string name="xhttp_host">XHTTP Host</string>
@@ -386,5 +382,11 @@
     <string name="custom_icon_error_not_png">%s is not a valid PNG image</string>
     <string name="custom_icon_error_security">Security verification failed: %s</string>
     <string name="custom_icon_requirement_tip">Icon pack must be a ZIP archive containing 512x512 icon.png and tile.png.</string>
+    <string name="profile_share_config">پیکربندی</string>
+    <string name="disconnect">قطع اتصال</string>
+    <string name="navigation_open_drawer">باز کردن کشوی پیمایش</string>
+    <string name="navigation_back">بازگشت</string>
+    <string name="navigation_close">بستن</string>
+    <string name="navigation_cancel_selection">لغو انتخاب</string>
 </resources>
 

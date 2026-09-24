@@ -5,9 +5,14 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewTreeObserver
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.core.os.bundleOf
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,7 +21,6 @@ import io.nekohasekai.sagernet.database.GroupRepo
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.FixedGridLayoutManager
-import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
@@ -29,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.max
 
 /** One tab of the profiles screen: the profiles of one group. */
 class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
@@ -50,6 +55,7 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
 
     lateinit var list: RecyclerView
         private set
+    private lateinit var emptyHint: View
     internal lateinit var adapter: ProfileListAdapter
         private set
 
@@ -64,7 +70,15 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
     internal val isScrolling: Boolean
         get() = ::list.isInitialized && list.scrollState != RecyclerView.SCROLL_STATE_IDLE
 
-    internal val isGrid: Boolean get() = host?.gridLayout == true
+    /** Double column mode: the compact card (no edit / share buttons, a one-line error). */
+    internal val isCompact: Boolean get() = host?.doubleColumn == true
+
+    /** Cards side by side (the list's width decides): a grid row pairs their heights, drags go sideways too. */
+    internal val isMultiColumn: Boolean
+        get() = ::list.isInitialized && ((list.layoutManager as? GridLayoutManager)?.spanCount ?: 1) > 1
+
+    private var columnsPending = false
+    private var bottomBar: MainActivity? = null
 
     internal fun onMain(block: () -> Unit) {
         scope?.launch(Dispatchers.Main.immediate) { block() }
@@ -74,16 +88,30 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
         super.onViewCreated(view, savedInstanceState)
         list = view.findViewById(R.id.configuration_list)
         list.applyListInsets(ime = true)
+        emptyHint = view.findViewById(R.id.profiles_empty)
+        emptyHint.applyListInsets()
+        if (host?.select == true) {
+            view.findViewById<View>(R.id.profiles_empty_icon).isVisible = false
+            view.findViewById<View>(R.id.profiles_empty_hint).isVisible = false
+        }
         scope = viewLifecycleOwner.lifecycleScope
         adapter = ProfileListAdapter(this)
-        list.layoutManager = newLayoutManager()
+        list.layoutManager = FixedGridLayoutManager(list, if (isCompact) 2 else 1)
         list.adapter = adapter
         list.setItemViewCacheSize(20)
         list.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) adapter.flushPendingTraffic()
             }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                val host = host
+                if (host?.headerMoving == true) return
+                host?.onListScrolled(this@ProfileListFragment, dy)
+                if (dy != 0) bottomBar?.driveBottomBar(dy)
+            }
         })
+        list.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> onListLaidOut() }
         ProfileManager.addListener(adapter)
         GroupRepo.addListener(adapter)
 
@@ -112,24 +140,69 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
         undoManager = null
         dragHelper?.attachToRecyclerView(null)
         dragHelper = null
+        bottomBar = null
         scope = null
         super.onDestroyView()
     }
 
-    private fun newLayoutManager(): RecyclerView.LayoutManager =
-        if (isGrid) FixedGridLayoutManager(list, 2) else FixedLinearLayoutManager(list)
-
-    /** Single / double column changed. */
+    /** Single / double column changed: the card look and the column count. */
     @SuppressLint("NotifyDataSetChanged")
     fun switchLayout() {
-        list.layoutManager = newLayoutManager()
-        if (dragHelper != null) attachDragHelper()
+        (list.layoutManager as? GridLayoutManager)?.spanCount = columns()
         adapter.notifyDataSetChanged()
+    }
+
+    /** Single keeps cards 320 dp wide or more, Double 180 dp and two columns at least, over the list's width. */
+    private fun columns(): Int {
+        val width = (list.width - list.paddingLeft - list.paddingRight) / list.resources.displayMetrics.density
+        return if (isCompact) max(2, (width / 180).toInt()) else max(1, (width / 320).toInt())
+    }
+
+    /**
+     * A new width may change the column count. It is applied before the next frame is drawn, outside the layout pass
+     * that noticed it, and that frame is skipped: it would show the old columns at the new width.
+     */
+    private fun onListLaidOut() {
+        val layoutManager = list.layoutManager as? GridLayoutManager ?: return
+        if (columnsPending || columns() == layoutManager.spanCount) return
+        columnsPending = true
+        val observer = list.viewTreeObserver
+        observer.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                columnsPending = false
+                val columns = columns()
+                if (view == null || columns == layoutManager.spanCount) return true
+                // LinearLayoutManager anchors on the first row on screen (moved to its first column): the place stays
+                layoutManager.spanCount = columns
+                // grid rows pair their cards' heights when they bind
+                adapter.notifyAllContent()
+                return false
+            }
+        })
     }
 
     fun updateBottomPadding() {
         if (!::list.isInitialized) return
-        list.updateBasePadding(bottom = dp2px(BOTTOM_PADDING_DP) + (host?.panelHeight ?: 0))
+        // The test panel reaches the bottom edge and keeps its own content clear of the FAB and the stats bar.
+        list.updateBasePadding(bottom = max(dp2px(BOTTOM_PADDING_DP), host?.panelHeight ?: 0))
+    }
+
+    /** An empty group says how to add profiles instead of a blank page; an empty subscription offers its update. */
+    internal fun showEmpty(empty: Boolean) {
+        emptyHint.isVisible = empty
+        if (!empty) return
+        val subscription = adapter.group?.isSubscription == true
+        emptyHint.findViewById<TextView>(R.id.profiles_empty_title)
+            .setText(if (subscription) R.string.profiles_empty_subscription else R.string.profiles_empty)
+        emptyHint.findViewById<TextView>(R.id.profiles_empty_hint)
+            .setText(if (subscription) R.string.profiles_empty_subscription_hint else R.string.profiles_empty_hint)
+        emptyHint.findViewById<ImageView>(R.id.profiles_empty_icon)
+            .setImageResource(if (subscription) R.drawable.ic_baseline_update_24 else R.drawable.ic_action_note_add)
+        emptyHint.findViewById<View>(R.id.profiles_empty_update).apply {
+            isVisible = subscription && host?.select != true
+            setOnClickListener { adapter.group?.let(GroupActions::updateSubscription) }
+        }
     }
 
     /** First data of the view: the desktop's scroll_last_profile, the picked or selected profile otherwise. */
@@ -192,7 +265,7 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
 
             override fun getMovementFlags(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
                 if (!adapter.canDrag()) return 0
-                val directions = if (isGrid) {
+                val directions = if (isMultiColumn) {
                     ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
                 } else {
                     ItemTouchHelper.UP or ItemTouchHelper.DOWN
@@ -232,11 +305,8 @@ class ProfileListFragment : Fragment(R.layout.layout_profile_list) {
     @SuppressLint("ClickableViewAccessibility")
     private fun driveBottomBar() {
         val mainActivity = activity as? MainActivity ?: return
-        list.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (dy != 0) mainActivity.driveBottomBar(dy)
-            }
-        })
+        // the scroll listener feeds it the list's scrolls (none while the header slides)
+        bottomBar = mainActivity
         val touchSlop = ViewConfiguration.get(requireContext()).scaledTouchSlop
         var lastRawY = 0f
         list.setOnTouchListener { recyclerView, event ->

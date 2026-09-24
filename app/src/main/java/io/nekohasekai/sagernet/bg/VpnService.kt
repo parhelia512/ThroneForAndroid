@@ -156,11 +156,14 @@ class VpnService : BaseVpnService(),
                 } else if (options.getInet6Address().hasNext()) {
                     builder.addRoute("::", 0)
                 }
+                // Builder.check rejects a loopback prefix ("Bad address"), and loopback never enters the tun anyway.
                 options.getInet4RouteExcludeAddress().forEach {
-                    builder.excludeRoute(IpPrefix(InetAddress.getByName(it.address()), it.prefix()))
+                    val address = InetAddress.getByName(it.address())
+                    if (!address.isLoopbackAddress) builder.excludeRoute(IpPrefix(address, it.prefix()))
                 }
                 options.getInet6RouteExcludeAddress().forEach {
-                    builder.excludeRoute(IpPrefix(InetAddress.getByName(it.address()), it.prefix()))
+                    val address = InetAddress.getByName(it.address())
+                    if (!address.isLoopbackAddress) builder.excludeRoute(IpPrefix(address, it.prefix()))
                 }
             } else {
                 // Builder.excludeRoute only exists from API 33; below that the core pre-splits

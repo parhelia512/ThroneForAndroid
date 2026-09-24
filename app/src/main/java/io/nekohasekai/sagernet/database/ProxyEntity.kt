@@ -11,8 +11,6 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Update
-import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.outbound.InvalidOutbound
 import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.outbound.OutboundFactory
@@ -208,26 +206,6 @@ data class ProxyEntity(
         }
     }
 
-    /** Profile::DisplayTestResult with the group's `test_items_to_show` ([TestShowItems] value). */
-    fun displayTestResult(testItemsToShow: Int): String {
-        val show = TestShowItems.of(testItemsToShow)
-        val result = StringBuilder()
-        val country = testCountry.orEmpty()
-        if (country.isNotEmpty()) result.append(LRO).append(countryFlag(country)).append(' ')
-        when {
-            latency == LATENCY_CONNECT_ONLY -> return app.getString(R.string.test_connect_ok)
-            latency < 0 -> return app.getString(R.string.unavailable)
-            latency > 0 -> result.append(latency).append(" ms")
-        }
-        val dl = dlSpeed.orEmpty()
-        val ul = ulSpeed.orEmpty()
-        val ip = ipOut.orEmpty()
-        if (dl.isNotEmpty() && dl != SPEED_NA && show.showSpeed) result.append(" ↓").append(dl)
-        if (ul.isNotEmpty() && ul != SPEED_NA && show.showSpeed) result.append(" ↑").append(ul)
-        if (ip.isNotEmpty() && show.showIp) result.append(" 🌐").append(ip)
-        return result.toString()
-    }
-
     /** Profile::DisplayLatencyColor; 0 = no colour (untested). */
     @ColorInt
     fun latencyColor(): Int = when {
@@ -247,8 +225,6 @@ data class ProxyEntity(
 
         /** The rate text of a failed speed test. */
         const val SPEED_NA = "N/A"
-
-        private const val LRO = "‭"
 
         @ColorInt private const val COLOR_CONNECT_ONLY = 0xFF00ACC1.toInt()
         @ColorInt private const val COLOR_FAILED = 0xFF9E9E9E.toInt()

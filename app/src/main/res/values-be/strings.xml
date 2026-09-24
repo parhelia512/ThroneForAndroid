@@ -34,8 +34,8 @@
     <string name="connection_test_available">Поспех: поціск рукі HTTPS заняў %dms</string>
     <string name="connection_test_testing">Тэставанне…</string>
     <string name="speed">%s/s</string>
-    <string name="speed_detail">Проксі : %1$s↑ %2$s↓
-\nПрамая : %3$s↑ %4$s↓</string>
+    <string name="speed_detail">Проксі: %1$s↑ %2$s↓
+\nПрамая: %3$s↑ %4$s↓</string>
     <string name="allow_insecure_sum">Адключыць праверку сертыфікатаў. Калі ўключана, гэтая канфігурацыя такая ж бяспечная, як і адкрыты тэкст</string>
     <string name="allow_insecure">Дазволіць небяспечна</string>
     <string name="security_settings">Налады бяспекі</string>
@@ -98,5 +98,11 @@
     <string name="custom_icon_error_not_png">%s не є коректним зображенням PNG</string>
     <string name="custom_icon_error_security">Помилка перевірки безпеки: %s</string>
     <string name="custom_icon_requirement_tip">Набір іконок має бути ZIP-архівом, що містить icon.png та tile.png розміром 512x512.</string>
+    <string name="profile_share_config">Канфігурацыя</string>
+    <string name="disconnect">Адключыцца</string>
+    <string name="navigation_open_drawer">Адкрыць панэль навігацыі</string>
+    <string name="navigation_back">Назад</string>
+    <string name="navigation_close">Закрыць</string>
+    <string name="navigation_cancel_selection">Скасаваць выбар</string>
 </resources>
 

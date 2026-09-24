@@ -14,7 +14,7 @@
         app:title="@string/settings_appearance" />
     <Preference
         app:fragment="io.nekohasekai.sagernet.ui.settings.InboundSettingsFragment"
-        app:icon="@drawable/ic_maps_directions_boat"
+        app:icon="@drawable/ic_baseline_input_24"
         app:key="settingsInbound"
         app:summary="@string/settings_inbound_sum"
         app:title="@string/settings_inbound" />

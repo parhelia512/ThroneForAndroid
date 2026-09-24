@@ -33,4 +33,11 @@
     <color name="card_elevated_yellow">#2C2A17</color>
     <color name="card_elevated_black">#151515</color>
     <color name="card_elevated_verdant_mint">#10241C</color>
+
+    <!-- Dialog button text: the 200 tones (4.8:1 or more on the dialog surface) -->
+    <color name="dialog_button_purple">#CE93D8</color>
+    <color name="dialog_button_deep_purple">#B39DDB</color>
+    <color name="dialog_button_indigo">#9FA8DA</color>
+    <color name="dialog_button_brown">#BCAAA4</color>
+    <color name="dialog_button_blue_grey">#B0BEC5</color>
 </resources>

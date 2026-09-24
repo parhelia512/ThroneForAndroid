@@ -166,4 +166,11 @@
     <!-- Elevated card surface of the AMOLED black overlay (near black) -->
     <color name="card_elevated_amoled">#121212</color>
 
+    <!-- Dialog button text where the 500 primary is unreadable on dark surfaces (night: values-night/colors.xml) -->
+    <color name="dialog_button_purple">@color/material_purple_500</color>
+    <color name="dialog_button_deep_purple">@color/material_deep_purple_500</color>
+    <color name="dialog_button_indigo">@color/material_indigo_500</color>
+    <color name="dialog_button_brown">@color/material_brown_500</color>
+    <color name="dialog_button_blue_grey">@color/material_blue_grey_500</color>
+
 </resources>

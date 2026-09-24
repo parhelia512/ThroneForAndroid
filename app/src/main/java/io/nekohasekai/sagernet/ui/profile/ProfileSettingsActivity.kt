@@ -75,17 +75,18 @@ abstract class ProfileSettingsActivity<T : Outbound>(
     }
 
     @Parcelize
-    data class ProfileIdArg(val profileId: Long, val groupId: Long) : Parcelable
+    data class ProfileIdArg(val profileId: Long, val groupId: Long, val name: String) : Parcelable
     class DeleteConfirmationDialogFragment : AlertDialogFragment<ProfileIdArg, Empty>() {
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
-            setTitle(R.string.delete_confirm_prompt)
-            setPositiveButton(R.string.yes) { _, _ ->
+            setTitle(resources.getQuantityString(R.plurals.confirm_remove_profiles, 1, 1))
+            setMessage(arg.name)
+            setPositiveButton(R.string.delete) { _, _ ->
                 runOnDefaultDispatcher {
                     ProfileManager.deleteProfile(arg.groupId, arg.profileId)
                 }
                 requireActivity().finish()
             }
-            setNegativeButton(R.string.no, null)
+            setNegativeButton(android.R.string.cancel, null)
         }
     }
 
@@ -333,12 +334,9 @@ abstract class ProfileSettingsActivity<T : Outbound>(
                 if (DataStore.editingId == 0L) {
                     requireActivity().finish()
                 } else {
+                    val name = activity?.proxyEntity?.displayName().orEmpty()
                     DeleteConfirmationDialogFragment().apply {
-                        arg(
-                            ProfileIdArg(
-                                DataStore.editingId, DataStore.editingGroup
-                            )
-                        )
+                        arg(ProfileIdArg(DataStore.editingId, DataStore.editingGroup, name))
                         key()
                     }.show(parentFragmentManager, null)
                 }

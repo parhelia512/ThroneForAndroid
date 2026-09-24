@@ -23,7 +23,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import io.nekohasekai.sagernet.BuildConfig
@@ -34,6 +33,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAppsBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.confirmAction
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -280,7 +280,8 @@ class AppManagerActivity : ThemedActivity() {
 
         // the app bar fits system windows (status bar foreground); the list pads the navigation bar
         binding.list.applyListInsets(ime = true, horizontal = false)
-        binding.collapsing.applyInsetPadding(horizontal = true)
+        binding.toolbar.applyInsetPadding(horizontal = true)
+        binding.header.applyInsetPadding(horizontal = true)
 
         binding.search.addTextChangedListener {
             appsAdapter.filter.filter(it?.toString() ?: "")
@@ -394,40 +395,40 @@ class AppManagerActivity : ThemedActivity() {
     }
 
     private fun selectProxyApp() {
-        MaterialAlertDialogBuilder(this).setTitle(R.string.confirm)
-            .setMessage(R.string.auto_select_proxy_apps_message)
-            .setPositiveButton(R.string.yes) { _, _ ->
-                try {
-                    val needProxyAppsList = getAutoProxyApps("")
-                    val bypass = DataStore.bypass
-                    proxiedUids.clear()
-                    for (app in cachedApps) {
-                        val needProxy =
-                            needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
-                                ?: 0) == 1000
-                        if (needProxy) {
-                            if (!bypass) {
-                                app.value.applicationInfo?.apply {
-                                    proxiedUids[uid] = true
-                                }
+        confirmAction(
+            getString(R.string.confirm_auto_select_apps),
+            getString(R.string.auto_select_proxy_apps_message),
+            R.string.confirm_replace,
+        ) {
+            try {
+                val needProxyAppsList = getAutoProxyApps("")
+                val bypass = DataStore.bypass
+                proxiedUids.clear()
+                for (app in cachedApps) {
+                    val needProxy =
+                        needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
+                            ?: 0) == 1000
+                    if (needProxy) {
+                        if (!bypass) {
+                            app.value.applicationInfo?.apply {
+                                proxiedUids[uid] = true
                             }
-                        } else {
-                            if (bypass) {
-                                app.value.applicationInfo?.apply {
-                                    proxiedUids[uid] = true
-                                }
+                        }
+                    } else {
+                        if (bypass) {
+                            app.value.applicationInfo?.apply {
+                                proxiedUids[uid] = true
                             }
                         }
                     }
-                    saveSelection()
-                    apps = sorted(apps)
-                    refilter()
-                } catch (e: Exception) {
-                    Logs.e(e)
                 }
+                saveSelection()
+                apps = sorted(apps)
+                refilter()
+            } catch (e: Exception) {
+                Logs.e(e)
             }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        }
     }
 
     private fun getAutoProxyApps(content: String): List<String> {

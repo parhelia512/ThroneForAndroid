@@ -93,7 +93,7 @@ class GroupMenu(private val host: ConfigurationFragment) {
             menu.findItem(R.id.action_show_out_ip)?.isChecked = shown.showIp
             menu.findItem(R.id.action_show_speed)?.isChecked = shown.showSpeed
         }
-        menu.findItem(if (host.gridLayout) R.id.action_layout_double else R.id.action_layout_single)?.isChecked = true
+        menu.findItem(if (host.doubleColumn) R.id.action_layout_double else R.id.action_layout_single)?.isChecked = true
         menu.findItem(
             if (host.cardStyle == 1) R.id.action_card_style_stroke else R.id.action_card_style_classic
         )?.isChecked = true
@@ -105,8 +105,8 @@ class GroupMenu(private val host: ConfigurationFragment) {
             R.id.action_test_speed_current -> ProfileTests.startCurrent(host)
             R.id.action_test_stop -> TestSessionClient.stop()
             R.id.action_route_profile -> RouteQuickSwitch.show(host)
-            R.id.action_layout_single -> host.setGridLayout(false)
-            R.id.action_layout_double -> host.setGridLayout(true)
+            R.id.action_layout_single -> host.setDoubleColumn(false)
+            R.id.action_layout_double -> host.setDoubleColumn(true)
             R.id.action_card_style_classic -> host.setCardStyle(0)
             R.id.action_card_style_stroke -> host.setCardStyle(1)
             else -> return onGroupItemClick(item, host.currentGroup() ?: return false)
@@ -121,13 +121,13 @@ class GroupMenu(private val host: ConfigurationFragment) {
             R.id.action_test_url -> ProfileTests.startGroup(host, TestSpec.KIND_URL, id)
             R.id.action_test_ip -> ProfileTests.startGroup(host, TestSpec.KIND_IP, id)
             R.id.action_test_speed -> ProfileTests.startGroup(host, TestSpec.KIND_SPEED, id)
-            R.id.action_clear_test_results -> GroupActions.clearTestResults(host, id)
+            R.id.action_clear_test_results -> GroupActions.clearTestResults(host, group)
             R.id.action_remove_duplicates -> GroupActions.removeDuplicates(host, id)
             R.id.action_remove_unavailable -> GroupActions.removeUnavailable(host, id)
-            R.id.action_remove_invalid -> GroupActions.removeInvalid(host, id)
+            R.id.action_remove_invalid -> GroupActions.removeInvalid(host, group)
             R.id.action_remove_insecure -> GroupActions.removeInsecure(host, id)
-            R.id.action_resolve_domains -> GroupActions.resolveDomains(host, id)
-            R.id.action_clear_traffic_statistics -> GroupActions.clearTraffic(host, id)
+            R.id.action_resolve_domains -> GroupActions.resolveDomains(host, group)
+            R.id.action_clear_traffic_statistics -> GroupActions.clearTraffic(host, group)
 
             // the Type column's "Sort By: Type / Security" stores type_sort_by
             R.id.action_sort_type -> sort(id, GroupSortMethod.BY_TYPE) { it.typeSortBy = TypeBy.BY_TYPE.value }

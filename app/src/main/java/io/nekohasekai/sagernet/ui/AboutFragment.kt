@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.text.util.Linkify
 import android.view.View
@@ -102,8 +103,9 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_baseline_layers_24)
                                 .text(getString(R.string.version_x, "ThroneCore"))
-                                .subText(BuildConfig.THRONE_CORE_REF)
-                                .setOnClickAction { }
+                                .subText(shortRef(BuildConfig.THRONE_CORE_REF))
+                                .setOnClickAction(::copyCoreRef)
+                                .setOnLongClickAction(::copyCoreRef)
                                 .build())
                         .build())
                 .addCard(
@@ -112,7 +114,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         .title(R.string.project)
                         .addItem(
                             MaterialAboutActionItem.Builder()
-                                .icon(R.drawable.ic_baseline_sanitizer_24)
+                                .icon(R.drawable.ic_baseline_code_24)
                                 .text(R.string.github)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
@@ -123,7 +125,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .build())
                         .addItem(
                             MaterialAboutActionItem.Builder()
-                                .icon(R.drawable.ic_qu_shadowsocks_foreground)
+                                .icon(R.drawable.baseline_public_24)
                                 .text(R.string.project_website)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
@@ -134,6 +136,17 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         .build())
                 .build()
 
+        }
+
+        /** A commit hash is shortened to 8 characters, a branch or tag name stays as it is. */
+        private fun shortRef(ref: String): String =
+            if (ref.length == 40 && ref.all { it in '0'..'9' || it in 'a'..'f' }) ref.take(8) else ref
+
+        private fun copyCoreRef() {
+            val copied = SagerNet.trySetPrimaryClip(BuildConfig.THRONE_CORE_REF)
+            // Android 13+ confirms a clipboard copy itself
+            if (copied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+            snackbar(if (copied) R.string.grp_copied else R.string.action_export_err).show()
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

@@ -10,6 +10,7 @@
     app:strokeWidth="0dp">
 
     <LinearLayout
+        android:id="@+id/test_panel_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
@@ -134,67 +135,52 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="12dp" />
 
-        <HorizontalScrollView
-            android:id="@+id/test_panel_actions_scroll"
+        <!-- Wraps onto more lines when the actions do not fit the width. -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/test_panel_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:clipToPadding="false"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="6dp"
-            android:scrollbars="none"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="4dp"
             android:visibility="gone"
+            app:chipSpacingHorizontal="8dp"
+            app:chipSpacingVertical="0dp"
             tools:visibility="visible">
 
-            <LinearLayout
+            <com.google.android.material.chip.Chip
+                android:id="@+id/test_panel_action_connect"
+                style="@style/Widget.MaterialComponents.Chip.Action"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                tools:text="@string/test_panel_action_connect_fastest" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/test_panel_action_connect"
-                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    app:cornerRadius="@dimen/button_corner_radius"
-                    tools:text="@string/test_panel_action_connect_fastest" />
+            <com.google.android.material.chip.Chip
+                android:id="@+id/test_panel_action_sort"
+                style="@style/Widget.MaterialComponents.Chip.Action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:chipSurfaceColor="@android:color/transparent"
+                tools:text="@string/test_panel_action_sort_latency" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/test_panel_action_sort"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    app:cornerRadius="@dimen/button_corner_radius"
-                    tools:text="@string/test_panel_action_sort_latency" />
+            <com.google.android.material.chip.Chip
+                android:id="@+id/test_panel_action_remove"
+                style="@style/Widget.MaterialComponents.Chip.Action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:chipSurfaceColor="@android:color/transparent"
+                tools:text="Remove unavailable (24)" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/test_panel_action_remove"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    app:cornerRadius="@dimen/button_corner_radius"
-                    tools:text="Remove unavailable (24)" />
+            <com.google.android.material.chip.Chip
+                android:id="@+id/test_panel_action_stop_other"
+                style="@style/Widget.MaterialComponents.Chip.Action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/test_panel_action_stop_other"
+                android:visibility="gone"
+                app:chipSurfaceColor="@android:color/transparent" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/test_panel_action_stop_other"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/test_panel_action_stop_other"
-                    android:visibility="gone"
-                    app:cornerRadius="@dimen/button_corner_radius" />
-
-            </LinearLayout>
-
-        </HorizontalScrollView>
+        </com.google.android.material.chip.ChipGroup>
 
         <io.nekohasekai.sagernet.ui.test.TestPanelScrollView
             android:id="@+id/test_panel_body"

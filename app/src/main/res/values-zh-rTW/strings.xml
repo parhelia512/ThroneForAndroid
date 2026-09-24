@@ -93,7 +93,6 @@
     <!-- profile -->
     <string name="profile_config">設定檔設定</string>
     <string name="delete">刪除</string>
-    <string name="delete_confirm_prompt">您確定要刪除此設定檔嗎？</string>
     <string name="share_qr_nfc">QR 碼</string>
     <string name="add_profile_methods_scan_qr_code">掃描 QR 碼</string>
     <string name="add_profile_methods_manual_settings">手動設定</string>
@@ -180,12 +179,10 @@
     <string name="http_proxy_bypass_dialog_message">一行一個，# 開頭代表註解。範例：*zhihu.com</string>
     <string name="group_basic">基本</string>
     <string name="subscription">訂閱</string>
-    <string name="confirm">確認</string>
     <string name="service_subscription">訂閱更新服務</string>
     <string name="subscription_import">匯入訂閱</string>
     <string name="profile_import">匯入設定檔</string>
     <string name="profile_import_message">您確定要匯入設定檔 %s 嗎？</string>
-    <string name="clear_profiles_message">您確定要清除此群組嗎？</string>
     <string name="apps">應用程式</string>
     <string name="select_apps">選擇應用程式</string>
     <string name="apps_message">%d 個應用程式</string>
@@ -305,7 +302,6 @@
     <string name="preview_version_hint">本應用為預覽版，可能存在諸多問題。若您不願參與測試，請前往GitHub下載正式釋出版本！</string>
     <string name="preview_hint_dont_show_again">不再顯示</string>
     <string name="update_dialog_title">發現新版本</string>
-    <string name="check_update_no">檢查成功，但沒有更新。</string>
     <string name="reset_settings">恢復預設設定</string>
     <string name="reset_settings_message">恢復預設設定，但節點、分組等資料將保留。如需完全清除資料，請在系統設定中直接清除應用資料。</string>
     <string name="xhttp_host">XHTTP 主機</string>
@@ -362,5 +358,11 @@
     <string name="custom_icon_error_not_png">%s 不是有效的 PNG 圖片檔案</string>
     <string name="custom_icon_error_security">安全檢查失敗：%s</string>
     <string name="custom_icon_requirement_tip">圖示包須為 ZIP 壓縮包，內含 512x512 的 icon.png 與 tile.png。</string>
+    <string name="profile_share_config">設定檔</string>
+    <string name="disconnect">中斷連線</string>
+    <string name="navigation_open_drawer">開啟導覽匣</string>
+    <string name="navigation_back">返回</string>
+    <string name="navigation_close">關閉</string>
+    <string name="navigation_cancel_selection">取消選取</string>
 </resources>
 
