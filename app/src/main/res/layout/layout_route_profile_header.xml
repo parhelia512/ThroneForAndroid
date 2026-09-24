@@ -62,8 +62,7 @@
                 android:id="@+id/outbound_warp"
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:visibility="gone" />
+                android:layout_height="wrap_content" />
 
         </com.google.android.material.chip.ChipGroup>
 

@@ -139,8 +139,4 @@ class PreferenceBinding(
     val preference by lazy {
         pf!!.findPreference<Preference>(cacheName)!!
     }
-
-    /** The preference when the current screen has one for this binding. */
-    val preferenceOrNull: Preference?
-        get() = pf?.findPreference(cacheName)
 }

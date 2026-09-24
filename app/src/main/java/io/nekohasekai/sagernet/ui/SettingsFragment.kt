@@ -5,14 +5,14 @@ import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
-import androidx.core.view.ViewCompat
 import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.Fragment
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.settings.SettingsScreenFragment
 import io.nekohasekai.sagernet.utils.Theme
-import io.nekohasekai.sagernet.widget.ListListener
+import io.nekohasekai.sagernet.widget.applyListInsets
 
 /** Hosts the settings root and its sub-screens; back and the toolbar arrow return to the previous screen. */
 class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings),
@@ -26,10 +26,21 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings),
 
     private val backStackListener = FragmentManager.OnBackStackChangedListener { syncToolbar() }
 
+    /** Every settings screen's list scrolls under the navigation bar and clears side bars. */
+    private val listInsets = object : FragmentManager.FragmentLifecycleCallbacks() {
+        override fun onFragmentViewCreated(fm: FragmentManager, f: Fragment, v: View, savedInstanceState: Bundle?) {
+            (f as? PreferenceFragmentCompat)?.listView?.applyListInsets()
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        childFragmentManager.registerFragmentLifecycleCallbacks(listInsets, false)
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        ViewCompat.setOnApplyWindowInsetsListener(view, ListListener)
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, backCallback)
         childFragmentManager.addOnBackStackChangedListener(backStackListener)
 
@@ -97,7 +108,7 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings),
                 (activity as? MainActivity)?.binding?.drawerLayout?.openDrawer(GravityCompat.START)
             }
         }
-        // 纯白模式下工具栏为白底，导航图标切换为深色保证可读
+        // White theme: the toolbar is white, so the navigation icon turns dark
         if (Theme.isWhiteTheme()) {
             toolbar.navigationIcon?.setTint(ContextCompat.getColor(requireContext(), R.color.black))
         }

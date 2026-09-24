@@ -3,9 +3,8 @@ package io.nekohasekai.sagernet
 import java.net.URI
 
 /**
- * Speed-test values shared by the preferences, the speed-test path and the profile list. The setting
- * `speed_test_mode` is the desktop's int enum (Const.hpp:39-49); the mode names travel with the snapshots to the
- * :bg process and are stored on the profiles next to the measured rates.
+ * Speed-test values shared by the preferences and the :bg test engine. The setting `speed_test_mode` is the desktop's
+ * int enum (TestConfig::SpeedTestMode, Const.hpp:39-49); the mode names label the live speed samples.
  */
 object SpeedTestSettings {
 
@@ -21,16 +20,6 @@ object SpeedTestSettings {
     const val MODE_SIMPLE_DOWNLOAD = "simple_download"
     const val MODE_COUNTRY = "country"
 
-    val modes = setOf(
-        MODE_DOWNLOAD_UPLOAD,
-        MODE_DOWNLOAD,
-        MODE_UPLOAD,
-        MODE_SIMPLE_DOWNLOAD,
-        MODE_COUNTRY,
-    )
-
-    fun isValidMode(value: String): Boolean = value in modes
-
     /** The name of a `speed_test_mode` value; an unknown value is the desktop default (download + upload). */
     fun modeName(mode: Int): String = when (mode) {
         DOWNLOAD_ONLY -> MODE_DOWNLOAD
@@ -39,8 +28,6 @@ object SpeedTestSettings {
         COUNTRY -> MODE_COUNTRY
         else -> MODE_DOWNLOAD_UPLOAD
     }
-
-    fun isValidTimeout(value: String): Boolean = value.toIntOrNull()?.let { it > 0 } == true
 
     fun isValidHttpUrl(value: String): Boolean = runCatching {
         val uri = URI(value.trim())

@@ -17,9 +17,6 @@ import io.nekohasekai.sagernet.outbound.link.Base64Strict
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** vmess.h:10 */
-val vmessSecurity = listOf("auto", "none", "zero", "aes-128-gcm", "chacha20-poly1305")
-
 /** vmess (include/configs/outbounds/vmess.h, src/configs/outbounds/vmess.cpp). */
 class Vmess : Outbound("vmess") {
     @JvmField var uuid: String = ""

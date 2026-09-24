@@ -62,7 +62,11 @@ class TileService : BaseTileService(), SagerConnection.Callback {
             label = null
             val currentIcon = getTileIcon()
             when (serviceState) {
-                BaseService.State.Idle -> error("serviceState")
+                BaseService.State.Idle -> {
+                    icon = currentIcon
+                    state = Tile.STATE_INACTIVE
+                }
+
                 BaseService.State.Connecting -> {
                     icon = currentIcon
                     state = Tile.STATE_ACTIVE

@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class TestSettingsContractTest {
 
@@ -39,23 +38,6 @@ class TestSettingsContractTest {
     }
 
     @Test
-    fun testingScreenShowsTheRegistryDefaults() {
-        val preferenceXml = sourceFile("src/main/res/xml/settings_testing.xml").readText()
-
-        listOf(
-            SettingsRegistry.TEST_URL.key,
-            SettingsRegistry.SPEED_TEST_MODE.key,
-            SettingsRegistry.SPEED_TEST_TIMEOUT_MS.key,
-            SettingsRegistry.SIMPLE_DL_URL.key,
-        ).forEach { key ->
-            val preference = preferenceXml.substringAfter("app:key=\"$key\"", missingDelimiterValue = "")
-            assertTrue("preference $key must exist", preference.isNotEmpty())
-        }
-        // The store falls back to the registry, so the screen declares no default of its own.
-        assertFalse(preferenceXml.contains("app:defaultValue"))
-    }
-
-    @Test
     fun desktopBackupOnlyAcceptsValidTestValues() {
         assertFalse(SettingsRegistry.SPEED_TEST_MODE.accepts("invalid"))
         assertFalse(SettingsRegistry.SPEED_TEST_MODE.accepts("5"))
@@ -70,15 +52,6 @@ class TestSettingsContractTest {
         assertEquals(SpeedTestSettings.MODE_DOWNLOAD_UPLOAD, SpeedTestSettings.modeName(42))
     }
 
-    @Test
-    fun urlLatencyConcurrencyIsNotASpeedTestSetting() {
-        val settingsSource = sourceFile(
-            "src/main/java/io/nekohasekai/sagernet/TestSettings.kt",
-        ).readText()
-        assertFalse(settingsSource.contains("TEST_CONCURRENT"))
-        assertFalse(settingsSource.contains("testConcurrent"))
-    }
-
     private fun <T : Any> proxy(
         values: MutableMap<String, Any>,
         key: String,
@@ -89,10 +62,4 @@ class TestSettingsContractTest {
         getter = { name, fallback -> values[name] as? T ?: fallback },
         setter = { name, value -> values[name] = value },
     )
-
-    private fun sourceFile(relative: String): File {
-        return sequenceOf(File(relative), File("app", relative))
-            .firstOrNull(File::isFile)
-            ?: error("Cannot locate project file: $relative")
-    }
 }

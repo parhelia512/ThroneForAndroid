@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.outbound.Outbound
@@ -50,6 +51,8 @@ abstract class StandardV2RaySettingsActivity<T : Outbound> : BindingSettingsActi
         TransportBlock.setup(this)
         TlsBlock.setup(this, mustTls = false)
         MuxBlock.setup(this)
+        // UI only, as on the desktop (dialog_edit_profile.cpp:397-406): the build still emits the mux state
+        if (isVless) onMenu("flow") { findPreference<PreferenceCategory>("muxCategory")?.isEnabled = it != "xtls-rprx-vision" }
     }
 
 }

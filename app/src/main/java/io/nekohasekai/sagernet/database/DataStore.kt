@@ -2,12 +2,10 @@ package io.nekohasekai.sagernet.database
 
 import android.os.Binder
 import androidx.preference.PreferenceDataStore
-import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
-import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.database.preference.RoomPreferenceDataStore
 import io.nekohasekai.sagernet.database.preference.SettingsStore
 import io.nekohasekai.sagernet.ktx.boolean
@@ -24,74 +22,41 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     @Volatile
     var serviceState = BaseService.State.Idle
 
-    val configurationStore = SettingsStore(PublicDatabase.instance, SettingsRegistry::defaultOf)
+    val configurationStore = SettingsStore({ SagerDatabase.instance }, SettingsRegistry::defaultOf)
     val profileCacheStore = RoomPreferenceDataStore(TempDatabase.profileCacheDao)
 
     // last used, but may not be running
     var currentProfile by configurationStore.long(Key.PROFILE_CURRENT)
 
     var selectedProxy by configurationStore.long(Key.PROFILE_ID)
-    var selectedGroup by configurationStore.long(Key.PROFILE_GROUP) { currentGroupId() } // "ungrouped" group id = 1
 
     // only in bg process
     var vpnService: VpnService? = null
     var baseService: BaseService.Interface? = null
 
-    // main
+    fun currentGroupId(): Long = GroupRepo.currentId()
 
-    var runningTest = false
-
-    fun currentGroupId(): Long {
-        val currentSelected = configurationStore.getLong(Key.PROFILE_GROUP, -1)
-        if (currentSelected > 0L) return currentSelected
-        val groups = SagerDatabase.groupDao.allGroups()
-        if (groups.isNotEmpty()) {
-            val groupId = groups[0].id
-            selectedGroup = groupId
-            return groupId
-        }
-        val groupId = SagerDatabase.groupDao.createGroup(ProxyGroup(ungrouped = true))
-        selectedGroup = groupId
-        return groupId
-    }
-
-    fun currentGroup(): ProxyGroup {
-        var group: ProxyGroup? = null
-        val currentSelected = configurationStore.getLong(Key.PROFILE_GROUP, -1)
-        if (currentSelected > 0L) {
-            group = SagerDatabase.groupDao.getById(currentSelected)
-        }
-        if (group != null) return group
-        val groups = SagerDatabase.groupDao.allGroups()
-        if (groups.isEmpty()) {
-            group = ProxyGroup(ungrouped = true).apply {
-                id = SagerDatabase.groupDao.createGroup(this)
-            }
-        } else {
-            group = groups[0]
-        }
-        selectedGroup = group.id
-        return group
-    }
-
-    fun selectedGroupForImport(): Long {
-        val current = currentGroup()
-        if (current.type == GroupType.BASIC) return current.id
-        val groups = SagerDatabase.groupDao.allGroups()
-        return groups.find { it.type == GroupType.BASIC }!!.id
-    }
+    fun currentGroup(): ProxyGroup = GroupRepo.current()
 
     // ------------------------------------------------------------------------------------------------ Android-only
 
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
+    var updateCheckAuto by configurationStore.boolean(Key.UPDATE_CHECK_AUTO)
+    var updateSkippedVersionCode by configurationStore.long(Key.UPDATE_SKIPPED_VERSION_CODE)
+    /** The profile id to restart once after an in-app update, 0 = none. */
+    var resumeAfterUpdate by configurationStore.long(Key.RESUME_AFTER_UPDATE)
+    var batteryPromptShown by configurationStore.boolean(Key.BATTERY_PROMPT_SHOWN)
+    var logExportRedact by configurationStore.boolean(Key.LOG_EXPORT_REDACT) { true }
+    /** The generated HWID used when ANDROID_ID is unavailable. */
+    var hwidFallback by configurationStore.string(Key.HWID_FALLBACK)
+    var wifiPermissionAsked by configurationStore.boolean(Key.WIFI_PERMISSION_ASKED)
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
     var groupLayoutMode by configurationStore.stringToInt(Key.GROUP_LAYOUT_MODE) { 0 }
     var profileCardStyle by configurationStore.stringToInt(Key.PROFILE_CARD_STYLE) { 0 }
 
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
-    var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS)
+    var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS) { true }
 
-    var isExpert by configurationStore.boolean(Key.APP_EXPERT)
     var appTheme by configurationStore.int(Key.APP_THEME)
     var useSystemTheme by configurationStore.boolean(Key.USE_SYSTEM_THEME)
     var nightTheme by configurationStore.stringToInt(Key.NIGHT_THEME)
@@ -107,7 +72,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var logBufSize by configurationStore.int(Key.LOG_BUF_SIZE) { 0 }
     var acquireWakeLock by configurationStore.boolean(Key.ACQUIRE_WAKE_LOCK)
     var hideFromRecentApps by configurationStore.boolean(Key.HIDE_FROM_RECENT_APPS)
-    // 记录用户选择"不再显示"的预览版版本号，仅对该版本隐藏提示
+    // The preview version whose hint was dismissed; the hint stays hidden for that version only
     var previewHintDismissedVersion by configurationStore.string(Key.PREVIEW_HINT_DISMISSED_VERSION) { "" }
 
     var meteredNetwork by configurationStore.boolean(Key.METERED_NETWORK)
@@ -131,7 +96,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
         set(value) = configurationStore.putString(Key.WEBDAV_PASSWORD, value)
 
     var webdavPath: String?
-        get() = configurationStore.getString(Key.WEBDAV_PATH) ?: "Throne"  // 设置默认值
+        get() = configurationStore.getString(Key.WEBDAV_PATH) ?: "Throne"
         set(value) = configurationStore.putString(Key.WEBDAV_PATH, value)
 
     // ------------------------------------------------------------------------------------------------ desktop keys
@@ -140,6 +105,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     // general
     var rememberEnable by SettingsRegistry.REMEMBER_ENABLE
     var skipDeleteConfirmation by SettingsRegistry.SKIP_DELETE_CONFIRMATION
+    var allowBetaUpdate by SettingsRegistry.ALLOW_BETA_UPDATE
 
     // inbound
 
@@ -233,7 +199,6 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var utlsFingerprint by SettingsRegistry.UTLS_FINGERPRINT
     var tlsSpoof by SettingsRegistry.TLS_SPOOF
     var tlsSpoofMethod by SettingsRegistry.TLS_SPOOF_METHOD
-    var tlsSpoofDefaultOn by SettingsRegistry.TLS_SPOOF_DEFAULT_ON
     var h2IdleTimeout by SettingsRegistry.H2_IDLE_TIMEOUT
     var h2KeepAlivePeriod by SettingsRegistry.H2_KEEP_ALIVE_PERIOD
     var h2StreamReceiveWindow by SettingsRegistry.H2_STREAM_RECEIVE_WINDOW
@@ -255,6 +220,30 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var userAgent2 by SettingsRegistry.USER_AGENT2
     var netUseProxy by SettingsRegistry.NET_USE_PROXY
     var netInsecure by SettingsRegistry.NET_INSECURE
+    var subAutoUpdate by SettingsRegistry.SUB_AUTO_UPDATE
+    var subAutoUpdateLast by SettingsRegistry.SUB_AUTO_UPDATE_LAST
+    var subClear by SettingsRegistry.SUB_CLEAR
+    var subShowChangePopup by SettingsRegistry.SUB_SHOW_CHANGE_POPUP
+    var subSendHwid by SettingsRegistry.SUB_SEND_HWID
+    var subCustomHwidParams by SettingsRegistry.SUB_CUSTOM_HWID_PARAMS
+    var allowStoppingActiveProfile by SettingsRegistry.ALLOW_STOPPING_ACTIVE_PROFILE
+
+    // warp
+    var enableWarp by SettingsRegistry.ENABLE_WARP
+    var warpMode by SettingsRegistry.WARP_MODE
+    var warpEp by SettingsRegistry.WARP_EP
+    var warpPrivateKey by SettingsRegistry.WARP_PRIVATE_KEY
+    var warpPublicKey by SettingsRegistry.WARP_PUBLIC_KEY
+    var warpIfcAddrs by SettingsRegistry.WARP_IFC_ADDRS
+    var warpReserved by SettingsRegistry.WARP_RESERVED
+    var warpTosAccepted by SettingsRegistry.WARP_TOS_ACCEPTED
+    var warpMasqueEp by SettingsRegistry.WARP_MASQUE_EP
+    var warpMasquePrivateKey by SettingsRegistry.WARP_MASQUE_PRIVATE_KEY
+    var warpMasquePeerPublicKey by SettingsRegistry.WARP_MASQUE_PEER_PUBLIC_KEY
+    var warpMasqueIfcAddrs by SettingsRegistry.WARP_MASQUE_IFC_ADDRS
+    var warpMasqueSni by SettingsRegistry.WARP_MASQUE_SNI
+    var warpMasqueHttpMode by SettingsRegistry.WARP_MASQUE_HTTP_MODE
+    var warpApiHosts by SettingsRegistry.WARP_API_HOSTS
 
     // core
     var logLevel by SettingsRegistry.LOG_LEVEL
@@ -291,30 +280,13 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var editingId by profileCacheStore.long(Key.PROFILE_ID)
     var editingGroup by profileCacheStore.long(Key.PROFILE_GROUP)
 
-    var frontProxy by profileCacheStore.long(Key.GROUP_FRONT_PROXY + "Long")
-    var landingProxy by profileCacheStore.long(Key.GROUP_LANDING_PROXY + "Long")
-    var frontProxyTmp by profileCacheStore.stringToInt(Key.GROUP_FRONT_PROXY)
-    var landingProxyTmp by profileCacheStore.stringToInt(Key.GROUP_LANDING_PROXY)
-
     var serverConfig by profileCacheStore.string(Key.SERVER_CONFIG)
 
     var groupName by profileCacheStore.string(Key.GROUP_NAME)
+    /** 0 basic, 1 subscription: only chosen while creating a group. */
     var groupType by profileCacheStore.stringToInt(Key.GROUP_TYPE)
-    var groupOrder by profileCacheStore.stringToInt(Key.GROUP_ORDER)
-    var groupIsSelector by profileCacheStore.boolean(Key.GROUP_IS_SELECTOR)
 
     var subscriptionLink by profileCacheStore.string(Key.SUBSCRIPTION_LINK)
-    var subscriptionForceResolve by profileCacheStore.boolean(Key.SUBSCRIPTION_FORCE_RESOLVE)
-    var subscriptionDeduplication by profileCacheStore.boolean(Key.SUBSCRIPTION_DEDUPLICATION)
-    var subscriptionUpdateWhenConnectedOnly by profileCacheStore.boolean(Key.SUBSCRIPTION_UPDATE_WHEN_CONNECTED_ONLY)
-    var subscriptionUserAgent by profileCacheStore.string(Key.SUBSCRIPTION_USER_AGENT)
-    var subscriptionAutoUpdate by profileCacheStore.boolean(Key.SUBSCRIPTION_AUTO_UPDATE)
-    var subscriptionAutoUpdateDelay by profileCacheStore.stringToInt(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY) { 360 }
-    var subscriptionFilterMode by profileCacheStore.stringToInt(Key.SUBSCRIPTION_FILTER_MODE) { 0 }
-    var subscriptionFilterRegex by profileCacheStore.string(Key.SUBSCRIPTION_FILTER_REGEX)
-    var subscriptionServerDns by profileCacheStore.string(Key.SUBSCRIPTION_SERVER_DNS)
-
-    var rulesFirstCreate by profileCacheStore.boolean("rulesFirstCreate")
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
     }

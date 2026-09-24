@@ -51,12 +51,6 @@ class ClashProxy(@JvmField val node: JsonObject) {
     /** A nested option block; an empty view when the key is absent or not a mapping. */
     fun obj(key: String): ClashProxy = ClashProxy(if (node.isObject(key)) node.obj(key) else JsonObject())
 
-    /** A sequence of mappings (wireguard `peers`). */
-    fun objects(key: String): List<ClashProxy> {
-        if (!node.isArray(key)) return emptyList()
-        return node.array(key).mapNotNull { (it as? JsonObject)?.let { obj -> ClashProxy(obj) } }
-    }
-
     /** std::map<std::string, std::string> (ws-opts headers), in the map's sorted key order. */
     fun stringMap(key: String): Map<String, String> {
         val out = TreeMap<String, String>()
@@ -73,13 +67,6 @@ class ClashProxy(@JvmField val node: JsonObject) {
         val obj = node.obj(key)
         for (k in obj.keys()) out[k] = ClashProxy(obj).strings(k)
         return out
-    }
-
-    /** from_node(WgReserved): the bytes of a string, or a sequence of numbers. */
-    fun reserved(key: String): List<Int>? {
-        if (node.isString(key)) return node.string(key).toByteArray(Charsets.UTF_8).map { it.toInt() and 0xFF }
-        if (node.isArray(key)) return node.array(key).mapNotNull { (it as? Long)?.toInt()?.and(0xFF) }
-        return null
     }
 
     companion object {

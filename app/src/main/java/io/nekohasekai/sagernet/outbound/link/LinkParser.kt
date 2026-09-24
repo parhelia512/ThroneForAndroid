@@ -44,8 +44,6 @@ class ParsedLink(
     /** The only error is "Invalid port": the desktop's TLS/QUIC/uTLS/ECH/Reality parsers still read such links. */
     val invalidPortOnly: Boolean get() = invalidPort && !invalidHost
 
-    val hasFragment: Boolean get() = fragment != null
-
     /** QUrl::port(defaultPort). */
     fun port(default: Int): Int = if (port >= 0) port else default
 }

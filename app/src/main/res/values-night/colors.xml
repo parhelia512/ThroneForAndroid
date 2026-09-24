@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="fab_color_progress">@color/material_light_white</color>
     <color name="preference_simple_menu_background">#303030</color>
-    <!-- 卡片默认细边框：约 12% 白 -->
+    <!-- Default thin card border: about 12% white -->
     <color name="card_stroke">#29FFFFFF</color>
 
-    <!-- 路由规则类型颜色（夜间，稍浅） -->
-    <color name="color_route_block">#EF5350</color>   <!-- 屏蔽：浅红 -->
-    <color name="color_route_direct">#66BB6A</color>  <!-- 直连：浅绿 -->
-    <color name="color_route_proxy">#42A5F5</color>   <!-- 代理：浅蓝 -->
-    <color name="color_route_config">#AB47BC</color>  <!-- 配置：浅紫 -->
+    <!-- Route rule types (night, lighter) -->
+    <color name="color_route_block">#EF5350</color>
+    <color name="color_route_direct">#66BB6A</color>
+    <color name="color_route_proxy">#42A5F5</color>
+    <color name="color_route_config">#AB47BC</color>
 
-    <!-- 立体卡片色调提升表面色（深色，#121212 底 + 各 primary 11% 染色） -->
+    <!-- Tinted elevated card surfaces: #121212 + 11% of each primary -->
     <color name="card_elevated_pink">#2A131B</color>
     <color name="card_elevated_pink_ssr">#2C1D21</color>
     <color name="card_elevated_amber">#2C2511</color>

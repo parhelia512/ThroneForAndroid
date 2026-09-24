@@ -1,8 +1,9 @@
 package io.nekohasekai.sagernet.route
 
 /**
- * A structured RouteProfile (include/database/entities/RouteProfile.h) without the desktop's raw and endpoint
- * parts. [id] 0 means not saved yet.
+ * A RouteProfile (include/database/entities/RouteProfile.h). [id] 0 means not saved yet. The desktop's raw profile
+ * ([is_raw], [raw_route], [prevent_modifications]) and endpoint lists are carried verbatim so backups give them
+ * back to the desktop; Android never builds a config from them, and a raw profile is never current.
  */
 @Suppress("PropertyName")
 class RouteProfile {
@@ -13,6 +14,13 @@ class RouteProfile {
     @JvmField var remote_url: String = ""
     @JvmField var auto_update: Boolean = false
     @JvmField var remote_last_update: Long = 0L
+    @JvmField var is_raw: Boolean = false
+    @JvmField var raw_route: String = ""
+    @JvmField var prevent_modifications: Boolean = false
+
+    /** Compact JSON int arrays of openvpn/openconnect profile ids. */
+    @JvmField var endpoint_profile_ids: String = "[]"
+    @JvmField var inner_hop_endpoint_ids: String = "[]"
     @JvmField var rules: MutableList<RouteRule> = mutableListOf()
 
     fun copy(): RouteProfile {
@@ -24,9 +32,17 @@ class RouteProfile {
         c.remote_url = remote_url
         c.auto_update = auto_update
         c.remote_last_update = remote_last_update
+        c.is_raw = is_raw
+        c.raw_route = raw_route
+        c.prevent_modifications = prevent_modifications
+        c.endpoint_profile_ids = endpoint_profile_ids
+        c.inner_hop_endpoint_ids = inner_hop_endpoint_ids
         c.rules = rules.mapTo(ArrayList()) { it.copy() }
         return c
     }
+
+    /** The number of profile ids in [endpoint_profile_ids]. */
+    fun endpointCount(): Int = RULE_IDS.findAll(endpoint_profile_ids).count()
 
     fun isEmpty(): Boolean = rules.all { it.isEmpty() }
 
@@ -40,18 +56,6 @@ class RouteProfile {
             if (rule.type == RuleType.ENDPOINT_PREFERRED_BY.id) continue
             val action = rule.effectiveAction()
             if (action == "route" || action == "bypass") out.add(rule.outbound_id)
-        }
-        return ArrayList(out)
-    }
-
-    /** get_used_rule_sets (RouteProfile.cpp:687-695), trimmed and deduplicated in first-seen order (D12). */
-    fun usedRuleSets(): List<String> {
-        val out = LinkedHashSet<String>()
-        for (rule in rules) {
-            for (entry in rule.rule_set) {
-                val e = entry.trim()
-                if (e.isNotEmpty()) out.add(e)
-            }
         }
         return ArrayList(out)
     }
@@ -111,6 +115,8 @@ class RouteProfile {
     }
 
     companion object {
+        private val RULE_IDS = Regex("-?\\d+")
+
         /** GetDefaultChain (RouteProfile.cpp:661-670). */
         fun defaultProfile(): RouteProfile = RouteProfile().apply {
             name = "Default"

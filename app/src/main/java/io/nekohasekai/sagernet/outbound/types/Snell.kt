@@ -11,18 +11,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** snell.h:7: client versions the core can speak (the library ships a v5 server only). */
-val snellVersions = listOf("4", "6")
-
-/** snell.h:8 */
-val snellObfsModes = listOf("", "none", "http", "tls")
-
-/** snell.h:9 */
-val snellV6Modes = listOf("", "default", "unshaped", "unsafe-raw")
-
-/** snell.h:10 */
-val snellNetworks = listOf("", "tcp", "udp")
-
 /** snell (include/configs/outbounds/snell.h, src/configs/outbounds/snell.cpp). */
 class Snell : Outbound("snell") {
     @JvmField var version: Int = 4

@@ -48,8 +48,6 @@ class LinkBuilder(@JvmField val scheme: String) {
         return this
     }
 
-    fun hasQuery(): Boolean = query.isNotEmpty()
-
     fun build(): String {
         if (port > 65535 || port < -1) return ""
         val hostEncoded = Hosts.normalizeHost(host, percentDecode = false) ?: return ""

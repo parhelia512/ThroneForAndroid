@@ -1,121 +1,46 @@
 name: Release
-
 on:
-  workflow_dispatch:
-
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: write
-
 jobs:
-  core:
-    name: Native Build (ThroneCore)
+  release:
+    name: Build and publish a release
     runs-on: ubuntu-latest
+    env:
+      SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
-      - name: Build ThroneCore AAR
-        uses: ./.github/actions/throne-core
-      - name: Upload ThroneCore AAR
-        uses: actions/upload-artifact@v5
-        with:
-          name: throne-core-aar
-          path: app/libs/ThroneCore.aar
-          if-no-files-found: error
-          retention-days: 1
-
-  build:
-    name: Build OSS APK
-    runs-on: ubuntu-latest
-    needs:
-      - core
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Download ThroneCore AAR
-        uses: actions/download-artifact@v5
-        with:
-          name: throne-core-aar
-          path: app/libs
-      - name: Verify ThroneCore AAR
+        uses: actions/checkout@v7
+      - name: Check the tag
         run: |
-          test -s app/libs/ThroneCore.aar
-          unzip -p app/libs/ThroneCore.aar classes.jar > /tmp/throne-core-classes.jar
-          unzip -l /tmp/throne-core-classes.jar | grep -q 'io/throneproj/mobile/Mobile.class'
-          unzip -l /tmp/throne-core-classes.jar | grep -q 'go/Seq.class'
-      - name: Gradle cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.gradle
-          key: gradle-oss-${{ hashFiles('**/*.gradle.kts') }}
-      - name: Fetch routeprofiles snapshot
-        uses: ./.github/actions/routeprofiles
-      - name: Gradle Build
-        run: |
-          echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "ndk.dir=${ANDROID_HOME}/ndk/25.0.8775105" >> local.properties
-          export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
-          ./gradlew app:assemblePreviewRelease
-
-          # Sign unsigned APKs with fixed debug keystore if available, otherwise fallback to dynamic generation
-          KEYSTORE_PATH="debug.keystore"
-          if [ -f "$KEYSTORE_PATH" ]; then
-            echo "Using fixed debug keystore from repository..."
-          else
-            echo "WARNING: Fixed debug keystore not found at $KEYSTORE_PATH!"
-            echo "Please run the 'Initialize Debug Keystore' workflow first."
-            echo "Falling back to dynamic debug.keystore generation..."
-            KEYSTORE_PATH="$HOME/.android/debug.keystore"
-            if [ ! -f "$KEYSTORE_PATH" ]; then
-              mkdir -p ~/.android
-              keytool -genkey -v -keystore "$KEYSTORE_PATH" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-            fi
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^VERSION_NAME=//p' nb4a.properties | tr -d '\r[:space:]')
+          if [ "$GITHUB_REF_NAME" != "v$VERSION_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION_NAME=$VERSION_NAME in nb4a.properties"
+            exit 1
           fi
-
-          APKSIGNER=$(find ${ANDROID_HOME}/build-tools -name apksigner | sort -V | tail -n 1)
-          if [ -z "$APKSIGNER" ]; then
-            APKSIGNER="apksigner"
-          fi
-          echo "Using apksigner: $APKSIGNER"
-
-          APK=$(find app/build/outputs/apk -name '*arm64-v8a*.apk')
-          APK_DIR=$(dirname $APK)
-
-          echo "Signing APKs in $APK_DIR..."
-          for apk in "$APK_DIR"/*-unsigned.apk; do
-            if [ -f "$apk" ]; then
-              signed_apk="${apk%-unsigned.apk}-debug-signed.apk"
-              echo "Signing $apk -> $signed_apk"
-              $APKSIGNER sign --ks "$KEYSTORE_PATH" --ks-pass pass:android --key-pass pass:android --out "$signed_apk" "$apk"
-              rm "$apk"
-            fi
-          done
-
-          echo "APK=$APK_DIR" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v5
+      - name: Build
+        uses: ./.github/actions/android-build
         with:
-          name: APKs
-          path: ${{ env.APK }}
-
-  publish:
-    name: Publish Release
-    runs-on: ubuntu-latest
-    needs:
-      - build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Download APKs
-        uses: actions/download-artifact@v5
-        with:
-          name: APKs
-          path: artifacts
-      - name: Publish GitHub Release
+          tasks: app:assembleOssRelease
+          channel: stable
+          build-number: '999'
+          sign: 'true'
+      - name: Release assets
+        run: python3 buildScript/release_assets.py app/build/outputs/apk/oss/release dist stable
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          VERSION_NAME=$(sed -n 's/^VERSION_NAME=//p' nb4a.properties)
-          test -n "$VERSION_NAME"
-          TAG="v${VERSION_NAME}"
-          mapfile -t APKS < <(find artifacts -type f -name '*.apk')
-          test "${#APKS[@]}" -gt 0
-          gh release create "$TAG" "${APKS[@]}" --title "$TAG" --generate-notes
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes

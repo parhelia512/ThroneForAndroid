@@ -14,8 +14,10 @@ import com.google.android.material.bottomappbar.BottomAppBar
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.SagerNet
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -127,9 +129,11 @@ class StatsBar @JvmOverloads constructor(
         TooltipCompat.setTooltipText(this, text)
     }
 
+    // On TV the bar stays put: it holds the URL test and must stay reachable by D-pad.
     private fun updateHideOnScroll() {
-        hideOnScroll =
+        hideOnScroll = !SagerNet.isTv &&
             !useExternalScrollDriver && allowShow && currentState == BaseService.State.Connected
+        isFocusable = shouldShow()
     }
 
     private fun shouldShow(): Boolean {
@@ -147,7 +151,7 @@ class StatsBar @JvmOverloads constructor(
     }
 
     fun onListScrolled(dy: Int) {
-        if (!useExternalScrollDriver || !shouldShow() || dy == 0) return
+        if (SagerNet.isTv || !useExternalScrollDriver || !shouldShow() || dy == 0) return
 
         val direction = if (dy > 0) 1 else -1
         if (direction != scrollDirection) {
@@ -167,6 +171,7 @@ class StatsBar @JvmOverloads constructor(
 
         scrollHidden = wantHidden
         scrollAccumulatedDy = 0
+        isFocusable = !wantHidden
         if (wantHidden) performHide() else performShow()
     }
 
@@ -317,13 +322,17 @@ class StatsBar @JvmOverloads constructor(
                 onMainDispatcher {
                     isEnabled = true
                     setStatus(
-                        app.getString(
-                            if (DataStore.testUrl.startsWith("https://")) {
-                                R.string.connection_test_available
-                            } else {
-                                R.string.connection_test_available_http
-                            }, elapsed
-                        )
+                        if (elapsed == ProxyEntity.LATENCY_CONNECT_ONLY) {
+                            app.getText(R.string.test_connect_ok)
+                        } else {
+                            app.getString(
+                                if (DataStore.testUrl.startsWith("https://")) {
+                                    R.string.connection_test_available
+                                } else {
+                                    R.string.connection_test_available_http
+                                }, elapsed
+                            )
+                        }
                     )
                 }
 

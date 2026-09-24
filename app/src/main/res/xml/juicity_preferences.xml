@@ -83,24 +83,6 @@
             app:key="tls.record_fragment"
             app:title="@string/tls_record_fragment" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:icon="@drawable/ic_baseline_filter_list_24"
-            app:key="tls.spoof_enabled"
-            app:title="@string/tls_spoof"
-            app:entries="@array/tri_state_entry"
-            app:entryValues="@array/int_array_3"
-            app:defaultValue="0"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_domain_24"
-            app:key="tls.spoof"
-            app:title="@string/tls_spoof_server_name"
-            app:useSimpleSummaryProvider="true" />
-        <EditTextPreference
-            app:icon="@drawable/ic_baseline_tune_24"
-            app:key="tls.spoof_method"
-            app:title="@string/tls_spoof_method"
-            app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:icon="@drawable/ic_baseline_tune_24"
             app:key="tls.tls_tricks"
             app:title="@string/tls_tricks"

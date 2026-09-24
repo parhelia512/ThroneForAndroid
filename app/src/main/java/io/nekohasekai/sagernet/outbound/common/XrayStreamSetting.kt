@@ -14,11 +14,6 @@ import io.nekohasekai.sagernet.outbound.link.ParsedLink
 
 /** xrayStreamSetting.h:5-9 */
 val xrayNetworks = listOf("raw", "xhttp", "ws", "httpupgrade", "grpc")
-val xrayXhttpModes = listOf("auto", "packet-up", "stream-up", "stream-one")
-val xrayXhttpMetaPlacements = listOf("", "path", "cookie", "header", "query")
-val xrayXhttpUplinkDataPlacements = listOf("", "auto", "body", "cookie", "header")
-val xrayXhttpUplinkMethods = listOf("", "POST", "PUT", "PATCH", "GET")
-
 /** xrayTLS (xrayStreamSetting.h:17-31, xrayStreamSetting.cpp:248-314). No insecure flag is modelled. */
 class XrayTls {
     @JvmField var serverName: String = ""

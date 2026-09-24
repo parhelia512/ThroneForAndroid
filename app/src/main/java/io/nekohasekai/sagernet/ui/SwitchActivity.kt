@@ -1,8 +1,9 @@
 package io.nekohasekai.sagernet.ui
 
+import android.content.Intent
 import android.os.Bundle
+import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -15,14 +16,16 @@ class SwitchActivity : ThemedActivity(R.layout.layout_empty),
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (savedInstanceState != null) return
         supportFragmentManager.beginTransaction()
             .replace(
                 R.id.fragment_holder,
-                ConfigurationFragment(true, null, R.string.action_switch)
+                ConfigurationFragment.forSelection(null, R.string.action_switch)
             )
             .commitAllowingStateLoss()
     }
 
+    /** A running service switches in place (a no-op for its own profile); a stopped one only changes the selection. */
     override fun returnProfile(profileId: Long) {
         val old = DataStore.selectedProxy
         DataStore.selectedProxy = profileId
@@ -30,7 +33,9 @@ class SwitchActivity : ThemedActivity(R.layout.layout_empty),
             ProfileManager.postUpdate(old, true)
             ProfileManager.postUpdate(profileId, true)
         }
-        SagerNet.reloadService()
+        sendBroadcast(
+            Intent(Action.SWITCH_PROFILE).setPackage(packageName).putExtra(Action.EXTRA_PROFILE_ID, profileId)
+        )
         finish()
     }
 }

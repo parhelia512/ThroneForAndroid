@@ -1,13 +1,20 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import android.content.Context
 import android.text.InputType
+import androidx.annotation.StringRes
 import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import androidx.preference.TwoStatePreference
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.SettingsMapper
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
+import io.nekohasekai.sagernet.outbound.BuildContext
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
@@ -67,6 +74,79 @@ private fun PreferenceCategory.setChildrenVisible(visible: Boolean, except: Set<
     }
 }
 
+/**
+ * Keeps a value the menu does not list (an imported fingerprint, say): it is appended as its own entry, because the
+ * dropdown's spinner selects entry 0 on its first layout and would overwrite an unlisted value with it.
+ */
+fun ListPreference.keepUnlistedValue() {
+    val current = value
+    if (current.isNullOrEmpty() || entryValues.any { it.toString() == current }) return
+    entries = entries + current
+    entryValues = entryValues + current
+}
+
+/** A summary provider that re-reads its inputs: setting it again re-runs it. */
+fun Preference.refreshSummary() {
+    summaryProvider = summaryProvider
+}
+
+fun PreferenceFragmentCompat.fixedSummary(key: String, @StringRes text: Int) {
+    findPreference<Preference>(key)?.summaryProvider = Preference.SummaryProvider<Preference> {
+        it.context.getString(text)
+    }
+}
+
+// Keep-default hints: an override left unset shows what the preset (Settings › Presets) resolves it to.
+
+private fun defaultSummary(context: Context, preset: String, coreDefault: String? = null): String = when {
+    preset.isNotEmpty() -> context.getString(R.string.preset_default, preset)
+    coreDefault != null -> context.getString(R.string.setting_default_value, coreDefault)
+    else -> context.getString(R.string.setting_default)
+}
+
+/** A Keep default / On / Off menu: "Keep default (On)" when the preset turns it on. */
+fun PreferenceFragmentCompat.presetTriSummary(key: String, defaultOn: Boolean) {
+    findPreference<ListPreference>(key)?.summaryProvider = Preference.SummaryProvider<ListPreference> {
+        val on = it.context.getString(R.string.tri_state_on)
+        val off = it.context.getString(R.string.tri_state_off)
+        when (it.value) {
+            "1" -> on
+            "2" -> off
+            else -> it.context.getString(R.string.preset_keep_default, if (defaultOn) on else off)
+        }
+    }
+}
+
+/** A text override: empty inherits [preset], and the core's [coreDefault] when the preset is empty too. */
+fun PreferenceFragmentCompat.presetTextSummary(key: String, preset: String, coreDefault: String? = null) {
+    findPreference<EditTextPreference>(key)?.summaryProvider = Preference.SummaryProvider<EditTextPreference> {
+        it.text.orEmpty().ifEmpty { defaultSummary(it.context, preset, coreDefault) }
+    }
+}
+
+/** An integer override: 0 inherits [preset] (0 there too = the core's default) while [inherits] holds. */
+fun PreferenceFragmentCompat.presetIntSummary(key: String, preset: Int, inherits: () -> Boolean = { true }) {
+    findPreference<EditTextPreference>(key)?.summaryProvider = Preference.SummaryProvider<EditTextPreference> {
+        val value = it.text?.trim()?.toIntOrNull() ?: 0
+        when {
+            value > 0 -> value.toString()
+            !inherits() -> "0"
+            preset > 0 -> it.context.getString(R.string.preset_zero_default, preset.toString())
+            else -> it.context.getString(R.string.setting_default)
+        }
+    }
+}
+
+/** A menu whose empty value ("Default") inherits [preset]; unlisted values stay selectable. */
+fun PreferenceFragmentCompat.presetMenuSummary(key: String, preset: String) {
+    val menu = findPreference<ListPreference>(key) ?: return
+    menu.keepUnlistedValue()
+    menu.summaryProvider = Preference.SummaryProvider<ListPreference> {
+        val value = it.value.orEmpty()
+        if (value.isEmpty()) defaultSummary(it.context, preset) else it.entry ?: value
+    }
+}
+
 /** The sing-box TLS block (`tls.*`), shared by every type with `hasTls()`. */
 object TlsBlock {
     fun bind(pbm: PreferenceBindingManager, prefix: String = "tls") {
@@ -83,10 +163,12 @@ object TlsBlock {
         pbm.tri("$prefix.fragment", "$prefix.fragment_unspecified")
         pbm.text("$prefix.fragment_fallback_delay")
         pbm.bool("$prefix.record_fragment")
+        // never emitted (D8) and not on screen, bound so imported values round-trip
         pbm.tri("$prefix.spoof_enabled", "$prefix.spoof_unspecified")
         pbm.text("$prefix.spoof")
         pbm.text("$prefix.spoof_method")
         pbm.tri("$prefix.tls_tricks", "$prefix.tls_tricks_unspecified")
+        // cache value kept equal to fingerPrint.isNotEmpty() by setup, see utlsMenu
         pbm.bool("$prefix.utls.enabled")
         pbm.text("$prefix.utls.fingerPrint")
         pbm.bool("$prefix.reality.enabled")
@@ -100,32 +182,71 @@ object TlsBlock {
 
     /**
      * Visibility wiring: with [mustTls] the enable switch is hidden and the block is always shown, otherwise the
-     * block follows the switch; the uTLS / Reality / ECH switches gate their own fields.
+     * block follows the switch; the Reality / ECH switches gate their own fields. Unset overrides show what
+     * [presets] resolves them to (dialog_edit_profile.cpp:756-778 for the enabled states).
      */
-    fun setup(pf: PreferenceFragmentCompat, mustTls: Boolean, prefix: String = "tls") = with(pf) {
+    fun setup(
+        pf: PreferenceFragmentCompat,
+        mustTls: Boolean,
+        prefix: String = "tls",
+        presets: BuildContext = SettingsMapper.buildContext(),
+    ) = with(pf) {
         val enabledKey = "$prefix.enabled"
+        val delayKey = "$prefix.fragment_fallback_delay"
         val security = findPreference<PreferenceCategory>("tlsCategory")
         val camouflage = findPreference<PreferenceCategory>("tlsCamouflageCategory")
         val ech = findPreference<PreferenceCategory>("tlsEchCategory")
 
-        fun applyEnabled(on: Boolean) {
-            security?.setChildrenVisible(on, setOf(enabledKey))
-            camouflage?.isVisible = on
-            ech?.isVisible = on
+        var enabled = mustTls || findPreference<TwoStatePreference>(enabledKey)?.isChecked ?: true
+        var fragment = findPreference<ListPreference>("$prefix.fragment")?.value
+        fun applyVisibility() {
+            security?.setChildrenVisible(enabled, setOf(enabledKey))
+            camouflage?.isVisible = enabled
+            ech?.isVisible = enabled
+            setVisible(enabled && fragment != "2", delayKey)
         }
 
         multilineInput("$prefix.alpn", "$prefix.certificate", "$prefix.certificate_public_key_sha256", "$prefix.ech.config")
         if (mustTls) {
             findPreference<Preference>(enabledKey)?.isVisible = false
-            applyEnabled(true)
         } else {
-            onSwitch(enabledKey) { applyEnabled(it) }
+            onSwitch(enabledKey) {
+                enabled = it
+                applyVisibility()
+            }
         }
-        onSwitch("$prefix.utls.enabled") { setVisible(it, "$prefix.utls.fingerPrint") }
+        onMenu("$prefix.fragment") {
+            fragment = it
+            applyVisibility()
+        }
+        applyVisibility()
         onSwitch("$prefix.reality.enabled") { setVisible(it, "$prefix.reality.public_key", "$prefix.reality.short_id") }
         onSwitch("$prefix.ech.enabled") { setVisible(it, "$prefix.ech.config", "$prefix.ech.config_path", "$prefix.ech.serverName") }
-        onMenu("$prefix.spoof_enabled") { setVisible(it == "1", "$prefix.spoof", "$prefix.spoof_method") }
-        onMenu("$prefix.fragment") { setVisible(it == "1", "$prefix.fragment_fallback_delay") }
+
+        presetTriSummary("$prefix.fragment", presets.fragmentDefaultOn)
+        presetTriSummary("$prefix.tls_tricks", presets.tlsTricksDefaultOn)
+        // the custom implementation fragments at the dialer and has no fallback delay (TLS.cpp:433-436)
+        if (presets.fragmentImplementation == "custom") {
+            findPreference<Preference>(delayKey)?.isEnabled = false
+            fixedSummary(delayKey, R.string.preset_fallback_delay_unused)
+        }
+        if (presets.skipCert) findPreference<Preference>("$prefix.insecure")?.summary = getString(R.string.preset_insecure_forced)
+        utlsMenu("$prefix.utls", presets.utlsFingerprint)
+    }
+
+    /**
+     * The one uTLS control: a fingerprint menu whose "Default" inherits the preset. `utls.enabled` has no row: its
+     * cache value is derived from the fingerprint here and on every change (dialog_edit_profile.cpp:832-833).
+     */
+    private fun PreferenceFragmentCompat.utlsMenu(prefix: String, preset: String) {
+        val menu = findPreference<ListPreference>("$prefix.fingerPrint") ?: return
+        fun derive(fingerprint: String) = DataStore.profileCacheStore.putBoolean("$prefix.enabled", fingerprint.isNotEmpty())
+        presetMenuSummary(menu.key, preset)
+        derive(menu.value.orEmpty())
+        menu.setOnPreferenceChangeListener { _, newValue ->
+            derive(newValue as String)
+            true
+        }
     }
 }
 
@@ -143,7 +264,11 @@ object MuxBlock {
         pbm.int("$prefix.brutal.down_mbps")
     }
 
-    fun setup(pf: PreferenceFragmentCompat, prefix: String = "multiplex") = with(pf) {
+    fun setup(
+        pf: PreferenceFragmentCompat,
+        prefix: String = "multiplex",
+        presets: BuildContext = SettingsMapper.buildContext(),
+    ) = with(pf) {
         numberInput("$prefix.max_connections", "$prefix.min_streams", "$prefix.max_streams", "$prefix.brutal.up_mbps", "$prefix.brutal.down_mbps")
         val category = findPreference<PreferenceCategory>("muxCategory")
         onMenu("$prefix.enabled") { state ->
@@ -154,6 +279,23 @@ object MuxBlock {
             }
         }
         onSwitch("$prefix.brutal.enabled") { setVisible(it, "$prefix.brutal.up_mbps", "$prefix.brutal.down_mbps") }
+
+        // multiplex.cpp:128-137
+        presetTriSummary("$prefix.enabled", presets.muxDefaultOn)
+        presetMenuSummary("$prefix.protocol", presets.muxProtocol)
+        fun unset(key: String) = (findPreference<EditTextPreference>(key)?.text?.trim()?.toIntOrNull() ?: 0) == 0
+        presetIntSummary("$prefix.max_streams", presets.muxConcurrency) {
+            unset("$prefix.max_connections") && unset("$prefix.min_streams")
+        }
+        val maxStreams = findPreference<Preference>("$prefix.max_streams")
+        for (key in arrayOf("$prefix.max_connections", "$prefix.min_streams")) {
+            findPreference<Preference>(key)?.setOnPreferenceChangeListener { _, _ ->
+                // the new value is stored after this returns
+                listView?.post { maxStreams?.refreshSummary() }
+                true
+            }
+        }
+        if (presets.muxPadding) findPreference<Preference>("$prefix.padding")?.summary = getString(R.string.preset_forced_on)
     }
 }
 
@@ -169,8 +311,20 @@ object QuicBlock {
         pbm.tri("$prefix.disable_path_mtu_discovery", "$prefix.disable_path_mtu_discovery_unspecified")
     }
 
-    fun setup(pf: PreferenceFragmentCompat, prefix: String = "quic") = with(pf) {
+    /** QUICFields.cpp:70-86; the core defaults are the desktop's placeholders (edit_advanced.ui). */
+    fun setup(
+        pf: PreferenceFragmentCompat,
+        prefix: String = "quic",
+        presets: BuildContext = SettingsMapper.buildContext(),
+    ) = with(pf) {
         numberInput("$prefix.max_concurrent_streams", "$prefix.initial_packet_size")
+        presetTextSummary("$prefix.idle_timeout", presets.h2IdleTimeout.trim(), "30s")
+        presetTextSummary("$prefix.keep_alive_period", presets.h2KeepAlivePeriod.trim(), "15s")
+        presetTextSummary("$prefix.stream_receive_window", presets.h2StreamReceiveWindow.trim(), "8 MB")
+        presetTextSummary("$prefix.connection_receive_window", presets.h2ConnectionReceiveWindow.trim(), "64 MB")
+        presetIntSummary("$prefix.max_concurrent_streams", presets.h2MaxConcurrentStreams)
+        presetIntSummary("$prefix.initial_packet_size", presets.quicInitialPacketSize)
+        presetTriSummary("$prefix.disable_path_mtu_discovery", presets.quicDisablePathMtuDiscovery)
     }
 }
 

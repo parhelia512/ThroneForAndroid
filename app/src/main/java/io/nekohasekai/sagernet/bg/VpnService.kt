@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.VpnRequestActivity
+import io.nekohasekai.sagernet.utils.PlatformNotifications
 import io.throneproj.mobile.Mobile
 import io.throneproj.mobile.RoutePrefix
 import io.throneproj.mobile.RoutePrefixIterator
@@ -96,7 +97,16 @@ class VpnService : BaseVpnService(),
     override fun createNotification(profileName: String) =
         ServiceNotification(this, profileName, "service-vpn")
 
+    private fun isAlwaysOnVpn(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && runCatching { isAlwaysOn }.getOrDefault(false)
+
+    override fun onNoProfile() {
+        if (isAlwaysOnVpn()) PlatformNotifications.alwaysOnNoProfile(this)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // The system starts an always-on VPN whatever the service mode says; the rest of the app follows the mode.
+        if (DataStore.serviceMode != Key.MODE_VPN && isAlwaysOnVpn()) DataStore.serviceMode = Key.MODE_VPN
         if (DataStore.serviceMode == Key.MODE_VPN) {
             if (prepare(this) != null) {
                 startActivity(

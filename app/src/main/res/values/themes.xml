@@ -4,23 +4,19 @@
         <item name="actionBarStyle">@style/Widget.MaterialComponents.ActionBar.Solid</item>
         <item name="actionModeCloseDrawable">@drawable/ic_navigation_close</item>
         <item name="colorButtonNormal">?colorAccent</item>
-        <item name="android:navigationBarColor">?colorPrimaryDark</item>
         <item name="colorPrimary">@color/material_pink_500</item>
         <item name="colorPrimaryDark">@color/material_pink_700</item>
         <item name="colorAccent">@color/material_pink_accent_200</item>
 
         <item name="colorMaterial100">@color/material_pink_100</item>
-        <item name="colorMaterial300">@color/material_pink_300</item>
 
-        <!-- 立体卡片提升表面色，默认 = Pink；各配色变体在下方各自覆盖 -->
+        <!-- Elevated card surface: Pink by default, each colour variant below overrides it -->
         <item name="cardElevatedSurfaceColor">@color/card_elevated_pink</item>
 
         <item name="accentOrTextSecondary">?colorAccent</item>
-        <item name="accentOrTextPrimary">?colorAccent</item>
         <item name="primaryOrTextSecondary">?colorPrimary</item>
         <item name="primaryOrTextPrimary">?colorPrimary</item>
 
-        <item name="fabColorBackground">?colorPrimary</item>
         <item name="selectedColorPrimary">?colorPrimary</item>
         <item name="actionBarTheme">@style/ThemeOverlay.AppCompat.Dark.ActionBar</item>
         <item name="tabTextColor">#99FFFFFF</item>
@@ -62,23 +58,19 @@
         <item name="actionBarStyle">@style/Widget.MaterialComponents.ActionBar.Solid</item>
         <item name="actionModeCloseDrawable">@drawable/ic_navigation_close</item>
         <item name="colorButtonNormal">?colorAccent</item>
-        <item name="android:navigationBarColor">?colorPrimaryDark</item>
         <item name="colorPrimary">@color/material_pink_500</item>
         <item name="colorPrimaryDark">@color/material_pink_700</item>
         <item name="colorAccent">@color/material_pink_accent_200</item>
 
         <item name="colorMaterial100">@color/material_pink_100</item>
-        <item name="colorMaterial300">@color/material_pink_300</item>
 
-        <!-- 立体卡片提升表面色，默认 = Pink；各配色变体在下方各自覆盖 -->
+        <!-- Elevated card surface: Pink by default, each colour variant below overrides it -->
         <item name="cardElevatedSurfaceColor">@color/card_elevated_pink</item>
 
         <item name="accentOrTextSecondary">?colorAccent</item>
-        <item name="accentOrTextPrimary">?colorAccent</item>
         <item name="primaryOrTextSecondary">?colorPrimary</item>
         <item name="primaryOrTextPrimary">?colorPrimary</item>
 
-        <item name="fabColorBackground">?colorPrimary</item>
         <item name="selectedColorPrimary">?colorPrimary</item>
         <item name="actionBarTheme">@style/ThemeOverlay.AppCompat.Dark.ActionBar</item>
         <item name="tabTextColor">#99FFFFFF</item>
@@ -118,11 +110,6 @@
 
         <item name="windowFixedHeightMajor" type="dimen">95%</item>
 
-    </style>
-
-    <style name="AppearanceFoundation.Title" parent="TextAppearance.AppCompat.Title">
-        <item name="android:textColor">?attr/colorOnSurface</item>
-        <item name="android:textStyle">bold</item>
     </style>
 
     <style name="ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet">
@@ -237,7 +224,6 @@
         <item name="colorPrimaryDark">@color/color_pink_ssr</item>
         <item name="colorAccent">@color/material_pink_accent_200</item>
         <item name="colorMaterial100">@color/material_pink_accent_100</item>
-        <item name="colorMaterial300">@color/color_pink_ssr</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_pink_ssr</item>
     </style>
 
@@ -246,7 +232,6 @@
         <item name="colorPrimaryDark">@color/material_amber_700</item>
         <item name="colorAccent">@color/material_amber_accent_200</item>
         <item name="colorMaterial100">@color/material_amber_100</item>
-        <item name="colorMaterial300">@color/material_amber_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_amber</item>
     </style>
 
@@ -255,7 +240,6 @@
         <item name="colorPrimaryDark">@color/material_blue_700</item>
         <item name="colorAccent">@color/material_blue_accent_200</item>
         <item name="colorMaterial100">@color/material_blue_100</item>
-        <item name="colorMaterial300">@color/material_blue_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue</item>
     </style>
 
@@ -264,7 +248,6 @@
         <item name="colorPrimaryDark">@color/material_blue_grey_700</item>
         <item name="colorAccent">@color/material_blue_grey_200</item>
         <item name="colorMaterial100">@color/material_blue_grey_100</item>
-        <item name="colorMaterial300">@color/material_blue_grey_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue_grey</item>
     </style>
 
@@ -273,7 +256,6 @@
         <item name="colorPrimaryDark">@color/material_brown_700</item>
         <item name="colorAccent">@color/material_brown_200</item>
         <item name="colorMaterial100">@color/material_brown_100</item>
-        <item name="colorMaterial300">@color/material_brown_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_brown</item>
     </style>
 
@@ -282,7 +264,6 @@
         <item name="colorPrimaryDark">@color/material_cyan_700</item>
         <item name="colorAccent">@color/material_cyan_accent_200</item>
         <item name="colorMaterial100">@color/material_cyan_100</item>
-        <item name="colorMaterial300">@color/material_cyan_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_cyan</item>
     </style>
 
@@ -291,7 +272,6 @@
         <item name="colorPrimaryDark">@color/material_deep_orange_700</item>
         <item name="colorAccent">@color/material_deep_orange_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_orange_100</item>
-        <item name="colorMaterial300">@color/material_deep_orange_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_orange</item>
     </style>
 
@@ -300,7 +280,6 @@
         <item name="colorPrimaryDark">@color/material_deep_purple_700</item>
         <item name="colorAccent">@color/material_deep_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_purple_100</item>
-        <item name="colorMaterial300">@color/material_deep_purple_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_purple</item>
     </style>
 
@@ -309,7 +288,6 @@
         <item name="colorPrimaryDark">@color/material_green_700</item>
         <item name="colorAccent">@color/material_green_accent_200</item>
         <item name="colorMaterial100">@color/material_green_100</item>
-        <item name="colorMaterial300">@color/material_green_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_green</item>
     </style>
 
@@ -318,7 +296,6 @@
         <item name="colorPrimaryDark">@color/material_grey_700</item>
         <item name="colorAccent">@color/material_grey_200</item>
         <item name="colorMaterial100">@color/material_grey_100</item>
-        <item name="colorMaterial300">@color/material_grey_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_grey</item>
     </style>
 
@@ -327,7 +304,6 @@
         <item name="colorPrimaryDark">@color/material_indigo_700</item>
         <item name="colorAccent">@color/material_indigo_accent_200</item>
         <item name="colorMaterial100">@color/material_indigo_100</item>
-        <item name="colorMaterial300">@color/material_indigo_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_indigo</item>
     </style>
 
@@ -336,7 +312,6 @@
         <item name="colorPrimaryDark">@color/material_light_blue_700</item>
         <item name="colorAccent">@color/material_light_blue_accent_200</item>
         <item name="colorMaterial100">@color/material_light_blue_100</item>
-        <item name="colorMaterial300">@color/material_light_blue_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_light_blue</item>
     </style>
 
@@ -345,7 +320,6 @@
         <item name="colorPrimaryDark">@color/material_light_green_700</item>
         <item name="colorAccent">@color/material_light_green_accent_200</item>
         <item name="colorMaterial100">@color/material_light_green_100</item>
-        <item name="colorMaterial300">@color/material_light_green_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_light_green</item>
     </style>
 
@@ -354,7 +328,6 @@
         <item name="colorPrimaryDark">@color/material_lime_700</item>
         <item name="colorAccent">@color/material_lime_accent_200</item>
         <item name="colorMaterial100">@color/material_lime_100</item>
-        <item name="colorMaterial300">@color/material_lime_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_lime</item>
     </style>
 
@@ -363,7 +336,6 @@
         <item name="colorPrimaryDark">@color/material_orange_700</item>
         <item name="colorAccent">@color/material_orange_accent_200</item>
         <item name="colorMaterial100">@color/material_orange_100</item>
-        <item name="colorMaterial300">@color/material_orange_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_orange</item>
     </style>
 
@@ -372,7 +344,6 @@
         <item name="colorPrimaryDark">@color/material_purple_700</item>
         <item name="colorAccent">@color/material_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_purple_100</item>
-        <item name="colorMaterial300">@color/material_purple_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_purple</item>
     </style>
 
@@ -381,7 +352,6 @@
         <item name="colorPrimaryDark">@color/material_red_700</item>
         <item name="colorAccent">@color/material_red_accent_200</item>
         <item name="colorMaterial100">@color/material_red_100</item>
-        <item name="colorMaterial300">@color/material_red_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_red</item>
     </style>
 
@@ -390,7 +360,6 @@
         <item name="colorPrimaryDark">@color/material_teal_700</item>
         <item name="colorAccent">@color/material_teal_accent_200</item>
         <item name="colorMaterial100">@color/material_teal_100</item>
-        <item name="colorMaterial300">@color/material_teal_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_teal</item>
     </style>
 
@@ -399,7 +368,6 @@
         <item name="colorPrimaryDark">@color/material_yellow_700</item>
         <item name="colorAccent">@color/material_yellow_accent_200</item>
         <item name="colorMaterial100">@color/material_yellow_100</item>
-        <item name="colorMaterial300">@color/material_yellow_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_yellow</item>
         <item name="colorOnPrimarySurface">@color/black</item>
     </style>
@@ -409,7 +377,6 @@
         <item name="colorPrimaryDark">@color/material_amber_700</item>
         <item name="colorAccent">@color/material_amber_accent_200</item>
         <item name="colorMaterial100">@color/material_amber_100</item>
-        <item name="colorMaterial300">@color/material_amber_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_amber</item>
     </style>
 
@@ -418,7 +385,6 @@
         <item name="colorPrimaryDark">@color/material_blue_700</item>
         <item name="colorAccent">@color/material_blue_accent_200</item>
         <item name="colorMaterial100">@color/material_blue_100</item>
-        <item name="colorMaterial300">@color/material_blue_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue</item>
     </style>
 
@@ -427,7 +393,6 @@
         <item name="colorPrimaryDark">@color/material_blue_grey_700</item>
         <item name="colorAccent">@color/material_blue_grey_200</item>
         <item name="colorMaterial100">@color/material_blue_grey_100</item>
-        <item name="colorMaterial300">@color/material_blue_grey_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_blue_grey</item>
     </style>
 
@@ -436,7 +401,6 @@
         <item name="colorPrimaryDark">@color/material_brown_700</item>
         <item name="colorAccent">@color/material_brown_200</item>
         <item name="colorMaterial100">@color/material_brown_100</item>
-        <item name="colorMaterial300">@color/material_brown_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_brown</item>
     </style>
 
@@ -445,7 +409,6 @@
         <item name="colorPrimaryDark">@color/material_cyan_700</item>
         <item name="colorAccent">@color/material_cyan_accent_200</item>
         <item name="colorMaterial100">@color/material_cyan_100</item>
-        <item name="colorMaterial300">@color/material_cyan_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_cyan</item>
     </style>
 
@@ -454,7 +417,6 @@
         <item name="colorPrimaryDark">@color/material_deep_orange_700</item>
         <item name="colorAccent">@color/material_deep_orange_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_orange_100</item>
-        <item name="colorMaterial300">@color/material_deep_orange_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_orange</item>
     </style>
 
@@ -463,7 +425,6 @@
         <item name="colorPrimaryDark">@color/material_deep_purple_700</item>
         <item name="colorAccent">@color/material_deep_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_deep_purple_100</item>
-        <item name="colorMaterial300">@color/material_deep_purple_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_deep_purple</item>
     </style>
 
@@ -472,7 +433,6 @@
         <item name="colorPrimaryDark">@color/material_green_700</item>
         <item name="colorAccent">@color/material_green_accent_200</item>
         <item name="colorMaterial100">@color/material_green_100</item>
-        <item name="colorMaterial300">@color/material_green_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_green</item>
     </style>
 
@@ -481,7 +441,6 @@
         <item name="colorPrimaryDark">@color/material_grey_700</item>
         <item name="colorAccent">@color/material_grey_200</item>
         <item name="colorMaterial100">@color/material_grey_100</item>
-        <item name="colorMaterial300">@color/material_grey_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_grey</item>
     </style>
 
@@ -490,7 +449,6 @@
         <item name="colorPrimaryDark">@color/material_indigo_700</item>
         <item name="colorAccent">@color/material_indigo_accent_200</item>
         <item name="colorMaterial100">@color/material_indigo_100</item>
-        <item name="colorMaterial300">@color/material_indigo_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_indigo</item>
     </style>
 
@@ -499,7 +457,6 @@
         <item name="colorPrimaryDark">@color/material_light_blue_700</item>
         <item name="colorAccent">@color/material_light_blue_accent_200</item>
         <item name="colorMaterial100">@color/material_light_blue_100</item>
-        <item name="colorMaterial300">@color/material_light_blue_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_light_blue</item>
     </style>
 
@@ -508,7 +465,6 @@
         <item name="colorPrimaryDark">@color/material_light_green_700</item>
         <item name="colorAccent">@color/material_light_green_accent_200</item>
         <item name="colorMaterial100">@color/material_light_green_100</item>
-        <item name="colorMaterial300">@color/material_light_green_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_light_green</item>
     </style>
 
@@ -517,7 +473,6 @@
         <item name="colorPrimaryDark">@color/material_lime_700</item>
         <item name="colorAccent">@color/material_lime_accent_200</item>
         <item name="colorMaterial100">@color/material_lime_100</item>
-        <item name="colorMaterial300">@color/material_lime_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_lime</item>
     </style>
 
@@ -526,7 +481,6 @@
         <item name="colorPrimaryDark">@color/material_orange_700</item>
         <item name="colorAccent">@color/material_orange_accent_200</item>
         <item name="colorMaterial100">@color/material_orange_100</item>
-        <item name="colorMaterial300">@color/material_orange_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_orange</item>
     </style>
 
@@ -535,7 +489,6 @@
         <item name="colorPrimaryDark">@color/material_purple_700</item>
         <item name="colorAccent">@color/material_purple_accent_200</item>
         <item name="colorMaterial100">@color/material_purple_100</item>
-        <item name="colorMaterial300">@color/material_purple_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_purple</item>
     </style>
 
@@ -544,7 +497,6 @@
         <item name="colorPrimaryDark">@color/material_red_700</item>
         <item name="colorAccent">@color/material_red_accent_200</item>
         <item name="colorMaterial100">@color/material_red_100</item>
-        <item name="colorMaterial300">@color/material_red_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_red</item>
     </style>
 
@@ -553,7 +505,6 @@
         <item name="colorPrimaryDark">@color/color_pink_ssr</item>
         <item name="colorAccent">@color/material_pink_accent_200</item>
         <item name="colorMaterial100">@color/material_pink_accent_100</item>
-        <item name="colorMaterial300">@color/color_pink_ssr</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_pink_ssr</item>
     </style>
 
@@ -562,7 +513,6 @@
         <item name="colorPrimaryDark">@color/material_teal_700</item>
         <item name="colorAccent">@color/material_teal_accent_200</item>
         <item name="colorMaterial100">@color/material_teal_100</item>
-        <item name="colorMaterial300">@color/material_teal_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_teal</item>
     </style>
 
@@ -571,7 +521,6 @@
         <item name="colorPrimaryDark">@color/material_yellow_700</item>
         <item name="colorAccent">@color/material_yellow_accent_200</item>
         <item name="colorMaterial100">@color/material_yellow_100</item>
-        <item name="colorMaterial300">@color/material_yellow_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_yellow</item>
         <item name="colorOnPrimarySurface">@color/black</item>
     </style>
@@ -581,15 +530,12 @@
         <item name="colorPrimaryDark">@color/color_ng_black_primary</item>
         <item name="colorAccent">@color/color_ng_black_accent</item>
         <item name="colorMaterial100">@color/color_ng_black_primary</item>
-        <item name="colorMaterial300">@color/color_ng_black_primary</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_black</item>
 
         <item name="selectedColorPrimary">@color/color_ng_black_accent</item>
-        <item name="fabColorBackground">@color/color_ng_black_accent</item>
         <item name="itemShapeFillColor">@color/color_ng_black_accent</item>
 
         <item name="accentOrTextSecondary">?android:textColorSecondary</item>
-        <item name="accentOrTextPrimary">?android:textColorPrimary</item>
         <item name="primaryOrTextSecondary">?android:textColorSecondary</item>
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
     </style>
@@ -599,7 +545,6 @@
         <item name="colorPrimaryDark">@color/color_verdant_mint_dark</item>
         <item name="colorAccent">@color/color_verdant_mint_accent</item>
         <item name="colorMaterial100">@color/color_verdant_mint_100</item>
-        <item name="colorMaterial300">@color/color_verdant_mint_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_verdant_mint</item>
     </style>
 
@@ -608,15 +553,12 @@
         <item name="colorPrimaryDark">@color/color_ng_black_primary</item>
         <item name="colorAccent">@color/color_ng_black_accent</item>
         <item name="colorMaterial100">@color/color_ng_black_primary</item>
-        <item name="colorMaterial300">@color/color_ng_black_primary</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_black</item>
 
         <item name="selectedColorPrimary">@color/color_ng_black_accent</item>
-        <item name="fabColorBackground">@color/color_ng_black_accent</item>
         <item name="itemShapeFillColor">@color/color_ng_black_accent</item>
 
         <item name="accentOrTextSecondary">?android:textColorSecondary</item>
-        <item name="accentOrTextPrimary">?android:textColorPrimary</item>
         <item name="primaryOrTextSecondary">?android:textColorSecondary</item>
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
     </style>
@@ -626,15 +568,13 @@
         <item name="colorPrimaryDark">@color/color_verdant_mint_dark</item>
         <item name="colorAccent">@color/color_verdant_mint_accent</item>
         <item name="colorMaterial100">@color/color_verdant_mint_100</item>
-        <item name="colorMaterial300">@color/color_verdant_mint_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_verdant_mint</item>
     </style>
 
-    <!-- 纯白主题夜间回退样式：底色/顶栏与纯黑主题一致，但主菜单选中色压暗避免 #9E9E9E 过亮 -->
+    <!-- White theme night fallback: background and app bar as in Black, drawer selection darker than #9E9E9E -->
     <style name="Theme.SagerNet.White.Night" parent="Theme.SagerNet.Black">
         <item name="colorAccent">@color/color_white_night_accent</item>
         <item name="selectedColorPrimary">@color/color_white_night_accent</item>
-        <item name="fabColorBackground">@color/color_white_night_accent</item>
         <item name="itemShapeFillColor">@color/color_white_night_accent</item>
     </style>
 
@@ -643,10 +583,9 @@
         <item name="colorPrimaryDark">@color/color_white_theme_dark</item>
         <item name="colorAccent">@color/color_white_theme_accent</item>
         <item name="colorMaterial100">@color/color_white_theme_100</item>
-        <item name="colorMaterial300">@color/color_white_theme_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_white</item>
 
-        <!-- 白底上使用深色文字/图标 -->
+        <!-- Dark text and icons on white -->
         <item name="actionBarTheme">@style/ThemeOverlay.MaterialComponents.ActionBar</item>
         <item name="tabTextColor">#99000000</item>
         <item name="tabSelectedTextColor">@color/black</item>
@@ -654,12 +593,11 @@
         <item name="tabRippleColor">@color/black</item>
         <item name="whiteOrTextPrimary">@color/black</item>
 
-        <!-- colorPrimary 为白色的场景下，"主色上的内容"与各类着色回退为深色 -->
+        <!-- With a white colorPrimary, content on the primary colour and tints fall back to dark -->
         <item name="colorOnPrimary">@color/black</item>
         <item name="selectedColorPrimary">@color/black</item>
         <item name="itemShapeFillColor">@color/color_white_theme_nav_fill</item>
         <item name="accentOrTextSecondary">?android:textColorSecondary</item>
-        <item name="accentOrTextPrimary">?android:textColorPrimary</item>
         <item name="primaryOrTextSecondary">?android:textColorSecondary</item>
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
     </style>
@@ -667,7 +605,6 @@
     <style name="Theme.SagerNet.Dialog.White.Night" parent="Theme.SagerNet.Dialog.Black">
         <item name="colorAccent">@color/color_white_night_accent</item>
         <item name="selectedColorPrimary">@color/color_white_night_accent</item>
-        <item name="fabColorBackground">@color/color_white_night_accent</item>
         <item name="itemShapeFillColor">@color/color_white_night_accent</item>
     </style>
 
@@ -676,7 +613,6 @@
         <item name="colorPrimaryDark">@color/color_white_theme_dark</item>
         <item name="colorAccent">@color/color_white_theme_accent</item>
         <item name="colorMaterial100">@color/color_white_theme_100</item>
-        <item name="colorMaterial300">@color/color_white_theme_300</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_white</item>
         <item name="whiteOrTextPrimary">@color/black</item>
 
@@ -684,23 +620,22 @@
         <item name="selectedColorPrimary">@color/black</item>
         <item name="itemShapeFillColor">@color/color_white_theme_nav_fill</item>
         <item name="accentOrTextSecondary">?android:textColorSecondary</item>
-        <item name="accentOrTextPrimary">?android:textColorPrimary</item>
         <item name="primaryOrTextSecondary">?android:textColorSecondary</item>
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
     </style>
 
-    <!-- AMOLED 纯黑 overlay：夜间模式下经 Theme.apply/applyDialog 叠加，仅覆盖背景/表面/卡片提升色。
-         parent="" 显式断开点号命名的隐式继承（否则会整包叠加 Theme.SagerNet 基础主题，锁死主题色） -->
+    <!-- AMOLED black overlay: applied at night by Theme.apply/applyDialog; only background, surface and card colours.
+         parent="" cuts the implicit dotted-name inheritance (Theme.SagerNet would be layered on and lock the colours) -->
     <style name="Theme.SagerNet.Amoled" parent="">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:colorBackground">@android:color/black</item>
         <item name="colorSurface">@android:color/black</item>
         <item name="cardElevatedSurfaceColor">@color/card_elevated_amoled</item>
-        <!-- OLED 纯黑下禁用海拔提亮：否则纯黑表面（fill == colorSurface）会被 elevation overlay 按海拔叠白（如 4dp 工具栏被提亮为 #181818） -->
+        <!-- No elevation overlay on OLED black: it would lighten black surfaces by elevation (a 4dp toolbar becomes #181818) -->
         <item name="elevationOverlayEnabled">false</item>
     </style>
 
-    <!-- 纯白主题夜间回退 + OLED：在 White.Night 基础上把顶栏（colorPrimary）从深灰压到纯黑 -->
+    <!-- White theme night fallback + OLED: White.Night with the app bar (colorPrimary) darkened to black -->
     <style name="Theme.SagerNet.Amoled.White" parent="">
         <item name="colorPrimary">@android:color/black</item>
         <item name="colorPrimaryDark">@android:color/black</item>

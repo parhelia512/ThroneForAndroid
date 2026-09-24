@@ -19,7 +19,7 @@ Provide helpful screenshots, videos, text descriptions, subscription links, etc.
 
 ## Logs & Configs
 
-If logs, subscription links, or config files are available, please DM Z in [the Dayo Group](https://t.me/nekoray_group). Check the documentation for instructions on exporting logs.
+Export the logs from the app (Log › Share logs or Save logs, keep "Hide sensitive data" on) and attach the file to this issue. Share configs or subscription links only with their secrets removed.
 
-- [ ] Submitted logs via DM
-- [ ] (Optional, unless requested by Z) Submitted full JSON config file via DM
+- [ ] Attached exported logs
+- [ ] (Optional) Attached the relevant profile JSON with secrets removed

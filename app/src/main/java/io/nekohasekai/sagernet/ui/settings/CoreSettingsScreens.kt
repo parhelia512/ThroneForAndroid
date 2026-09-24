@@ -13,11 +13,11 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SettingValidators
 import io.nekohasekai.sagernet.database.SettingsRegistry
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.ktx.USER_AGENT
 import io.nekohasekai.sagernet.ktx.needReload
 import io.nekohasekai.sagernet.ktx.needRestart
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.ui.profile.keepUnlistedValue
 import moe.matsuri.nb4a.ui.LongClickListPreference
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 import kotlin.math.abs
@@ -39,21 +39,29 @@ class PresetSettingsFragment : SettingsScreenFragment(R.xml.settings_presets) {
         checkInt(SettingsRegistry.XRAY_MUX_CONCURRENCY.key, R.string.invalid_number) { it >= 0 }
 
         // Size and sleep only feed the custom (dialer-level) fragment (dialog_preset_settings.cpp:40-47).
+        val implementation = pref<SimpleMenuPreference>(SettingsRegistry.FRAGMENT_IMPLEMENTATION.key)
+        implementation.summaryProvider = Preference.SummaryProvider<SimpleMenuPreference> {
+            getString(R.string.preset_fragment_implementation_sum, it.entry ?: it.value.orEmpty())
+        }
         val size = pref<EditTextPreference>(SettingsRegistry.FRAGMENT_SIZE.key)
         val sleep = pref<EditTextPreference>(SettingsRegistry.FRAGMENT_SLEEP.key)
         checkText(size.key, R.string.invalid_fragment_range, valid = SettingValidators::isRangeOrEmpty)
         checkText(sleep.key, R.string.invalid_fragment_range, valid = SettingValidators::isRangeOrEmpty)
-        fun syncFragment(implementation: String) {
-            val custom = implementation == "custom"
+        fragmentRangeSummary(size, SettingsRegistry.FRAGMENT_SIZE.default)
+        fragmentRangeSummary(sleep, SettingsRegistry.FRAGMENT_SLEEP.default)
+        fun syncFragment(value: String) {
+            val custom = value == "custom"
             size.isEnabled = custom
             sleep.isEnabled = custom
         }
         syncFragment(DataStore.fragmentImplementation)
-        pref<SimpleMenuPreference>(SettingsRegistry.FRAGMENT_IMPLEMENTATION.key).setOnPreferenceChangeListener { _, newValue ->
+        implementation.setOnPreferenceChangeListener { _, newValue ->
             syncFragment(newValue as String)
             needReload()
             true
         }
+        // the desktop combo is editable, so a restored fingerprint may be one the menu does not list
+        pref<SimpleMenuPreference>(SettingsRegistry.UTLS_FINGERPRINT.key).keepUnlistedValue()
 
         checkText(SettingsRegistry.H2_IDLE_TIMEOUT.key, R.string.invalid_duration, valid = SettingValidators::isDurationOrEmpty)
         checkText(SettingsRegistry.H2_KEEP_ALIVE_PERIOD.key, R.string.invalid_duration, valid = SettingValidators::isDurationOrEmpty)
@@ -72,6 +80,16 @@ class PresetSettingsFragment : SettingsScreenFragment(R.xml.settings_presets) {
 
     private fun placeholder(key: String, defaultText: String) {
         pref<EditTextPreference>(key).summaryProvider = DefaultSummaryProvider(defaultText)
+    }
+
+    private fun fragmentRangeSummary(preference: EditTextPreference, default: String) {
+        preference.summaryProvider = Preference.SummaryProvider<EditTextPreference> {
+            when {
+                !it.isEnabled -> getString(R.string.preset_custom_implementation_only)
+                it.text.isNullOrEmpty() -> getString(R.string.setting_default_value, default)
+                else -> it.text
+            }
+        }
     }
 
     private fun zeroAsDefault(key: String) {
@@ -108,16 +126,6 @@ class TestingSettingsFragment : SettingsScreenFragment(R.xml.settings_testing) {
     }
 }
 
-/** The network knobs of the app's own requests (subscriptions, update checks, remote route profiles). */
-class SubscriptionSettingsFragment : SettingsScreenFragment(R.xml.settings_subscriptions) {
-
-    override fun bind() {
-        val userAgent = pref<EditTextPreference>(SettingsRegistry.USER_AGENT2.key)
-        userAgent.summaryProvider = DefaultSummaryProvider(USER_AGENT)
-        checkText(userAgent.key, R.string.invalid_value, reload = false) { true }
-    }
-}
-
 /** Logging, statistics, Clash API, Xray import preference, certificate defaults and the NTP client. */
 class CoreSettingsFragment : SettingsScreenFragment(R.xml.settings_core) {
 
@@ -133,7 +141,7 @@ class CoreSettingsFragment : SettingsScreenFragment(R.xml.settings_core) {
             val view = EditText(context).apply {
                 inputType = EditorInfo.TYPE_CLASS_NUMBER
                 var size = DataStore.logBufSize
-                if (size == 0) size = 50
+                if (size == 0) size = moe.matsuri.nb4a.utils.CoreLog.DEFAULT_SIZE_KB
                 setText(size.toString())
             }
             MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.log_buffer_size)

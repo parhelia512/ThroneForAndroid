@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Bundle
 import android.text.InputType
@@ -16,10 +17,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
-import androidx.core.view.ViewCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -50,8 +49,9 @@ import io.nekohasekai.sagernet.ui.route.RouteProfileActivity
 import io.nekohasekai.sagernet.ui.route.RouteQuickSwitch
 import io.nekohasekai.sagernet.ui.route.RouteTexts
 import io.nekohasekai.sagernet.ui.settings.RoutingSettingsFragment
-import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.QRCodeDialog
+import io.nekohasekai.sagernet.widget.applyListInsets
+import io.nekohasekai.sagernet.widget.updateBasePadding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -84,11 +84,13 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        ViewCompat.setOnApplyWindowInsetsListener(view, ListListener)
         toolbar?.setTitle(R.string.menu_route)
         toolbar?.inflateMenu(R.menu.route_menu)
+        toolbar?.menu?.findItem(R.id.action_route_scan)?.isVisible =
+            requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
         toolbar?.setOnMenuItemClickListener(this)
         list = view.findViewById(R.id.route_list)
+        list.applyListInsets()
         list.layoutManager = FixedLinearLayoutManager(list)
         list.adapter = adapter
         updateBottomPadding()
@@ -106,8 +108,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
     fun updateBottomPadding() {
         if (!::list.isInitialized) return
-        list.clipToPadding = false
-        list.updatePadding(bottom = dp2px(if (DataStore.showBottomBar) 80 else 4))
+        list.updateBasePadding(bottom = dp2px(if (DataStore.showBottomBar) 80 else 4))
     }
 
     /** "Update rule-sets" needs a running service (actionUpdate_Rule_Sets is enabled only while a profile runs). */
@@ -160,6 +161,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     }
 
     private fun select(profile: RouteProfile) {
+        if (profile.is_raw) {
+            snackbar(R.string.route_raw_not_usable).show()
+            return
+        }
         if (profile.id == adapter.currentId) return
         RouteQuickSwitch.switchTo(profile.id)
         adapter.setCurrent(profile.id)
@@ -546,7 +551,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             binding.profileName.text = profile.name
             binding.profileName.setTypeface(null, if (current) Typeface.BOLD else Typeface.NORMAL)
             binding.activeMark.isVisible = current
-            binding.profileSummary.text = getString(
+            binding.profileSummary.text = if (profile.is_raw) getString(R.string.route_raw_summary) else getString(
                 R.string.route_item_default_outbound, RouteTexts.outboundName(context, profile.default_outbound_id, emptyMap())
             ) + " · " + resources.getQuantityString(R.plurals.route_item_rules, profile.rules.size, profile.rules.size)
             binding.profileRemote.isVisible = profile.is_remote
@@ -569,6 +574,11 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             val popup = PopupMenu(requireContext(), anchor)
             popup.menuInflater.inflate(R.menu.route_item_menu, popup.menu)
             if (!profile.is_remote) popup.menu.removeItem(R.id.action_route_update)
+            if (profile.is_raw) {
+                popup.menu.findItem(R.id.action_route_edit)?.setTitle(R.string.route_raw_view)
+                popup.menu.removeItem(R.id.action_route_clone)
+                popup.menu.removeItem(R.id.action_route_share)
+            }
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.action_route_edit -> edit(profile.id)

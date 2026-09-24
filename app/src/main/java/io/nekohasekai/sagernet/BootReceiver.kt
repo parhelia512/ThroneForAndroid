@@ -6,10 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 
 class BootReceiver : BroadcastReceiver() {
     companion object {
@@ -23,10 +21,6 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        runOnDefaultDispatcher {
-            SubscriptionUpdater.reconfigureUpdater()
-        }
-
         if (!DataStore.rememberEnable) {   // sanity check
             enabled = false
             return
@@ -38,5 +32,21 @@ class BootReceiver : BroadcastReceiver() {
         } && DataStore.selectedProxy > 0
 
         if (doStart) SagerNet.startService()
+    }
+}
+
+/**
+ * Always enabled, unlike [BootReceiver]: MY_PACKAGE_REPLACED restarts the connection an in-app update interrupted
+ * (resumeAfterUpdate, set before the install), or auto-connects when remember_enable is on.
+ */
+class PackageReplacedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        val resume = DataStore.resumeAfterUpdate
+        if (resume != 0L) DataStore.resumeAfterUpdate = 0
+        val wanted = resume > 0 || DataStore.rememberEnable
+        if (wanted && DataStore.selectedProxy > 0 && (Build.VERSION.SDK_INT < 24 || SagerNet.user.isUserUnlocked)) {
+            SagerNet.startService()
+        }
     }
 }

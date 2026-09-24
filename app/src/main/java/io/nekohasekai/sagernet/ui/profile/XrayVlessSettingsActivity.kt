@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui.profile
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.outbound.types.XrayVless
 
 /** The Xray-core VLESS outbound: uuid / encryption / flow, the Xray stream settings and the Xray mux. */
@@ -70,6 +71,8 @@ class XrayVlessSettingsActivity : BindingSettingsActivity<XrayVless>() {
         pbm.tri("multiplex.enabled", "multiplex.useDefault")
         pbm.int("multiplex.concurrency")
         pbm.int("multiplex.xudpConcurrency")
+
+        jsonObjectText("$STREAM.finalmask", { streamSetting.finalmask }, { streamSetting.finalmask = it })
     }
 
     override fun PreferenceFragmentCompat.onPreferencesCreated() {
@@ -81,9 +84,13 @@ class XrayVlessSettingsActivity : BindingSettingsActivity<XrayVless>() {
             "multiplex.concurrency", "multiplex.xudpConcurrency",
         )
         multilineInput(
-            "$STREAM.ws.headers", "$STREAM.httpupgrade.headers", "$STREAM.xhttp.headers",
-            "$STREAM.tls.alpn", "$STREAM.xhttp.downloadSettings",
+            "$STREAM.ws.headers", "$STREAM.httpupgrade.headers", "$STREAM.xhttp.headers", "$STREAM.tls.alpn",
         )
+        // empty inherits the uTLS preset (xrayStreamSetting.cpp:312, 377)
+        presetMenuSummary("$STREAM.tls.fingerprint", DataStore.utlsFingerprint)
+        presetMenuSummary("$STREAM.reality.fingerprint", DataStore.utlsFingerprint)
+        presetTriSummary("multiplex.enabled", DataStore.xrayMuxDefaultOn)
+        presetIntSummary("multiplex.concurrency", DataStore.xrayMuxConcurrency)
 
         val ws = findPreference<PreferenceCategory>("xrayWsCategory")
         val httpUpgrade = findPreference<PreferenceCategory>("xrayHttpUpgradeCategory")

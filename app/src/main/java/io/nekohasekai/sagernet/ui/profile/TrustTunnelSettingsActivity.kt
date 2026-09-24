@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.outbound.types.TrustTunnel
@@ -27,6 +28,8 @@ class TrustTunnelSettingsActivity : BindingSettingsActivity<TrustTunnel>() {
         portInput("serverPort")
         passwordSummary("password")
         TlsBlock.setup(this, mustTls = true)
+        // QUIC dials through qtls, which takes no uTLS config (dialog_edit_profile.cpp:759-763)
+        onSwitch("quic") { findPreference<Preference>("tls.utls.fingerPrint")?.isEnabled = !it }
     }
 
 }

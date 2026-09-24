@@ -9,21 +9,55 @@ import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.style.ForegroundColorSpan
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
-import androidx.core.view.ViewCompat
 import androidx.core.view.doOnLayout
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.widget.ListListener
+import io.nekohasekai.sagernet.widget.applyListInsets
 import moe.matsuri.nb4a.utils.CoreLog
+import moe.matsuri.nb4a.utils.LogExport
 import moe.matsuri.nb4a.utils.SendLog
 
 class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
     Toolbar.OnMenuItemClickListener {
 
+    companion object {
+        // "Hide destinations" lasts for the process; "Hide sensitive data" is logExportRedact.
+        private var hideDestinations = false
+    }
+
     lateinit var binding: LayoutLogcatBinding
+
+    private val saveLogs = registerForActivityResult(SaveDocument("text/plain")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val context = requireContext().applicationContext
+        val redact = DataStore.logExportRedact
+        val destinations = hideDestinations
+        runOnDefaultDispatcher {
+            val error = try {
+                val file = LogExport.build(context, redact, destinations)
+                try {
+                    context.contentResolver.openOutputStream(uri)!!.use { out ->
+                        file.inputStream().use { it.copyTo(out) }
+                    }
+                } finally {
+                    file.delete()
+                }
+                null
+            } catch (e: Exception) {
+                Logs.w(e)
+                e.readableMessage
+            }
+            onMainDispatcher {
+                safeSnackbar(
+                    if (error == null) context.getString(R.string.log_saved)
+                    else context.getString(R.string.log_export_failed, error)
+                )
+            }
+        }
+    }
 
     @SuppressLint("RestrictedApi", "WrongConstant")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -32,6 +66,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
         toolbar?.inflateMenu(R.menu.logcat_menu)
         toolbar?.setOnMenuItemClickListener(this)
+        updateExportOptions()
 
         binding = LayoutLogcatBinding.bind(view)
 
@@ -39,9 +74,19 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             binding.textview.breakStrategy = 0 // simple
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
+        binding.scroolview.applyListInsets()
 
         reloadSession()
+    }
+
+    private fun updateExportOptions() {
+        val menu = toolbar?.menu ?: return
+        val redact = DataStore.logExportRedact
+        menu.findItem(R.id.action_hide_sensitive)?.isChecked = redact
+        menu.findItem(R.id.action_hide_destinations)?.apply {
+            isEnabled = redact
+            isChecked = redact && hideDestinations
+        }
     }
 
     private fun getColorForLine(line: String): ForegroundColorSpan {
@@ -56,7 +101,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             }
 
             line.contains("WARN[") || line.contains(" [Warning]") -> {
-                color = ForegroundColorSpan(Color.RED)
+                color = ForegroundColorSpan((0xFFFFA000).toInt())
             }
         }
         return color
@@ -76,7 +121,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         }
         binding.textview.text = span
         binding.textview.clearFocus()
-        // 等 textview 完成最终 layout 再滚动到底部
+        // Scroll to the bottom once the text view is laid out
         binding.textview.doOnLayout {
             binding.scroolview.scrollTo(0, binding.textview.height)
         }
@@ -102,11 +147,35 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
             }
 
-            R.id.action_send_logcat -> {
+            R.id.action_share_logs -> {
                 val context = requireContext()
+                val redact = DataStore.logExportRedact
+                val destinations = hideDestinations
                 runOnDefaultDispatcher {
-                    SendLog.sendLog(context, "Throne")
+                    try {
+                        val file = LogExport.build(context, redact, destinations)
+                        onMainDispatcher {
+                            SendLog.share(context, file, file.nameWithoutExtension)
+                        }
+                    } catch (e: Exception) {
+                        Logs.w(e)
+                        onMainDispatcher {
+                            safeSnackbar(context.getString(R.string.log_export_failed, e.readableMessage))
+                        }
+                    }
                 }
+            }
+
+            R.id.action_save_logs -> startFilesForResult(saveLogs, LogExport.fileName())
+
+            R.id.action_hide_sensitive -> {
+                DataStore.logExportRedact = !DataStore.logExportRedact
+                updateExportOptions()
+            }
+
+            R.id.action_hide_destinations -> {
+                hideDestinations = !hideDestinations
+                updateExportOptions()
             }
 
             R.id.action_refresh -> {

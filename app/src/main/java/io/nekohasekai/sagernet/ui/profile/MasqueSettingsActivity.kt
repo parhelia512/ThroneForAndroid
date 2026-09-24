@@ -3,8 +3,11 @@ package io.nekohasekai.sagernet.ui.profile
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.outbound.types.Masque
+import io.nekohasekai.sagernet.ui.warp.WarpClient
+import io.nekohasekai.sagernet.ui.warp.WarpGenerate
+import io.nekohasekai.sagernet.ui.warp.setFieldText
 
-/** MASQUE endpoint: the primary fields on the screen, everything else through the Raw JSON preference. */
+/** MASQUE endpoint: the TLS camouflage (no Reality, masque.cpp strips it) and QUIC blocks; the rest through Raw JSON. */
 class MasqueSettingsActivity : BindingSettingsActivity<Masque>() {
 
     override fun createEntity() = Masque()
@@ -20,16 +23,29 @@ class MasqueSettingsActivity : BindingSettingsActivity<Masque>() {
         pbm.int("mtu")
         pbm.int("http_version")
         pbm.bool("disable_version_fallback")
-        pbm.text("tls.server_name")
-        pbm.bool("tls.insecure")
-        pbm.text("tls.certificate")
+        TlsBlock.bind(pbm)
+        QuicBlock.bind(pbm)
     }
 
     override fun PreferenceFragmentCompat.onPreferencesCreated() {
         portInput("serverPort")
         numberInput("mtu")
         passwordSummary("private_key")
-        multilineInput("address", "tls.certificate")
+        multilineInput("address")
+        TlsBlock.setup(this, mustTls = true)
+        QuicBlock.setup(this)
+
+        // EditMasque::applyWarpIdentity (edit_masque.cpp:92-111)
+        WarpGenerate.bindEditorRow(this@MasqueSettingsActivity, this, WarpClient.TUNNEL_MASQUE) { identity ->
+            setFieldText("private_key", identity.privateKey)
+            setFieldText("peer_public_key", identity.peerPublicKey)
+            setFieldText("address", identity.addresses.joinToString("\n"))
+            setFieldText("mtu", "1280")
+            identity.endpointHostPort()?.let { (host, port) ->
+                setFieldText("server", host)
+                setFieldText("serverPort", port)
+            }
+        }
     }
 
 }

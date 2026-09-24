@@ -31,6 +31,7 @@ fun settingsActivityFor(type: String): Class<out ProfileSettingsActivity<*>> =
         "openvpn" -> OpenVpnSettingsActivity::class.java
         "openconnect" -> OpenConnectSettingsActivity::class.java
         "chain" -> ChainSettingsActivity::class.java
+        "autoselector" -> AutoSelectorSettingsActivity::class.java
         else -> CustomSettingsActivity::class.java
     }
 

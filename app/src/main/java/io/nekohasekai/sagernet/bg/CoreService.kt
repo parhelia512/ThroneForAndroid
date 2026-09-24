@@ -4,112 +4,58 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import io.nekohasekai.sagernet.aidl.ICoreService
-import io.nekohasekai.sagernet.aidl.ICoreTestCallback
-import io.nekohasekai.sagernet.bg.proto.CoreSpeedTestSession
-import io.nekohasekai.sagernet.bg.proto.CoreUrlTest
-import io.nekohasekai.sagernet.bg.proto.SpeedTestQueueRunner
-import io.nekohasekai.sagernet.bg.proto.SpeedTestSnapshot
-import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.readableMessage
-import io.throneproj.mobile.Mobile
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.launch
+import io.nekohasekai.sagernet.aidl.ISubscriptionCallback
+import io.nekohasekai.sagernet.aidl.ITestSessionCallback
+import io.nekohasekai.sagernet.bg.test.TestEngine
+import io.nekohasekai.sagernet.bg.test.TestSpec
+import io.nekohasekai.sagernet.group.SubscriptionQueue
 
 // Always-bindable :bg host for the probe boxes, so the main process never loads the core.
 class CoreService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     private val binder = object : ICoreService.Stub() {
 
-        override fun urlTest(
-            profileIds: LongArray,
-            url: String,
-            timeoutMs: Int,
-            concurrency: Int,
-            cb: ICoreTestCallback,
-        ) {
-            scope.launch {
-                try {
-                    CoreUrlTest(profileIds.toList(), url, timeoutMs, concurrency).run { id, latency, error ->
-                        cb.onUrlTestResult(id, latency, error)
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Logs.w(e)
-                    val error = e.readableMessage
-                    for (id in profileIds) runCatching { cb.onUrlTestResult(id, -1, error) }
-                } finally {
-                    runCatching { cb.onDone() }
-                }
-            }
-        }
+        override fun startTest(spec: TestSpec, cb: ITestSessionCallback): Int = TestEngine.start(spec, cb)
 
-        override fun speedTest(
-            profileId: Long,
-            mode: String,
-            timeoutMs: Int,
-            simpleDownloadUrl: String,
-            cb: ICoreTestCallback,
-        ) {
-            scope.launch {
-                try {
-                    val profile = SagerDatabase.proxyDao.getById(profileId)
-                    if (profile == null) {
-                        cb.onSpeedTestProgress(
-                            SpeedTestSnapshot(
-                                profileId = profileId,
-                                profileName = "",
-                                mode = mode,
-                                stage = SpeedTestQueueRunner.STAGE_ERROR,
-                                error = "profile $profileId not found",
-                                done = true,
-                            )
-                        )
-                        return@launch
-                    }
-                    try {
-                        CoreSpeedTestSession(profile, mode, timeoutMs, simpleDownloadUrl).run {
-                            cb.onSpeedTestProgress(it)
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                        cb.onSpeedTestProgress(
-                            SpeedTestSnapshot(
-                                profileId = profileId,
-                                profileName = profile.displayName(),
-                                mode = mode,
-                                stage = SpeedTestQueueRunner.STAGE_ERROR,
-                                error = e.readableMessage,
-                                done = true,
-                            )
-                        )
-                    }
-                } finally {
-                    runCatching { cb.onDone() }
-                }
-            }
-        }
+        override fun stopTests() = TestEngine.stop()
 
-        override fun stopTests() {
-            Mobile.stopTests()
-            scope.coroutineContext.cancelChildren()
-        }
+        override fun runningTestSession(): Int = TestEngine.runningSession()
+
+        override fun refreshGroup(gid: Long, showDiff: Boolean) = SubscriptionQueue.refreshGroup(gid, showDiff)
+
+        override fun refreshAll(onlyAllowed: Boolean) = SubscriptionQueue.refreshAll(onlyAllowed)
+
+        override fun subscribeUrl(url: String, name: String?, autoUpdate: Boolean): Long =
+            SubscriptionQueue.subscribeUrl(url, name.orEmpty(), autoUpdate)
+
+        override fun importUrl(url: String, gid: Long) = SubscriptionQueue.importUrl(url, gid)
+
+        override fun importFile(path: String, gid: Long) = SubscriptionQueue.importFile(path, gid)
+
+        override fun groupAction(gid: Long, action: String): String = SubscriptionQueue.groupAction(gid, action)
+
+        override fun registerSubscriptionCallback(cb: ISubscriptionCallback) = SubscriptionQueue.register(cb)
+
+        override fun unregisterSubscriptionCallback(cb: ISubscriptionCallback) = SubscriptionQueue.unregister(cb)
+
+        override fun warpRegister(tunnelType: String, proxy: String?, apiHosts: Array<String>?): String =
+            WarpRegistration.register(tunnelType, proxy.orEmpty(), apiHosts ?: emptyArray())
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        CoreForeground.attach(this)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
+        CoreForeground.onStartCommand(this, startId)
+
+    override fun onTimeout(startId: Int, fgsType: Int) = CoreForeground.onTimeout(this)
+
     override fun onDestroy() {
-        scope.cancel()
+        CoreForeground.detach(this)
         super.onDestroy()
     }
 }

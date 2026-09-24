@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.ShortcutManager
+import android.content.pm.PackageManager
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Bundle
@@ -10,7 +11,7 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.getSystemService
-import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import com.google.zxing.Result
 import com.king.zxing.CameraScan
 import com.king.zxing.DefaultCameraScan
@@ -19,14 +20,10 @@ import com.king.zxing.util.CodeUtils
 import com.king.zxing.util.LogUtils
 import com.king.zxing.util.PermissionUtils
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.databinding.LayoutScannerBinding
-import io.nekohasekai.sagernet.ui.profile.ProfileTextImport
-import io.nekohasekai.sagernet.ui.route.RouteImports
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.widget.applyInsetMargin
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 
 class ScannerActivity : ThemedActivity(),
@@ -41,20 +38,33 @@ class ScannerActivity : ThemedActivity(),
         if (Build.VERSION.SDK_INT >= 25) getSystemService<ShortcutManager>()!!.reportShortcutUsed("scan")
         binding = LayoutScannerBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // 二维码库
-        initCameraScan()
-        startCamera()
-        binding.ivFlashlight.setOnClickListener { toggleTorchState() }
+        binding.ivFlashlight.applyInsetMargin(bottom = true, horizontal = true)
+        binding.ivPhotoLibrary.applyInsetMargin(bottom = true, horizontal = true)
         binding.ivPhotoLibrary.setOnClickListener {
             startFilesForResult(importCodeFile, "image/*")
         }
+
+        // Without a camera (TVs) the images are the only source: straight to the picker.
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            binding.ivFlashlight.isVisible = false
+            if (savedInstanceState == null) {
+                Toast.makeText(this, R.string.scanner_no_camera, Toast.LENGTH_LONG).show()
+                startFilesForResult(importCodeFile, "image/*")
+            }
+            return
+        }
+
+        initCameraScan()
+        startCamera()
+        binding.ivFlashlight.setOnClickListener { toggleTorchState() }
     }
 
-    val importCodeFile = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) {
+    /** Images from the gallery: every QR code found goes to the main window in one batch (importFromFiles). */
+    val importCodeFile = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         runOnDefaultDispatcher {
+            val texts = ArrayList<String>()
             try {
-                it.forEachTry { uri ->
+                uris.forEachTry { uri ->
                     val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         ImageDecoder.decodeBitmap(
                             ImageDecoder.createSource(
@@ -69,85 +79,47 @@ class ScannerActivity : ThemedActivity(),
                             contentResolver, uri
                         )
                     }
-                    val result = CodeUtils.parseCodeResult(bitmap)
-                    onMainDispatcher {
-                        onScanResultCallback(result, true)
-                    }
+                    CodeUtils.parseCodeResult(bitmap)?.text?.takeIf { it.isNotBlank() }?.let(texts::add)
                 }
-                finish()
             } catch (e: Exception) {
                 Logs.w(e)
                 onMainDispatcher {
                     Toast.makeText(app, e.readableMessage, Toast.LENGTH_LONG).show()
                 }
             }
+            onMainDispatcher {
+                if (texts.isNotEmpty()) {
+                    importTexts(texts)
+                } else if (uris.isNotEmpty()) {
+                    Toast.makeText(app, R.string.action_import_err, Toast.LENGTH_SHORT).show()
+                }
+                if (uris.isNotEmpty() || !::cameraScan.isInitialized) finish()
+            }
         }
     }
 
     var finished = AtomicBoolean(false)
-    var importedN = AtomicInteger(0)
 
-    /**
-     * 接收扫码结果回调
-     * @param result 扫码结果
-     * @return 返回true表示拦截，将不自动执行后续逻辑，为false表示不拦截，默认不拦截
-     */
+    /** @return true when the result is consumed (no further processing), false to continue. */
     override fun onScanResultCallback(result: Result?): Boolean {
-        return onScanResultCallback(result, false)
-    }
-
-    fun onScanResultCallback(result: Result?, multi: Boolean): Boolean {
-        if (!multi && finished.getAndSet(true)) return true
-        if (!multi) finish()
-        runOnDefaultDispatcher {
-            try {
-                val text = result?.text ?: throw Exception("QR code not found")
-                // Route links are not proxy profiles: MainActivity prompts for them like for a deep link.
-                if (RouteImports.isRouteLink(text)) {
-                    startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
-                        action = Intent.ACTION_VIEW
-                        data = text.trim().toUri()
-                    })
-                    return@runOnDefaultDispatcher
-                }
-                ProfileTextImport.subscriptionLink(text)?.let { link ->
-                    startActivity(Intent(this@ScannerActivity, MainActivity::class.java).apply {
-                        action = Intent.ACTION_VIEW
-                        data = link.toUri()
-                    })
-                    return@runOnDefaultDispatcher
-                }
-                val results = ProfileTextImport.parse(text)
-                if (results.isNotEmpty()) {
-                    val currentGroupId = DataStore.selectedGroupForImport()
-                    if (DataStore.selectedGroup != currentGroupId) {
-                        DataStore.selectedGroup = currentGroupId
-                    }
-
-                    for (profile in results) {
-                        ProfileManager.createProfile(currentGroupId, profile)
-                        importedN.addAndGet(1)
-                    }
-                } else {
-                    onMainDispatcher {
-                        Toast.makeText(app, R.string.action_import_err, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Throwable) {
-                Logs.w(e)
-                onMainDispatcher {
-                    var text = getString(R.string.action_import_err)
-                    text += "\n" + e.readableMessage
-                    Toast.makeText(app, text, Toast.LENGTH_SHORT).show()
-                }
-            }
+        if (finished.getAndSet(true)) return true
+        val text = result?.text
+        if (text.isNullOrBlank()) {
+            Toast.makeText(app, R.string.action_import_err, Toast.LENGTH_SHORT).show()
+        } else {
+            importTexts(listOf(text))
         }
+        finish()
         return true
     }
 
-    /**
-     * 初始化CameraScan
-     */
+    /** The main window imports them (SubscribeFlows): the URL choice, deep links, or profiles into the current group. */
+    private fun importTexts(texts: List<String>) {
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            putStringArrayListExtra(MainActivity.EXTRA_IMPORT_TEXTS, ArrayList(texts))
+        })
+    }
+
     fun initCameraScan() {
         cameraScan = DefaultCameraScan(this, binding.previewView)
         cameraScan.setAnalyzer(QRCodeAnalyzer())
@@ -155,9 +127,6 @@ class ScannerActivity : ThemedActivity(),
         cameraScan.setNeedAutoZoom(true)
     }
 
-    /**
-     * 启动相机预览
-     */
     fun startCamera() {
         if (PermissionUtils.checkPermission(this, Manifest.permission.CAMERA)) {
             cameraScan.startCamera()
@@ -169,16 +138,10 @@ class ScannerActivity : ThemedActivity(),
         }
     }
 
-    /**
-     * 释放相机
-     */
     private fun releaseCamera() {
-        cameraScan.release()
+        if (::cameraScan.isInitialized) cameraScan.release()
     }
 
-    /**
-     * 切换闪光灯状态（开启/关闭）
-     */
     protected fun toggleTorchState() {
         val isTorch = cameraScan.isTorchEnabled
         cameraScan.enableTorch(!isTorch)
@@ -196,11 +159,6 @@ class ScannerActivity : ThemedActivity(),
         }
     }
 
-    /**
-     * 请求Camera权限回调结果
-     * @param permissions
-     * @param grantResults
-     */
     fun requestCameraPermissionResult(permissions: Array<String>, grantResults: IntArray) {
         if (PermissionUtils.requestPermissionsResult(
                 Manifest.permission.CAMERA, permissions, grantResults
@@ -215,10 +173,5 @@ class ScannerActivity : ThemedActivity(),
     override fun onDestroy() {
         releaseCamera()
         super.onDestroy()
-        if (importedN.get() > 0) {
-            var text = getString(R.string.action_import_msg)
-            text += "\n" + importedN.get() + " profile(s)"
-            Toast.makeText(app, text, Toast.LENGTH_LONG).show()
-        }
     }
 }

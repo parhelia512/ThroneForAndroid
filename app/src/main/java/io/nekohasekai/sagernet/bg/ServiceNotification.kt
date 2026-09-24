@@ -13,10 +13,12 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.nekohasekai.sagernet.Action
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProfileOrder
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.app
@@ -24,6 +26,7 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ui.SwitchActivity
 import io.nekohasekai.sagernet.utils.Theme
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -46,6 +49,20 @@ class ServiceNotification(
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
+        // notificationActions entries; the template shows at most three buttons, in this order.
+        const val ACTION_STOP = "stop"
+        const val ACTION_PREVIOUS = "previous"
+        const val ACTION_NEXT = "next"
+        const val ACTION_SWITCH = "switch"
+        const val ACTION_RESET = "reset"
+        val DEFAULT_ACTIONS = listOf(ACTION_STOP, ACTION_NEXT, ACTION_SWITCH)
+        private val ACTION_ORDER = listOf(ACTION_STOP, ACTION_PREVIOUS, ACTION_NEXT, ACTION_SWITCH, ACTION_RESET)
+
+        fun notificationActions(): List<String> {
+            val stored = DataStore.configurationStore.getStringList(Key.NOTIFICATION_ACTIONS) ?: return DEFAULT_ACTIONS
+            return ACTION_ORDER.filter { it in stored }.take(3)
+        }
+
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
                 SagerDatabase.groupDao.getById(ent.groupId)?.displayName() else null
@@ -53,7 +70,10 @@ class ServiceNotification(
         }
     }
 
-    var listenPostSpeed = true
+    var listenPostSpeed = SagerNet.power.isInteractive
+
+    /** Whether the screen is on; the traffic looper stops polling the core while it is off. */
+    val screenOn = MutableStateFlow(SagerNet.power.isInteractive)
 
     suspend fun postNotificationSpeedUpdate(stats: SpeedDisplayData) {
         useBuilder {
@@ -97,6 +117,18 @@ class ServiceNotification(
     suspend fun postNotificationTitle(newTitle: String) {
         useBuilder {
             it.setContentTitle(newTitle)
+        }
+        update()
+    }
+
+    /** A restart in place: the new profile's title and buttons, and no speed of the old one. */
+    suspend fun refresh(newTitle: String) {
+        updateActions()
+        useBuilder {
+            it.setContentTitle(newTitle)
+            it.setContentText(null)
+            it.setSubText(null)
+            it.setStyle(null)
         }
         update()
     }
@@ -150,37 +182,62 @@ class ServiceNotification(
 
     private suspend fun updateActions() {
         service as Context
+        val actions = notificationActions()
+        val profileId = service.data.proxy?.profile?.id ?: DataStore.selectedProxy
+        val canCycle = (ACTION_NEXT in actions || ACTION_PREVIOUS in actions) && ProfileOrder.canCycle(profileId)
         useBuilder {
             it.clearActions()
-
-            val closeAction = NotificationCompat.Action.Builder(
-                0, service.getText(R.string.stop), PendingIntent.getBroadcast(
-                    service, 0, Intent(Action.CLOSE).setPackage(service.packageName), flags
+            for (action in actions) when (action) {
+                ACTION_STOP -> it.addAction(
+                    broadcastAction(R.drawable.ic_notification_stop, service.getText(R.string.stop), Action.CLOSE, 1)
                 )
-            ).setShowsUserInterface(false).build()
-            it.addAction(closeAction)
 
-            val switchAction = NotificationCompat.Action.Builder(
-                0, service.getString(R.string.action_switch), PendingIntent.getActivity(
-                    service, 0, Intent(service, SwitchActivity::class.java), flags
+                ACTION_PREVIOUS -> if (canCycle) it.addAction(
+                    broadcastAction(
+                        R.drawable.ic_notification_previous, service.getText(R.string.notification_previous),
+                        Action.SWITCH_PREVIOUS, 2,
+                    )
                 )
-            ).setShowsUserInterface(false).build()
-            it.addAction(switchAction)
 
-            val resetUpstreamAction = NotificationCompat.Action.Builder(
-                0, service.getString(R.string.reset_connections),
-                PendingIntent.getBroadcast(
-                    service, 0, Intent(Action.RESET_UPSTREAM_CONNECTIONS), flags
+                ACTION_NEXT -> if (canCycle) it.addAction(
+                    broadcastAction(
+                        R.drawable.ic_notification_next, service.getText(R.string.notification_next),
+                        Action.SWITCH_NEXT, 3,
+                    )
                 )
-            ).setShowsUserInterface(false).build()
-            it.addAction(resetUpstreamAction)
+
+                ACTION_SWITCH -> it.addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_notification_switch, service.getText(R.string.notification_switch),
+                        PendingIntent.getActivity(
+                            service, 4,
+                            Intent(service, SwitchActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            flags,
+                        )
+                    ).setShowsUserInterface(true).build()
+                )
+
+                ACTION_RESET -> it.addAction(
+                    broadcastAction(
+                        R.drawable.ic_notification_reset, service.getText(R.string.reset_connections),
+                        Action.RESET_UPSTREAM_CONNECTIONS, 5,
+                    )
+                )
+            }
         }
     }
 
+    private fun broadcastAction(icon: Int, title: CharSequence, action: String, requestCode: Int) =
+        NotificationCompat.Action.Builder(
+            icon, title, PendingIntent.getBroadcast(
+                service as Context, requestCode, Intent(action).setPackage(service.packageName), flags
+            )
+        ).setShowsUserInterface(false).build()
+
     override fun onReceive(context: Context, intent: Intent) {
-        if (service.data.state == BaseService.State.Connected) {
-            listenPostSpeed = intent.action == Intent.ACTION_SCREEN_ON
-        }
+        val on = intent.action == Intent.ACTION_SCREEN_ON
+        screenOn.value = on
+        listenPostSpeed = on
     }
 
 

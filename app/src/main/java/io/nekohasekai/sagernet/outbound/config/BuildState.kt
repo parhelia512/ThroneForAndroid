@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 internal object Tags {
     const val PROXY = "proxy"
     const val DIRECT = "direct"
+    const val WARP_BYPASS = "warp-bypass"
 
     const val DNS_REMOTE = "dns-remote"
     const val DNS_DIRECT = "dns-direct"
@@ -22,6 +23,7 @@ internal object Tags {
 
     const val MAIN_CHAIN_PREFIX = "config"
     const val ROUTE_CHAIN_PREFIX = "route"
+    const val POOL_CHAIN_PREFIX = "pool"
     const val TEST_CHAIN_PREFIX = "proxy"
     const val TEST_XRAY_FULL_PREFIX = "xrayfull"
     const val BRIDGE_PREFIX = "bridge"
@@ -75,7 +77,7 @@ internal class Prerequisites {
     /** vpn_private_ranges minus every range a non-direct rule takes away from direct (#1741). */
     val bypassedPrivateRanges = ArrayList<String>()
 
-    /** -1 proxy, -2 direct, -5 proxy (no WARP) and every route outbound profile id -> its `route-<n>` tag. */
+    /** -1 proxy, -2 direct, -5 warp-bypass (proxy without WARP) and every route outbound profile id -> its `route-<n>` tag. */
     val outboundMap = HashMap<Long, String>()
 
     /** One hop list per route outbound, exit first. */
@@ -106,6 +108,8 @@ internal class BuildState(val forTest: Boolean) {
     var xrayConfig = JsonObject()
     var isXrayNeeded = false
     var tunIPv4Cidr: String? = null
+    val xrayFullConfigs = ArrayList<String>()
+    var autoSelector: AutoSelectorBuild? = null
 
     val failed: Boolean get() = error.isNotEmpty()
 

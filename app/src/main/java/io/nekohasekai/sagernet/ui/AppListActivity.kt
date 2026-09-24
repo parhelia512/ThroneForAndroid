@@ -14,7 +14,6 @@ import android.widget.Filterable
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.annotation.UiThread
-import androidx.core.view.ViewCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
@@ -29,7 +28,8 @@ import io.nekohasekai.sagernet.databinding.LayoutAppListBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
 import io.nekohasekai.sagernet.utils.PackageCache
-import io.nekohasekai.sagernet.widget.ListListener
+import io.nekohasekai.sagernet.widget.applyInsetPadding
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -196,9 +196,12 @@ class AppListActivity : ThemedActivity() {
         setContentView(binding.root)
 
         binding.appPlaceholder.openSettings.setOnClickListener {
-            startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = android.net.Uri.fromParts("package", packageName, null)
-            })
+            try {
+                startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.fromParts("package", packageName, null)
+                })
+            } catch (_: Exception) {
+            }
         }
 
         setSupportActionBar(binding.toolbar)
@@ -218,7 +221,9 @@ class AppListActivity : ThemedActivity() {
         binding.list.itemAnimator = DefaultItemAnimator()
         binding.list.adapter = appsAdapter
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
+        // the app bar fits system windows (status bar foreground); the list pads the navigation bar
+        binding.list.applyListInsets(ime = true, horizontal = false)
+        binding.collapsing.applyInsetPadding(horizontal = true)
 
         binding.search.addTextChangedListener { refilter() }
 
@@ -266,6 +271,15 @@ class AppListActivity : ThemedActivity() {
                 apps = sorted(apps)
                 updateSubtitle()
                 refilter()
+                return true
+            }
+
+            R.id.action_add_package -> {
+                PackageNameInput.show(this) { names ->
+                    selected.addAll(names)
+                    updateSubtitle()
+                    loadApps()
+                }
                 return true
             }
 

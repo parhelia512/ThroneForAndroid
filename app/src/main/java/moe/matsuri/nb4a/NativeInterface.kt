@@ -3,11 +3,9 @@ package moe.matsuri.nb4a
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Process
 import android.system.OsConstants
@@ -20,6 +18,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import io.nekohasekai.sagernet.utils.PackageCache
+import io.nekohasekai.sagernet.utils.WifiStateAccess
 import io.throneproj.mobile.ConnectionOwner
 import io.throneproj.mobile.InterfaceUpdateListener
 import io.throneproj.mobile.LocalDNSTransport
@@ -42,7 +41,11 @@ import io.throneproj.mobile.Notification as CoreNotification
 
 class NativeInterface : PlatformInterface {
 
-    override fun localDNSTransport(): LocalDNSTransport = LocalResolverImpl
+    override fun localDNSTransport(): LocalDNSTransport? = try {
+        LocalResolverImpl
+    } catch (_: Throwable) {
+        null
+    }
 
     override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
 
@@ -221,11 +224,13 @@ class NativeInterface : PlatformInterface {
         override fun next(): CoreNetworkInterface = iterator.next()
     }
 
-    override fun readWIFIState(): WIFIState? {
-        val wifiManager = app.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        @Suppress("DEPRECATION") val connectionInfo = wifiManager.connectionInfo ?: return null
-        val ssid = connectionInfo.ssid?.removeSurrounding("\"") ?: return null
-        return WIFIState(ssid, connectionInfo.bssid ?: "")
+    // Callbacks whose generated Java method declares no exception must never throw: gomobile does not check or
+    // clear a Java exception for them, so it would stay pending on the Go-owned JNI thread.
+    override fun readWIFIState(): WIFIState? = try {
+        val (ssid, bssid) = WifiStateAccess.read(app)
+        WIFIState(ssid, bssid)
+    } catch (_: Throwable) {
+        null
     }
 
     override fun clearDNSCache() {

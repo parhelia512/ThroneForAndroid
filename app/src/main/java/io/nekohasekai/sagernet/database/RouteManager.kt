@@ -30,13 +30,19 @@ object RouteManager {
         dao.getProfile(id)?.toModel(dao.rulesOf(id))
     })
 
-    /** The profile named by current_route_id; a missing one falls back to the first profile and fixes the setting. */
+    /**
+     * The profile named by current_route_id; a missing or raw one falls back to the first profile Android can use
+     * (a new Default one when only raw profiles exist) and fixes the setting.
+     */
     fun current(): RouteProfile {
-        get(DataStore.currentRouteId)?.let { return it }
-        val first = all().first()
+        get(DataStore.currentRouteId)?.takeIf { !it.is_raw }?.let { return it }
+        val first = usable().firstOrNull() ?: RouteProfile.defaultProfile().also { save(it) }
         DataStore.currentRouteId = first.id
         return first
     }
+
+    /** Every profile but the desktop's raw ones, which Android keeps read-only and never uses. */
+    fun usable(): List<RouteProfile> = all().filterNot { it.is_raw }
 
     /** Inserts when [p] has no id (and assigns it), else upserts the row; the rules are replaced in list order. */
     fun save(p: RouteProfile): Long {

@@ -3,7 +3,6 @@ package io.nekohasekai.sagernet.utils
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
-import android.util.TypedValue
 import androidx.appcompat.app.AppCompatDelegate
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
@@ -48,19 +47,19 @@ object Theme {
         applyAmoledOverlay(context)
     }
 
-    // 夜间模式下启用 AMOLED 纯黑开关时，在既有主题之上叠加纯黑 overlay
+    // Night mode with AMOLED black: the black overlay goes on top of the theme
     private fun applyAmoledOverlay(context: Context) {
         if (DataStore.amoledTheme && usingNightMode()) {
             context.theme.applyStyle(R.style.Theme_SagerNet_Amoled, true)
-            // 纯白主题夜间回退纯黑主题，其顶栏（colorPrimary）为深灰，OLED 下叠加压到纯黑；
-            // Monet 动态取色生效时纯白专属叠加不生效，避免 Monet 配色被压成纯黑
+            // White falls back to Black at night, whose app bar (colorPrimary) is dark grey; OLED makes it black.
+            // Not under Monet, so the Monet colours are not flattened to black
             if (DataStore.appTheme == WHITE && !usingMonetTheme()) {
                 context.theme.applyStyle(R.style.Theme_SagerNet_Amoled_White, true)
             }
         }
     }
 
-    // 系统动态取色（Monet）是否处于生效状态：生效时一切纯白主题专属适配均不生效
+    // Whether system dynamic colour (Monet) is in effect; it disables every White-theme adjustment
     fun usingMonetTheme(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DataStore.useSystemTheme
     }
@@ -107,7 +106,7 @@ object Theme {
             BLACK -> R.style.Theme_SagerNet_Black
             VERDANT_MINT -> R.style.Theme_SagerNet_VerdantMint
             WHITE ->
-                // 纯白主题仅在非夜间模式生效，夜间模式回退纯黑主题避免纯白底色
+                // White only applies outside night mode; at night it falls back to Black
                 if (usingNightMode()) R.style.Theme_SagerNet_White_Night else R.style.Theme_SagerNet_White
             else -> getTheme(defaultTheme())
         }
@@ -144,22 +143,12 @@ object Theme {
         }
     }
 
-    // 纯白主题是否处于生效状态（夜间模式自动回退纯黑主题；系统动态取色 Monet 覆盖时不生效）
+    // Whether the White theme is in effect (not at night, where it falls back to Black, and not under Monet)
     fun isWhiteTheme(): Boolean {
         if (usingMonetTheme()) {
             return false
         }
         return DataStore.appTheme == WHITE && !usingNightMode()
-    }
-
-    // 当前主题主要颜色：纯白模式返回白色，其余从应用主题读取 colorPrimary
-    fun getPrimaryColor(): Int {
-        if (isWhiteTheme()) {
-            return 0xFFFFFFFF.toInt()
-        }
-        val typedValue = TypedValue()
-        app.theme.resolveAttribute(R.attr.colorPrimary, typedValue, true)
-        return typedValue.data
     }
 
     var currentNightMode = -1

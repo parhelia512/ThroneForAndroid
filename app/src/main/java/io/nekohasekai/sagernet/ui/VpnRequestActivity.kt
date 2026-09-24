@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,16 +10,19 @@ import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.view.ContextThemeWrapper
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.getSystemService
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.broadcastReceiver
+import io.nekohasekai.sagernet.utils.Theme
 
 class VpnRequestActivity : AppCompatActivity() {
     private var receiver: BroadcastReceiver? = null
@@ -26,7 +30,7 @@ class VpnRequestActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (getSystemService<KeyguardManager>()!!.isKeyguardLocked) {
-            receiver = broadcastReceiver { _, _ -> connect.launch(null) }
+            receiver = broadcastReceiver { _, _ -> launchConnect() }
             if (SDK_INT >= 33) {
                 registerReceiver(
                     receiver,
@@ -36,12 +40,22 @@ class VpnRequestActivity : AppCompatActivity() {
             } else {
                 registerReceiver(receiver, IntentFilter(Intent.ACTION_USER_PRESENT))
             }
-        } else connect.launch(null)
+        } else launchConnect()
     }
 
     private val connect = registerForActivityResult(StartService()) {
         if (it) Toast.makeText(this, R.string.vpn_permission_denied, Toast.LENGTH_LONG).show()
         finish()
+    }
+
+    private fun launchConnect() {
+        try {
+            connect.launch(null)
+        } catch (_: ActivityNotFoundException) {
+            showConsentUnavailable(ContextThemeWrapper(this, Theme.getTheme())) { finish() }
+        } catch (_: SecurityException) {
+            showConsentUnavailable(ContextThemeWrapper(this, Theme.getTheme())) { finish() }
+        }
     }
 
     override fun onDestroy() {
@@ -77,5 +91,25 @@ class VpnRequestActivity : AppCompatActivity() {
             }
     }
 
+    companion object {
 
+        /**
+         * Some TV, AOSP and vendor builds ship without VpnDialogs, so the consent screen cannot open. The app op can
+         * still be granted over adb (VpnService.prepare then returns null), or the proxy mode used instead.
+         */
+        fun showConsentUnavailable(context: Context, onDismiss: () -> Unit = {}) {
+            val command = "adb shell appops set ${context.packageName} ACTIVATE_VPN allow"
+            MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.vpn_dialog_missing_title)
+                .setMessage(context.getString(R.string.vpn_dialog_missing_message, context.packageName))
+                .setPositiveButton(R.string.vpn_dialog_use_proxy) { _, _ ->
+                    DataStore.serviceMode = Key.MODE_PROXY
+                    SagerNet.startService()
+                }
+                .setNeutralButton(R.string.vpn_dialog_copy_command) { _, _ -> SagerNet.trySetPrimaryClip(command) }
+                .setNegativeButton(android.R.string.cancel, null)
+                .setOnDismissListener { onDismiss() }
+                .show()
+        }
+    }
 }

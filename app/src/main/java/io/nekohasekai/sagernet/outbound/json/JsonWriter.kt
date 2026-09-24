@@ -69,7 +69,7 @@ object JsonWriter {
                     '\b' -> sb.append("\\b")
                     '\t' -> sb.append("\\t")
                     '\n' -> sb.append("\\n")
-                    '' -> sb.append("\\f")
+                    '\u000C' -> sb.append("\\f")
                     '\r' -> sb.append("\\r")
                     else -> sb.append("\\u00").append(HEX[c.code shr 4]).append(HEX[c.code and 0xF])
                 }

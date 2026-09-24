@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
@@ -16,15 +17,19 @@ import android.os.UserManager
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
+import io.nekohasekai.sagernet.appwidget.Widgets
 import io.nekohasekai.sagernet.bg.CoreRuntime
 import io.nekohasekai.sagernet.bg.SagerConnection
+import io.nekohasekai.sagernet.bg.autoselector.AutoSelectorRuntime
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.SettingsMapper
 import io.nekohasekai.sagernet.group.RemoteRouteUpdater
+import io.nekohasekai.sagernet.group.SubscriptionScheduler
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
-import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.update.UpdateManager
 import io.nekohasekai.sagernet.utils.*
 import kotlinx.coroutines.DEBUG_PROPERTY_NAME
 import kotlinx.coroutines.DEBUG_PROPERTY_VALUE_ON
@@ -51,9 +56,15 @@ class SagerNet : Application(),
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
 
         if (isMainProcess || isBgProcess) {
+            SettingsMapper.installOutboundHooks()
             if (isBgProcess) {
+                // The tile, shortcuts, widgets and the boot receiver start the foreground service from here.
+                updateNotificationChannels()
+                // A new :bg process means no service runs: heal widgets left "Connected" by a killed one.
+                Widgets.push(this)
                 // The core (and its JNI library) is loaded in the :bg process only.
                 CoreRuntime.setup(this)
+                AutoSelectorRuntime.install()
                 // Warm the default-network cache so a box's interface monitor gets its interface synchronously.
                 runOnDefaultDispatcher {
                     DefaultNetworkListener.start(this@SagerNet) {
@@ -75,6 +86,7 @@ class SagerNet : Application(),
             Theme.apply(this)
             Theme.applyNightTheme()
             AppLocale.apply()
+            UpdateManager.onAppStart(this)
             runOnDefaultDispatcher {
                 DefaultNetworkListener.start(this) {
                     underlyingNetwork = it
@@ -83,6 +95,8 @@ class SagerNet : Application(),
                 updateNotificationChannels()
             }
             RemoteRouteUpdater.schedule(keepExisting = true)
+            SubscriptionScheduler.schedule(keepExisting = true)
+            Widgets.watchSelection(this)
         }
 
         if (BuildConfig.DEBUG) {
@@ -115,7 +129,8 @@ class SagerNet : Application(),
         lateinit var application: SagerNet
 
         val isTv by lazy {
-            uiMode.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+            uiMode.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                application.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         }
 
         val configureIntent: (Context) -> PendingIntent by lazy {
@@ -173,6 +188,10 @@ class SagerNet : Application(),
                             "connection-test",
                             application.getText(R.string.connection_test),
                             NotificationManager.IMPORTANCE_DEFAULT
+                        ), NotificationChannel(
+                            PlatformNotifications.CHANNEL_WARNINGS,
+                            application.getText(R.string.channel_warnings),
+                            NotificationManager.IMPORTANCE_DEFAULT
                         )
                     )
                 )
@@ -193,9 +212,7 @@ class SagerNet : Application(),
 
         var appVersionNameForDisplay = {
             var n = BuildConfig.VERSION_NAME
-            if (isPreview) {
-                n += " " + BuildConfig.PRE_VERSION_NAME
-            } else if (!isOss) {
+            if (!isOss) {
                 n += " ${BuildConfig.FLAVOR}"
             }
             if (BuildConfig.DEBUG) {

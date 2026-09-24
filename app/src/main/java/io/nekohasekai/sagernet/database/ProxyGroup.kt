@@ -1,143 +1,107 @@
 package io.nekohasekai.sagernet.database
 
-import androidx.room.*
-import com.esotericsoftware.kryo.io.ByteBufferInput
-import com.esotericsoftware.kryo.io.ByteBufferOutput
-import io.nekohasekai.sagernet.GroupOrder
-import io.nekohasekai.sagernet.GroupType
+import android.os.Parcelable
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.Ignore
+import androidx.room.Insert
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Update
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.fmt.Serializable
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import kotlinx.parcelize.Parcelize
 
-@Entity(tableName = "proxy_groups")
+/**
+ * The desktop's `groups` row (GroupsRepo.cpp:20-43) without `profiles_json` (membership and order live in
+ * `profiles.gid` / `profiles.user_order`) and with `display_order` (the desktop's `groups_order` table flattened).
+ * A group is a subscription iff [url] is not empty. [columnWidthJson] is desktop table state, stored opaque.
+ */
+@Entity(tableName = ProxyGroup.TABLE)
+@Parcelize
 data class ProxyGroup(
     @PrimaryKey(autoGenerate = true) var id: Long = 0L,
-    var userOrder: Long = 0L,
-    var ungrouped: Boolean = false,
-    var name: String? = null,
-    var type: Int = GroupType.BASIC,
-    var subscription: SubscriptionBean? = null,
-    var order: Int = GroupOrder.ORIGIN,
-    var isSelector: Boolean = false,
-    var frontProxy: Long = -1L,
-    var landingProxy: Long = -1L
-) : Serializable() {
+    @ColumnInfo(name = "archive", defaultValue = "0") var archive: Boolean = false,
+    @ColumnInfo(name = "skip_auto_update", defaultValue = "0") var skipAutoUpdate: Boolean = false,
+    @ColumnInfo(name = "name", defaultValue = "") var name: String = "",
+    @ColumnInfo(name = "url", defaultValue = "") var url: String = "",
+    /** The raw Subscription-UserInfo header of the last fetch. */
+    @ColumnInfo(name = "info", defaultValue = "") var info: String = "",
+    /** Epoch seconds. */
+    @ColumnInfo(name = "sub_last_update", defaultValue = "0") var subLastUpdate: Long = 0L,
+    /** Profile ids; -1 (or any id <= 0) = none. */
+    @ColumnInfo(name = "front_proxy_id", defaultValue = "-1") var frontProxyId: Long = -1L,
+    @ColumnInfo(name = "landing_proxy_id", defaultValue = "-1") var landingProxyId: Long = -1L,
+    @ColumnInfo(name = "column_width_json", defaultValue = "") var columnWidthJson: String = "",
+    /** The first visible row of the list, -1 = top. */
+    @ColumnInfo(name = "scroll_last_profile", defaultValue = "-1") var scrollLastProfile: Int = -1,
+    @ColumnInfo(name = "auto_clear_unavailable", defaultValue = "0") var autoClearUnavailable: Boolean = false,
+    /** [TestBy] */
+    @ColumnInfo(name = "test_sort_by", defaultValue = "0") var testSortBy: Int = 0,
+    /** [TrafficBy] */
+    @ColumnInfo(name = "traffic_sort_by", defaultValue = "0") var trafficSortBy: Int = 0,
+    /** [TestShowItems] */
+    @ColumnInfo(name = "test_items_to_show", defaultValue = "0") var testItemsToShow: Int = 0,
+    /** [TypeBy] */
+    @ColumnInfo(name = "type_sort_by", defaultValue = "0") var typeSortBy: Int = 0,
+    @ColumnInfo(name = "sub_options_json", defaultValue = "{}") var subOptions: SubscriptionOptions = SubscriptionOptions(),
+    @ColumnInfo(name = "display_order", defaultValue = "0") var displayOrder: Long = 0L,
+) : Parcelable {
 
-    @Transient
-    var export = false
+    @get:Ignore
+    val isSubscription: Boolean get() = url.isNotEmpty()
 
-    override fun initializeDefaultValues() {
-        subscription?.applyDefaultValues()
-    }
+    fun displayName(): String = name.takeIf { it.isNotBlank() } ?: app.getString(R.string.group_default_name)
 
-    override fun serializeToBuffer(output: ByteBufferOutput) {
-        if (export) {
-
-            output.writeInt(0)
-            output.writeString(name)
-            output.writeInt(type)
-            val subscription = subscription!!
-            subscription.serializeForShare(output)
-
-        } else {
-            output.writeInt(0)
-            output.writeLong(id)
-            output.writeLong(userOrder)
-            output.writeBoolean(ungrouped)
-            output.writeString(name)
-            output.writeInt(type)
-
-            if (type == GroupType.SUBSCRIPTION) {
-                subscription?.serializeToBuffer(output)
-            }
-            output.writeInt(order)
-        }
-    }
-
-    override fun deserializeFromBuffer(input: ByteBufferInput) {
-        if (export) {
-            val version = input.readInt()
-
-            name = input.readString()
-            type = input.readInt()
-            val subscription = SubscriptionBean()
-            this.subscription = subscription
-
-            subscription.deserializeFromShare(input)
-        } else {
-            val version = input.readInt()
-
-            id = input.readLong()
-            userOrder = input.readLong()
-            ungrouped = input.readBoolean()
-            name = input.readString()
-            type = input.readInt()
-
-            if (type == GroupType.SUBSCRIPTION) {
-                val subscription = SubscriptionBean()
-                this.subscription = subscription
-
-                subscription.deserializeFromBuffer(input)
-            }
-            order = input.readInt()
-        }
-    }
-
-    fun displayName(): String {
-        return name.takeIf { !it.isNullOrBlank() } ?: app.getString(R.string.group_default)
+    companion object {
+        const val TABLE = "groups"
     }
 
     @androidx.room.Dao
     interface Dao {
 
-        @Query("SELECT * FROM proxy_groups ORDER BY userOrder")
+        /** Tab / list order. */
+        @Query("SELECT * FROM `groups` ORDER BY `display_order`, `id`")
         fun allGroups(): List<ProxyGroup>
 
-        @Query("SELECT * FROM proxy_groups WHERE type = ${GroupType.SUBSCRIPTION}")
-        suspend fun subscriptions(): List<ProxyGroup>
+        @Query("SELECT `id` FROM `groups` ORDER BY `display_order`, `id`")
+        fun allIds(): List<Long>
 
-        @Query("SELECT MAX(userOrder) + 1 FROM proxy_groups")
-        fun nextOrder(): Long?
-
-        @Query("SELECT * FROM proxy_groups WHERE id = :groupId")
+        @Query("SELECT * FROM `groups` WHERE `id` = :groupId")
         fun getById(groupId: Long): ProxyGroup?
 
-        @Query("DELETE FROM proxy_groups WHERE id = :groupId")
-        fun deleteById(groupId: Long): Int
+        @Query("SELECT COUNT(*) FROM `groups`")
+        fun count(): Long
 
-        @Delete
-        fun deleteGroup(group: ProxyGroup)
+        /** GroupsRepo::AddGroup: MAX + 1, and 1 for the first group. */
+        @Query("SELECT COALESCE(MAX(`display_order`), 0) + 1 FROM `groups`")
+        fun nextDisplayOrder(): Long
 
-        @Delete
-        fun deleteGroup(groupList: List<ProxyGroup>)
+        /** Configs.cpp:35-39 initDB: the Default group of an empty table, in one statement so both processes may call it. */
+        @Query("INSERT INTO `groups` (`name`, `display_order`) SELECT :name, 1 WHERE NOT EXISTS (SELECT 1 FROM `groups`)")
+        fun insertDefaultIfEmpty(name: String)
 
         @Insert
-        fun createGroup(group: ProxyGroup): Long
+        fun insert(group: ProxyGroup): Long
+
+        @Insert
+        fun insert(groups: List<ProxyGroup>)
 
         @Update
-        fun updateGroup(group: ProxyGroup)
+        fun update(group: ProxyGroup): Int
 
-        @Query("DELETE FROM proxy_groups")
+        @Query("UPDATE `groups` SET `display_order` = :order WHERE `id` = :groupId")
+        fun setDisplayOrder(groupId: Long, order: Long)
+
+        /** A subscription refresh's stamp (GroupUpdater.cpp:493-495) without rewriting the rest of the row. */
+        @Query("UPDATE `groups` SET `sub_last_update` = :lastUpdate, `info` = :info WHERE `id` = :groupId")
+        fun setSubscriptionInfo(groupId: Long, lastUpdate: Long, info: String): Int
+
+        /** The group's profiles go by the foreign key cascade. */
+        @Query("DELETE FROM `groups` WHERE `id` = :groupId")
+        fun deleteById(groupId: Long): Int
+
+        @Query("DELETE FROM `groups`")
         fun reset()
-
-        @Insert
-        fun insert(groupList: List<ProxyGroup>)
-
     }
-
-    companion object {
-        @JvmField
-        val CREATOR = object : Serializable.CREATOR<ProxyGroup>() {
-
-            override fun newInstance(): ProxyGroup {
-                return ProxyGroup()
-            }
-
-            override fun newArray(size: Int): Array<ProxyGroup?> {
-                return arrayOfNulls(size)
-            }
-        }
-    }
-
 }

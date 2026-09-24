@@ -52,6 +52,12 @@
             app:icon="@drawable/ic_action_settings"
             app:key="disable_version_fallback"
             app:title="@string/masque_disable_version_fallback" />
+        <Preference
+            app:icon="@drawable/ic_file_cloud_queue"
+            app:key="warpGenerate"
+            app:persistent="false"
+            app:summary="@string/warp_generate_identity_masque_sum"
+            app:title="@string/warp_generate_identity" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -72,6 +78,90 @@
             app:key="tls.certificate"
             app:title="@string/certificates"
             app:dialogMessage="@string/certificate_pem_hint"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_shuffle_24"
+            app:key="tls.fragment"
+            app:title="@string/tls_fragment"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="tls.fragment_fallback_delay"
+            app:title="@string/tls_fragment_fallback_delay"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_shuffle_24"
+            app:key="tls.record_fragment"
+            app:title="@string/tls_record_fragment" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_tune_24"
+            app:key="tls.tls_tricks"
+            app:title="@string/tls_tricks"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="tlsCamouflageCategory"
+        app:title="@string/tls_camouflage_settings">
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_fingerprint_24"
+            app:key="tls.utls.fingerPrint"
+            app:title="@string/utls_fingerprint"
+            app:entries="@array/utls_fingerprint_preset_entries"
+            app:entryValues="@array/utls_fingerprint_entry"
+            app:defaultValue=""
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="quicCategory"
+        app:summary="@string/preset_quic_note"
+        app:title="@string/quic_settings">
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="quic.idle_timeout"
+            app:title="@string/quic_idle_timeout"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_timelapse_24"
+            app:key="quic.keep_alive_period"
+            app:title="@string/quic_keep_alive_period"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_texture_24"
+            app:key="quic.stream_receive_window"
+            app:title="@string/hysteria_stream_receive_window"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_transform_24"
+            app:key="quic.connection_receive_window"
+            app:title="@string/hysteria_connection_receive_window"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="quic.max_concurrent_streams"
+            app:title="@string/quic_max_concurrent_streams"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_tune_24"
+            app:key="quic.initial_packet_size"
+            app:title="@string/quic_initial_packet_size"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:icon="@drawable/ic_baseline_multiple_stop_24"
+            app:key="quic.disable_path_mtu_discovery"
+            app:title="@string/hysteria_disable_mtu_discovery"
+            app:entries="@array/tri_state_entry"
+            app:entryValues="@array/int_array_3"
+            app:defaultValue="0"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 

@@ -17,13 +17,9 @@ enum class RuleType(val id: Int, val token: String) {
     SIMPLE_PROCESS_PATH_WARP_BYPASS(12, "simple_process_path_warp_bypass"),
     ENDPOINT_PREFERRED_BY(13, "endpoint_preferred_by");
 
-    val isSimple: Boolean get() = id in 1..12
-
     val isSimpleAddress: Boolean
         get() = this == SIMPLE_ADDRESS_PROXY || this == SIMPLE_ADDRESS_BYPASS ||
             this == SIMPLE_ADDRESS_BLOCK || this == SIMPLE_ADDRESS_WARP_BYPASS
-
-    val isSimpleProcess: Boolean get() = isSimple && !isSimpleAddress
 
     /** The fixed target of a simple rule (RouteProfile.cpp:119-155): PROXY, DIRECT, BLOCK (a reject) or WARP_BYPASS. */
     val simpleOutbound: Long?

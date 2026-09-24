@@ -8,7 +8,7 @@ import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
-@Database(entities = [KeyValuePair::class], version = 1)
+@Database(entities = [KeyValuePair::class], version = 1, exportSchema = false)
 abstract class TempDatabase : RoomDatabase() {
 
     companion object {

@@ -7,9 +7,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 import io.nekohasekai.sagernet.outbound.link.ParsedLink
 
-/** multiplex.h:6 */
-val muxProtocols = listOf("smux", "yamux", "h2mux")
-
 /** TcpBrutal (multiplex.h:8-20, multiplex.cpp:7-48). */
 class TcpBrutal {
     @JvmField var enabled: Boolean = false
@@ -71,20 +68,6 @@ class Multiplex {
     @JvmField var max_streams: Int = 0
     @JvmField var padding: Boolean = false
     @JvmField var brutal: TcpBrutal = TcpBrutal()
-
-    /** multiplex.h:34-38 (0 = Keep Default, 1 = On, 2 = Off). */
-    fun getMuxState(): Int = if (enabled) 1 else if (!unspecified) 2 else 0
-
-    /** multiplex.h:40-48. */
-    fun saveMuxState(state: Int) {
-        unspecified = false
-        if (state == 1) {
-            enabled = true
-            return
-        }
-        enabled = false
-        if (state == 0) unspecified = true
-    }
 
     fun parseFromLink(link: String): Boolean = parseFromLink(LinkParser.parse(link))
 

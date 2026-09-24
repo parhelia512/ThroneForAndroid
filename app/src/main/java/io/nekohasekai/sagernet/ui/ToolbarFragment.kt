@@ -7,22 +7,25 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.utils.Theme
+import io.nekohasekai.sagernet.widget.applyTopInset
 
 open class ToolbarFragment : Fragment {
 
     constructor() : super()
     constructor(contentLayoutId: Int) : super(contentLayoutId)
 
-    // 布局未包含 toolbar 或视图尚未创建时为 null，使用前需判空
+    // Null when the layout has no toolbar or the view is not created yet
     var toolbar: Toolbar? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        view.findViewById<AppBarLayout>(R.id.appbar)?.applyTopInset()
         toolbar = view.findViewById(R.id.toolbar)
         toolbar?.setNavigationIcon(R.drawable.ic_navigation_menu)
-        // 纯白模式下工具栏为白底，菜单/标题/导航图标切换为深色保证可读
+        // White theme: the toolbar is white, so the menu, title and navigation icon turn dark
         if (Theme.isWhiteTheme()) {
             toolbar?.apply {
                 setTitleTextColor(ContextCompat.getColor(requireContext(), R.color.black))
@@ -35,5 +38,4 @@ open class ToolbarFragment : Fragment {
     }
 
     open fun onKeyDown(ketCode: Int, event: KeyEvent) = false
-    open fun onBackPressed(): Boolean = false
 }

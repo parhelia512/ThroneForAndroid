@@ -38,7 +38,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        // 恢复默认设置功能
         findPreference<Preference>(KEY_RESET_SETTINGS)!!.setOnPreferenceClickListener {
             MaterialAlertDialogBuilder(requireContext()).apply {
                 setTitle(R.string.confirm)
@@ -52,7 +51,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        // 清理缓存功能
         findPreference<Preference>(Key.CLEAR_CACHE)!!.setOnPreferenceClickListener {
             MaterialAlertDialogBuilder(requireContext()).apply {
                 setTitle(R.string.clear_cache)

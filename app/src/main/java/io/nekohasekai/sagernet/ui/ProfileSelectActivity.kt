@@ -16,12 +16,14 @@ class ProfileSelectActivity : ThemedActivity(R.layout.layout_empty),
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (savedInstanceState != null) return
         val selected = intent.getParcelableExtra<ProxyEntity>(EXTRA_SELECTED)
 
         supportFragmentManager.beginTransaction()
             .replace(
                 R.id.fragment_holder,
-                ConfigurationFragment(true, selected, R.string.select_profile)
+                // both callers fill fixed-server slots (front / landing proxy, chain hops)
+                ConfigurationFragment.forSelection(selected, R.string.select_profile, hideAutoSelectors = true)
             )
             .commitAllowingStateLoss()
     }

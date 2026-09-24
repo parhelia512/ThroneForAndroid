@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.json.JsonValues
 import io.nekohasekai.sagernet.outbound.json.jsonObjectOf
+import io.nekohasekai.sagernet.outbound.types.AutoSelector
 import io.nekohasekai.sagernet.route.OutboundIds
 import io.nekohasekai.sagernet.route.RouteProfile
 import io.nekohasekai.sagernet.route.RuleSets
@@ -18,27 +19,30 @@ import io.nekohasekai.sagernet.route.RuleType
  * (:2544-2693) for a batch of URL-test candidates. Sections are emitted in the desktop's order and serialised
  * compact with sorted keys, so a config matches the desktop's byte for byte wherever the inputs match.
  *
- * Not generated on Android (desktop-only or out of scope): WARP, raw route profiles, the `hijack` / `hijack-dns`
+ * Not generated on Android (desktop-only or out of scope): raw route profiles, the `hijack` / `hijack-dns`
  * inbounds, route_exclude_address_set, TLS spoof, extra cores, auxiliary VPN endpoints and the OpenVPN /
- * OpenConnect tunnel DNS servers, the L3 bridge, the api dashboard, Tailscale and auto-selector profiles.
+ * OpenConnect tunnel DNS servers, the L3 bridge, the api dashboard and Tailscale profiles.
  */
 class ConfigGenerator @JvmOverloads constructor(
     private val profiles: ProfileProvider,
     private val settings: GeneratorSettings,
     private val buildContext: BuildContext = BuildContext.DEFAULT,
     private val routing: RoutingInput = RoutingInput.DEFAULT,
+    /** Unix seconds: result freshness and warm-health ages of auto-selector members. */
+    private val clock: () -> Long = { System.currentTimeMillis() / 1000 },
 ) {
 
     /**
      * The config for the started profile [profileId]; [landingProxyId] becomes the exit and [frontProxyId] the
-     * entry of the main chain when > 0 (the group's landing / front proxy, generate.cpp:1815-1832).
+     * entry of the main chain when > 0 (the group's landing / front proxy, generate.cpp:1815-1832). An auto-selector
+     * builds its members with its tracked group's landing / front proxy instead, the group its plan checked.
      */
     @JvmOverloads
     fun build(profileId: Long, landingProxyId: Long = -1, frontProxyId: Long = -1): GeneratedConfig {
         val reads = RecordingProfiles(profiles)
         val profile = reads.get(profileId) ?: return GeneratedConfig.failure("Profile $profileId does not exist")
         if (profile.invalid) return GeneratedConfig.failure("Profile $profileId has a type this build cannot use: ${profile.type}")
-        // A custom full config is the whole core config (:2320-2350).
+        // A custom full config is the whole core config (:2320-2350), never wrapped in WARP.
         val custom = TypeAccess.asCustom(profile)
         if (custom != null && custom.isFullConfig()) {
             val core = custom.build(buildContext).json
@@ -61,16 +65,21 @@ class ConfigGenerator @JvmOverloads constructor(
         val route = routing.profile?.let(::routeProfileForBuild)
             ?: return GeneratedConfig.failure("Routing profile does not exist, try resetting the route profile in Routing Settings")
 
+        // One plan serves the Xray decision and the build (the desktop plans twice, :446-452 and :1631).
+        val plan = (profile as? AutoSelector)?.let { AutoSelectorPlanner(routing.selectors, clock).plan(profileId, it) }
+        val landing = if (plan != null) plan.group?.landingProxyId ?: -1L else landingProxyId
+        val front = if (plan != null) plan.group?.frontProxyId ?: -1L else frontProxyId
+
         val state = BuildState(forTest = false)
-        val chains = ChainBuilder(reads, buildContext, state)
-        calculatePrerequisites(state, chains, reads, profile, route, landingProxyId, frontProxyId)
+        val chains = ChainBuilder(reads, buildContext, state, if (settings.enableWarp) WarpHop.outbound(settings) else null)
+        calculatePrerequisites(state, chains, reads, profile, route, landing, front, plan)
         if (state.failed) return GeneratedConfig.failure(state.error)
 
         buildLogSection(state)
         buildNtpSection(state)
         buildCertificateSection(state)
         buildInboundSection(state)
-        buildOutboundsSection(state, chains, profile, profileId, landingProxyId, frontProxyId)
+        buildOutboundsSection(state, chains, reads, profile, profileId, landing, front, plan)
         if (state.failed) return GeneratedConfig.failure(state.error)
         buildDnsSection(state, useDnsObj = true)
         buildRouteSection(state, route)
@@ -80,12 +89,13 @@ class ConfigGenerator @JvmOverloads constructor(
         buildXrayConfig(state)
         if (state.failed) return GeneratedConfig.failure(state.error)
 
+        val anyXray = state.isXrayNeeded || state.xrayFullConfigs.isNotEmpty()
         return GeneratedConfig(
             coreConfig = state.coreConfig.toCompact(),
             xrayConfig = if (state.isXrayNeeded) state.xrayConfig.toCompact() else null,
             needXray = state.isXrayNeeded,
-            xrayDnsStrategy = if (state.isXrayNeeded) buildContext.xrayOutboundDomainStrategy() else "",
-            xrayFullConfigs = emptyList(),
+            xrayDnsStrategy = if (anyXray) buildContext.xrayOutboundDomainStrategy() else "",
+            xrayFullConfigs = ArrayList(state.xrayFullConfigs),
             outboundTags = emptyList(),
             tagToProfileId = emptyMap(),
             fullConfigs = emptyMap(),
@@ -93,6 +103,7 @@ class ConfigGenerator @JvmOverloads constructor(
             tunIPv4Cidr = state.tunIPv4Cidr,
             error = null,
             involvedProfileIds = reads.ids,
+            autoSelector = state.autoSelector,
         )
     }
 
@@ -105,19 +116,22 @@ class ConfigGenerator @JvmOverloads constructor(
     }
 
     /**
-     * calculatePrerequisites (:542-745) minus WARP, auxiliary endpoints, the DNS-server hijack and extra cores: the
-     * Xray decision, the route outbounds, the rule-sets, the DNS site lists and the tun exclusions.
+     * calculatePrerequisites (:542-745) minus auxiliary endpoints, the DNS-server hijack and extra cores: the WARP
+     * identity check, the Xray decision, the route outbounds, the rule-sets, the DNS site lists and the tun exclusions.
      */
     private fun calculatePrerequisites(
         state: BuildState, chains: ChainBuilder, reads: ProfileProvider, profile: Outbound, route: RouteProfile,
-        landingProxyId: Long, frontProxyId: Long,
+        landingProxyId: Long, frontProxyId: Long, plan: AutoSelectorPlan?,
     ) {
         val pre = state.prerequisites
-        state.proxyUsesXray = chains.proxyPathUsesXray(profile)
+        if (settings.enableWarp && WarpHop.missing(settings)) {
+            state.error = WarpHop.MISSING_ERROR
+            return
+        }
         pre.outboundMap[OutboundIds.PROXY] = Tags.PROXY
         pre.outboundMap[OutboundIds.DIRECT] = Tags.DIRECT
-        // WARP is not generated on Android, so warp-bypass rules ride the proxy (:577).
-        pre.outboundMap[OutboundIds.WARP_BYPASS] = Tags.PROXY
+        pre.outboundMap[OutboundIds.WARP_BYPASS] = if (settings.enableWarp) Tags.WARP_BYPASS else Tags.PROXY
+        state.proxyUsesXray = chains.proxyPathUsesXray(profile, plan?.build ?: emptyList())
 
         // Route outbounds (:580-618), each profile once (D12): a chain takes as many suffixes as it has hops.
         var suffix = 0
@@ -238,11 +252,6 @@ class ConfigGenerator @JvmOverloads constructor(
             if (value.isNotEmpty()) sink(prefix, value)
         }
     }
-
-    /** [buildTest] for candidates that share one group's landing / front proxy. */
-    @JvmOverloads
-    fun buildTestForIds(candidateIds: List<Long>, landingProxyId: Long = -1, frontProxyId: Long = -1): GeneratedConfig =
-        buildTest(candidateIds.map { TestCandidate(it, landingProxyId, frontProxyId) })
 
     /**
      * One test box for every candidate at once (BuildTestConfig, :2544-2693): candidate n is a chain under the
@@ -511,21 +520,36 @@ class ConfigGenerator @JvmOverloads constructor(
         return excluded
     }
 
-    /** buildOutboundsSection (:1795-1911): the main chain, one chain per route outbound, then bridges and `direct`. */
+    /**
+     * buildOutboundsSection (:1795-1911): the main chain (WARP in front of it with enable_warp) or the auto-selector
+     * group, one chain per route outbound, then bridges and `direct`.
+     */
     private fun buildOutboundsSection(
-        state: BuildState, chains: ChainBuilder, profile: Outbound, profileId: Long, landingProxyId: Long, frontProxyId: Long,
+        state: BuildState, chains: ChainBuilder, reads: ProfileProvider, profile: Outbound, profileId: Long,
+        landingProxyId: Long, frontProxyId: Long, plan: AutoSelectorPlan?,
     ) {
-        // Exit first: the landing proxy becomes "proxy", the stored chain list is reversed, the front proxy is dialed directly.
-        val hopIds = ArrayList<Long>()
-        if (landingProxyId > 0) hopIds.add(landingProxyId)
-        if (profile.type == "chain") hopIds.addAll(TypeAccess.chainHops(profile).asReversed()) else hopIds.add(profileId)
-        if (frontProxyId > 0) hopIds.add(frontProxyId)
-        if (hopIds.isEmpty()) {
-            state.error = "The chain has no hops"
-            return
+        val warpWrap = settings.enableWarp
+        if (profile is AutoSelector && plan != null) {
+            buildAutoSelectorGroup(state, chains, reads, profile, profileId, plan, warpWrap)
+            if (state.failed) return
+            if (warpWrap) {
+                buildWarpInFrontOfSelector(state)
+                if (state.failed) return
+            }
+        } else {
+            // Exit first: the landing proxy becomes "proxy", the stored chain list is reversed, the front proxy is dialed directly.
+            val hopIds = ArrayList<Long>()
+            if (landingProxyId > 0) hopIds.add(landingProxyId)
+            if (profile.type == "chain") hopIds.addAll(TypeAccess.chainHops(profile).asReversed()) else hopIds.add(profileId)
+            if (frontProxyId > 0) hopIds.add(frontProxyId)
+            if (hopIds.isEmpty()) {
+                state.error = "The chain has no hops"
+                return
+            }
+            if (warpWrap) hopIds.add(0, WarpHop.PROFILE_ID)
+            chains.buildOutboundChain(ChainRequest(hopIds, Tags.MAIN_CHAIN_PREFIX, includeProxy = true, warpWrap = warpWrap))
+            if (state.failed) return
         }
-        chains.buildOutboundChain(ChainRequest(hopIds, Tags.MAIN_CHAIN_PREFIX, includeProxy = true))
-        if (state.failed) return
 
         var routeSuffix = 0
         for (group in state.prerequisites.routeOutboundGroups) {
@@ -549,6 +573,158 @@ class ConfigGenerator @JvmOverloads constructor(
         state.outbounds.add(jsonObjectOf("type" to "direct", "tag" to Tags.DIRECT))
         state.coreConfig["endpoints"] = state.endpoints
         state.coreConfig["outbounds"] = state.outbounds
+    }
+
+    /**
+     * buildAutoSelectorGroup (:1622-1776): per member of the plan's build a chain `[landing?, member, front?]` under
+     * `pool-<i>` (ingress `pool-<i>-0`) with the bridge ports reserved in one batch, custom Xray full configs drained
+     * into their own instances, then the core `auto-selector` outbound over the members with the warm health of
+     * fresh results and the pin. It is `proxy`, or `warp-bypass` when WARP takes `proxy`.
+     */
+    private fun buildAutoSelectorGroup(
+        state: BuildState, chains: ChainBuilder, reads: ProfileProvider, selector: AutoSelector, selectorId: Long,
+        plan: AutoSelectorPlan, warpWrap: Boolean,
+    ) {
+        val tracked = plan.group
+        if (!plan.ok || tracked == null) {
+            state.error = plan.error
+            return
+        }
+        val groupTag = if (warpWrap) Tags.WARP_BYPASS else Tags.PROXY
+
+        class PlannedMember(val member: SelectorMember, val hopIds: List<Long>, val bridges: MemberBridges)
+
+        // One member the core rejects fails the whole group's start, so drop it instead.
+        val rejected = rejectedMembers(chains, reads, plan.build)
+        val plannedMembers = ArrayList<PlannedMember>()
+        var bridgeCount = 0
+        for (id in plan.build) {
+            if (id in rejected) continue
+            val member = plan.member(id) ?: continue
+            if (reads.get(id) == null) continue
+            val hopIds = ArrayList<Long>()
+            if (tracked.landingProxyId > 0) hopIds.add(tracked.landingProxyId)
+            hopIds.add(id)
+            if (tracked.frontProxyId > 0) hopIds.add(tracked.frontProxyId)
+            val bridges = chains.bridgesFor(hopIds)
+            bridgeCount += bridges.count
+            plannedMembers.add(PlannedMember(member, hopIds, bridges))
+        }
+        // One batch for every member: reserving per member can deal the same port twice.
+        val bridgePorts = LocalPorts.reserve(bridgeCount)
+        var portIdx = 0
+
+        val builtAt = clock()
+        val warm = JsonArray()
+        var pinnedTag = ""
+        val memberTags = JsonArray()
+        val members = LinkedHashMap<String, Long>()
+        for ((idx, planned) in plannedMembers.withIndex()) {
+            val bridges = planned.bridges
+            val tag = chains.buildOutboundChain(
+                ChainRequest(
+                    planned.hopIds,
+                    hopTag(Tags.POOL_CHAIN_PREFIX, idx),
+                    singToXrayPort = if (bridges.singToXray) bridgePorts[portIdx++] else -1,
+                    xrayToSingPort = if (bridges.xrayToSing) bridgePorts[portIdx++] else -1,
+                    xrayFullConfigPort = if (bridges.xrayFullConfig) bridgePorts[portIdx++] else -1,
+                    soleXrayInbound = bridges.xrayFullConfig,
+                ),
+            )
+            if (state.failed) return
+            // buildOutboundChain has one Xray config slot; drain it per member.
+            if (bridges.xrayFullConfig) {
+                if (state.xrayConfig.isEmpty()) {
+                    state.error = "Custom Xray full config member produced no Xray config"
+                    return
+                }
+                state.xrayFullConfigs.add(state.xrayConfig.toCompact())
+                state.xrayConfig = JsonObject()
+                state.isXrayNeeded = false
+            }
+            val member = planned.member
+            memberTags.add(tag)
+            members[tag] = member.id
+            if (member.id == selector.pinnedID) pinnedTag = tag
+            if (member.latency != 0 && member.latencyAt > 0 && selector.resultValidityMins > 0) {
+                val age = builtAt - member.latencyAt
+                if (age >= 0 && age <= selector.resultValidityMins.toLong() * 60) {
+                    // rtt 0 is how the core reads "known bad" rather than "never measured".
+                    warm.add(jsonObjectOf("tag" to tag, "rtt" to (if (member.latency > 0) member.latency else 0), "age" to age))
+                }
+            }
+        }
+        if (memberTags.isEmpty()) {
+            state.error = "Auto selector produced no usable members"
+            return
+        }
+
+        val group = jsonObjectOf(
+            "type" to "auto-selector",
+            "tag" to groupTag,
+            "outbounds" to memberTags,
+            "url" to selector.testURL.ifEmpty { settings.testUrl },
+            "interval" to "${selector.intervalSec}s",
+            "bench_interval" to "${selector.benchIntervalSec}s",
+            "watch_interval" to "${selector.watchIntervalSec}s",
+            "active_size" to selector.activeSize,
+            "sampling" to selector.sampling,
+            "tolerance" to selector.toleranceMs,
+            "expected" to selector.expected,
+            "dial_retries" to selector.dialRetries,
+            "interrupt_exist_connections" to selector.interruptOnSwitch,
+        )
+        if (warm.isNotEmpty()) group["warm"] = warm
+        if (pinnedTag.isNotEmpty()) group["pinned"] = pinnedTag
+        if (selector.maxRTTms > 0) group["max_rtt"] = "${selector.maxRTTms}ms"
+        // Never the latency test URL: that one is fetched through the proxy and is routinely blocked directly.
+        val connectivityUrl = selector.connectivityURL.ifEmpty { settings.directTestUrl }
+        if (connectivityUrl.isNotEmpty()) group["connectivity_url"] = connectivityUrl
+        if (selector.balance) {
+            group["balance"] = true
+            group["balance_mode"] = selector.balanceMode
+            group["balance_interval"] = "${selector.balanceIntervalSec}s"
+        }
+        state.outbounds.add(group)
+        state.autoSelector = AutoSelectorBuild(
+            groupTag = groupTag,
+            selectorId = selectorId,
+            members = members,
+            rejected = rejected,
+            intervalSec = selector.intervalSec,
+            warp = warpWrap,
+        )
+    }
+
+    /**
+     * invalidProfileIDs (:1602-1620) over the plan's build: every member must pass the structural check of a test
+     * candidate (hop scan, Build / BuildXray), and then the core check of [RoutingInput.memberCheck] when one is set.
+     */
+    private fun rejectedMembers(chains: ChainBuilder, reads: ProfileProvider, ids: List<Long>): Map<Long, String> {
+        val rejected = LinkedHashMap<Long, String>()
+        val valid = ArrayList<Pair<Long, Outbound>>()
+        for (id in ids) {
+            val outbound = reads.get(id) ?: continue
+            val error = chains.candidateError(listOf(id))
+            if (error.isNotEmpty()) rejected[id] = error else valid.add(id to outbound)
+        }
+        val check = routing.memberCheck ?: return rejected
+        if (valid.isNotEmpty()) rejected.putAll(check.rejected(valid, buildContext))
+        return rejected
+    }
+
+    /** buildWarpInFrontOfSelector (:1779-1792): the group holds warp-bypass, so WARP is `proxy` dialing through it. */
+    private fun buildWarpInFrontOfSelector(state: BuildState) {
+        val warp = WarpHop.outbound(settings)
+        val result = warp.build(buildContext)
+        if (!result.ok) {
+            state.error += result.error
+            return
+        }
+        val obj = result.json
+        obj["tag"] = Tags.PROXY
+        obj["detour"] = Tags.WARP_BYPASS
+        if (warp.isEndpoint()) state.endpoints.add(obj) else state.outbounds.add(obj)
     }
 
     /** buildDNSSection (:873-1114) without the Tailscale, tunnel DNS, extra-core and DNS-server hijack rules. */
@@ -725,7 +901,7 @@ class ConfigGenerator @JvmOverloads constructor(
         routeObj["rule_set"] = buildRuleSetArray(state)
         routeObj["final"] = when (defaultOutbound) {
             OutboundIds.BLOCK -> Tags.DIRECT
-            OutboundIds.WARP_BYPASS -> Tags.PROXY
+            OutboundIds.WARP_BYPASS -> if (settings.enableWarp) Tags.WARP_BYPASS else Tags.PROXY
             else -> OutboundIds.toName(defaultOutbound)
         }
         if (settings.trafficStats) routeObj["find_process"] = true

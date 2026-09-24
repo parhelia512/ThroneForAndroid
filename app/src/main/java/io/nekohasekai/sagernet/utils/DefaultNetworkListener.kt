@@ -65,8 +65,8 @@ object DefaultNetworkListener {
             }
 
             is NetworkMessage.Put -> {
-                // 诊断：夜间/飞行模式网络事件时间线（与 Go UpdateDefaultInterface 对照）
-                // elapsed 覆盖全部 listener 同步执行耗时（Unconfined actor 内联在回调线程跑）
+                // Diagnostics: network event timeline for night / airplane mode (compare with Go UpdateDefaultInterface)
+                // elapsed covers every listener, which run synchronously (the Unconfined actor runs on the callback thread)
                 val start = SystemClock.elapsedRealtime()
                 network = message.network
                 pendingRequests.forEach { it.response.complete(message.network) }
@@ -75,7 +75,7 @@ object DefaultNetworkListener {
                 Logs.i("DefaultNetworkListener Put network=${message.network} listeners=${listeners.size} elapsed=${SystemClock.elapsedRealtime() - start}ms thread=${Thread.currentThread().name}")
             }
             is NetworkMessage.Update -> if (network == message.network) {
-                // 切网/信号抖动时此事件会风暴（onCapabilitiesChanged），降为 debug
+                // This event storms (onCapabilitiesChanged) while switching networks or on a flaky signal: debug level
                 val start = SystemClock.elapsedRealtime()
                 listeners.values.forEach {
                     it(
@@ -96,9 +96,9 @@ object DefaultNetworkListener {
     suspend fun start(key: Any, listener: (Network?) -> Unit) {
         val message = NetworkMessage.Start(key, listener)
         networkActor.send(message)
-        // send 只保证消息进入 actor，不保证 Start 分支和缓存网络的首次回调已经完成。
-        // 必须等待 processed，否则并发创建测试 Box 时 Go monitor 可能以 default=nil 返回，
-        // 随后的首拨会抢在 updateDefaultInterface(wlan0, index) 之前并立即失败。
+        // send only queues the message; the Start branch and the cached network's first callback may still be pending.
+        // Wait for processed, or a test box created meanwhile may get default=nil from the Go monitor
+        // and its first dial fails before updateDefaultInterface(wlan0, index).
         message.processed.await()
     }
 
@@ -112,9 +112,9 @@ object DefaultNetworkListener {
 
     suspend fun stop(key: Any) = networkActor.send(NetworkMessage.Stop(key))
 
-    // NB: API 26 以下跑在 ConnectivityThread；26+ 经 register 传 callbackHandler
-    // 派发到专用 worker 线程（曾用 mainHandler 派发到进程主线程，
-    // 测速多监听器 + onCapabilitiesChanged 风暴时主线程被秒级阻塞 → 界面卡死）
+    // NB: below API 26 this runs on ConnectivityThread; 26+ dispatches through the callbackHandler given to register
+    // onto a dedicated worker thread (dispatching to the main thread through mainHandler once blocked the UI
+    // for seconds with several test listeners and onCapabilitiesChanged storms)
     private object Callback : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             Logs.d("DefaultNetworkListener onAvailable enter network=$network thread=${Thread.currentThread().name}")
@@ -124,7 +124,7 @@ object DefaultNetworkListener {
         override fun onCapabilitiesChanged(
             network: Network, networkCapabilities: NetworkCapabilities
         ) { // it's a good idea to refresh capabilities
-            // 风暴源：逐条 debug（Info 会刷屏）
+            // Storm source: debug per event (info would flood the log)
             Logs.d("DefaultNetworkListener onCapabilitiesChanged enter network=$network thread=${Thread.currentThread().name}")
             runBlocking { networkActor.send(NetworkMessage.Update(network)) }
         }

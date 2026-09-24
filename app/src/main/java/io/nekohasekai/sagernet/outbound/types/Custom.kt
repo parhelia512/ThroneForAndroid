@@ -142,28 +142,6 @@ class Custom : Outbound("custom") {
     /** custom.h:102. */
     override fun isXrayFullConfig(): Boolean = subtype == CUSTOM_XRAY_FULL_CONFIG
 
-    /** custom.h:105-125: raw addresses (callers filter literal IPs) for sing-box's direct-DNS carve-out. */
-    fun getXrayFullConfigServerDomains(): MutableList<String> {
-        val domains = ArrayList<String>()
-        if (subtype != CUSTOM_XRAY_FULL_CONFIG) return domains
-        for (v in configObject().array("outbounds")) {
-            val settings = (v as? JsonObject ?: JsonObject()).obj("settings")
-            fun collect(key: String) {
-                for (s in settings.array(key)) {
-                    val addr = (s as? JsonObject ?: JsonObject()).string("address")
-                    if (addr.isNotEmpty()) domains.add(addr)
-                }
-            }
-            if (settings.contains("vnext")) collect("vnext")
-            if (settings.contains("servers")) collect("servers")
-            if (settings.contains("address")) {
-                val addr = settings.string("address")
-                if (addr.isNotEmpty()) domains.add(addr)
-            }
-        }
-        return domains
-    }
-
     /** custom.h:127-146. */
     override fun build(ctx: BuildContext): BuildResult {
         if (subtype == CUSTOM_XRAY_FULL_CONFIG) {

@@ -55,7 +55,7 @@ class ColorPickerPreference
     }
 
     private fun applyWhiteSwatchBorder(view: ImageView, color: Int) {
-        // 纯白色卡在白色背景上不可见，补一圈虚线描边
+        // A white swatch is invisible on white: add a dashed outline
         if (color != ContextCompat.getColor(context, R.color.color_white_theme)) return
         val factor = view.resources.displayMetrics.density
         val ring = GradientDrawable().apply {
@@ -66,7 +66,7 @@ class ColorPickerPreference
                 4 * factor, 3 * factor
             )
         }
-        // 图标矢量内圆直径为视口 2/3，按可见圆边缘内缩边长的 1/6，使虚线贴合色卡
+        // The icon's inner circle spans 2/3 of the viewport: inset by 1/6 so the dashes hug the swatch
         val inset = (view.layoutParams.width ?: 0) / 6
         view.background = InsetDrawable(ring, inset, inset, inset, inset)
     }

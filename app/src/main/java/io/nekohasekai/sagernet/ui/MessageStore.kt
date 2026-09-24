@@ -15,7 +15,7 @@ object MessageStore {
         currentActivity = WeakReference(activity)
     }
 
-    /** 当前记录的前台 Activity（可能已销毁，调用方需自行判断可用性）。 */
+    /** The recorded foreground activity (it may be destroyed already; callers check). */
     fun getCurrentActivity(): Activity? = currentActivity?.get()
 
     fun showMessage(message: String) {

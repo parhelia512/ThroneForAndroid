@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.os.Bundle
 import android.view.MenuItem
+import android.view.View
 import android.text.InputType
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
@@ -15,6 +16,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.launch
 import okhttp3.Credentials
 import okhttp3.OkHttpClient
@@ -54,7 +56,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
 
     class WebDAVSettingsFragment : PreferenceFragmentCompat(), PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
         private var lastClickTime = 0L
-        private val DEBOUNCE_TIME = 1000L  // 1秒内不允许重复点击
+        private val DEBOUNCE_TIME = 1000L  // ignore repeated taps within a second
         private var isFragmentAlive = true
 
         private fun isClickAllowed(): Boolean {
@@ -69,6 +71,11 @@ class WebDAVSettingsActivity : ThemedActivity() {
         override fun onDestroy() {
             isFragmentAlive = false
             super.onDestroy()
+        }
+
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+            super.onViewCreated(view, savedInstanceState)
+            listView.applyListInsets()
         }
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -97,7 +104,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
                     editText.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                     editText.setSelection(editText.text.length)
                 }
-                // 使用与其他密码字段一致的隐藏摘要样式
+                // Masked summary, like the other password fields
                 summaryProvider = GroupSettingsActivity.PasswordSummaryProvider
             }
             
@@ -113,7 +120,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
                 if (isClickAllowed()) {
                     testWebDAV()
                 } else {
-                    Snackbar.make(requireView(), "请稍后再试", Snackbar.LENGTH_SHORT).show()
+                    Snackbar.make(requireView(), R.string.try_again_later, Snackbar.LENGTH_SHORT).show()
                 }
                 true
             }
@@ -134,7 +141,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
                         .writeTimeout(10, TimeUnit.SECONDS)
                         .build()
 
-                    // 首先测试连接和认证
+                    // First the connection and the credentials
                     val authRequest = Request.Builder()
                         .url(url)
                         .method("PROPFIND", null)
@@ -161,7 +168,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
                         throw Exception(getString(R.string.webdav_connect_failed, response.code))
                     }
 
-                    // 如果认证成功，再测试目录操作
+                    // Then, once authenticated, the directory
                     val path = (DataStore.webdavPath ?: "").trim('/')
                     if (path.isNotBlank()) {
                         val baseHttpUrl = server.toHttpUrlOrNull()
@@ -186,7 +193,7 @@ class WebDAVSettingsActivity : ThemedActivity() {
                             .build()
 
                         val dirResponse = client.newCall(dirRequest).execute()
-                        if (!dirResponse.isSuccessful && dirResponse.code != 405) {  // 405 表示目录已存在
+                        if (!dirResponse.isSuccessful && dirResponse.code != 405) {  // 405: the directory exists
                             throw Exception(getString(R.string.webdav_create_dir_failed))
                         }
                     }

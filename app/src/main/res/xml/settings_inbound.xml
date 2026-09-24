@@ -46,6 +46,8 @@
     <PreferenceCategory app:title="@string/cag_advanced">
         <moe.matsuri.nb4a.ui.EditConfigPreference
             app:icon="@drawable/ic_baseline_layers_24"
+            app:jsonAllowEmpty="true"
+            app:jsonSchema="#"
             app:key="custom_inbound"
             app:title="@string/custom_inbound" />
     </PreferenceCategory>

@@ -1,29 +1,39 @@
 package io.nekohasekai.sagernet.ui
 
 import android.content.res.Configuration
-import android.os.Build
+import android.graphics.Color
 import android.os.Bundle
 import android.widget.TextView
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
+import androidx.core.graphics.ColorUtils
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.utils.Theme
+import io.nekohasekai.sagernet.widget.applyTopInset
 
 abstract class ThemedActivity : AppCompatActivity {
     constructor() : super()
     constructor(contentLayoutId: Int) : super(contentLayoutId)
 
+    companion object {
+        // The scrims androidx.activity uses for 3-button navigation before API 29 (from 29 the system draws one).
+        private val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+        private val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+    }
+
     var themeResId = 0
     var uiMode = 0
     open val isDialog = false
+
+    /** Dark status bar icons (a light toolbar colour). */
+    var lightStatusBar = false
+        private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (!isDialog) {
@@ -32,34 +42,30 @@ abstract class ThemedActivity : AppCompatActivity {
             Theme.applyDialog(this)
         }
         Theme.applyNightTheme()
+        if (!isDialog) enableEdgeToEdge(statusBarStyle(), navigationBarStyle())
 
         super.onCreate(savedInstanceState)
 
         uiMode = resources.configuration.uiMode
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            
-            val insetController = WindowCompat.getInsetsController(window, window.decorView)
-            // 三大金刚（系统导航栏）按钮固定为白色（深色款），底色仍为主题 colorPrimaryDark
-            insetController.isAppearanceLightNavigationBars = false
-            // Monet 动态取色为浅色主题，浅色状态栏配深色图标；纯白模式（或纯黑主题非夜间）同理
-            insetController.isAppearanceLightStatusBars =
-                if (Theme.usingMonetTheme()) {
-                    !Theme.usingNightMode()
-                } else if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode()
-                else Theme.isWhiteTheme()
-        }
+    }
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { _, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            findViewById<AppBarLayout>(R.id.appbar)?.apply {
-                updatePadding(top = bars.top)
-            }
-            insets
+    /** Status bar icons in contrast to the toolbar colour (dark icons on light bars such as the white theme's). */
+    private fun statusBarStyle(): SystemBarStyle {
+        val toolbar = MaterialColors.getColor(this, R.attr.colorPrimary, Color.BLACK)
+        lightStatusBar = ColorUtils.calculateLuminance(toolbar) > 0.5
+        return if (lightStatusBar) {
+            SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        } else {
+            SystemBarStyle.dark(Color.TRANSPARENT)
         }
+    }
+
+    /** Navigation bar icons follow the window background; 3-button navigation keeps a scrim. */
+    private fun navigationBarStyle() = SystemBarStyle.auto(LIGHT_SCRIM, DARK_SCRIM) { Theme.usingNightMode() }
+
+    override fun onContentChanged() {
+        super.onContentChanged()
+        findViewById<AppBarLayout>(R.id.appbar)?.applyTopInset()
     }
 
     override fun setTheme(resId: Int) {
@@ -84,6 +90,7 @@ abstract class ThemedActivity : AppCompatActivity {
         }
     }
 
-    internal open fun snackbarInternal(text: CharSequence): Snackbar = throw NotImplementedError()
+    internal open fun snackbarInternal(text: CharSequence): Snackbar =
+        Snackbar.make(findViewById(android.R.id.content), text, Snackbar.LENGTH_LONG)
 
 }

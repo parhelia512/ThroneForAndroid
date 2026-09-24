@@ -4,6 +4,9 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.outbound.types.WireGuard
+import io.nekohasekai.sagernet.ui.warp.WarpClient
+import io.nekohasekai.sagernet.ui.warp.WarpGenerate
+import io.nekohasekai.sagernet.ui.warp.setFieldText
 
 /** WireGuard / AmneziaWG: the endpoint lives in `peer.*`, the interface in the top-level fields. */
 class WireGuardSettingsActivity : BindingSettingsActivity<WireGuard>() {
@@ -48,6 +51,20 @@ class WireGuardSettingsActivity : BindingSettingsActivity<WireGuard>() {
                 val child = amnezia.getPreference(i)
                 if (child.key != "enable_amnezia") child.isVisible = on
             }
+        }
+
+        // edit_wireguard.cpp:39-51
+        WarpGenerate.bindEditorRow(this@WireGuardSettingsActivity, this, WarpClient.TUNNEL_WIREGUARD) { identity ->
+            setFieldText("private_key", identity.privateKey)
+            setFieldText("peer.public_key", identity.peerPublicKey)
+            setFieldText("address", identity.addresses.joinToString("\n"))
+            setFieldText("mtu", "1280")
+            setFieldText("peer.persistent_keepalive", "30")
+            identity.endpointHostPort()?.let { (host, port) ->
+                setFieldText("peer.address", host)
+                setFieldText("peer.port", port)
+            }
+            setFieldText("peer.reserved", identity.reserved.joinToString("\n"))
         }
     }
 

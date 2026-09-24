@@ -26,11 +26,13 @@ import io.nekohasekai.sagernet.route.RouteRule
 import io.nekohasekai.sagernet.route.RuleType
 import io.nekohasekai.sagernet.ui.AppListActivity
 import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.ui.WifiPermissionFlow
 import io.nekohasekai.sagernet.ui.profile.multilineInput
 import io.nekohasekai.sagernet.ui.profile.portInput
 import io.nekohasekai.sagernet.ui.profile.setVisible
 import io.nekohasekai.sagernet.ui.settings.LinesSummaryProvider
 import io.nekohasekai.sagernet.utils.PackageCache
+import io.nekohasekai.sagernet.utils.WifiStateAccess
 import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.StringLinesPreference
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +99,8 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
     private val appPicker = registerForActivityResult(AppListActivity.Contract()) { list ->
         if (list != null) setListValue("package_name", list)
     }
+
+    private val wifiFlow = WifiPermissionFlow(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -235,7 +239,12 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
         }
     }
 
-    private fun finishWith(edited: RouteRule) {
+    private fun finishWith(edited: RouteRule, checkWifi: Boolean = true) {
+        val usesWifi = edited.wifi_ssid.any { it.isNotBlank() } || edited.wifi_bssid.any { it.isNotBlank() }
+        if (checkWifi && usesWifi && WifiStateAccess.status(this) != WifiStateAccess.Status.OK) {
+            wifiFlow.run { finishWith(edited, false) }
+            return
+        }
         setResult(RESULT_OK, Intent().putExtra(EXTRA_RULE, RouteJson.ruleToJson(edited)).putExtra(EXTRA_INDEX, index))
         finish()
     }
@@ -258,6 +267,7 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
             val multiline = LIST_KEYS - setOf("rule_set", "package_name")
             multilineInput(*multiline.toTypedArray())
             for (key in multiline) findPreference<EditTextPreference>(key)?.summaryProvider = LinesSummaryProvider(maxLines = 3)
+            refreshWifiHint()
             portInput("override_port")
 
             findPreference<StringLinesPreference>("rule_set")!!.apply {
@@ -294,13 +304,31 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
             ViewCompat.setOnApplyWindowInsetsListener(listView, ListListener)
         }
 
+        override fun onResume() {
+            super.onResume()
+            if (preferenceScreen != null) refreshWifiHint()
+        }
+
+        /** The Wi-Fi fields say when location access is missing; setting the provider re-renders the summary. */
+        private fun refreshWifiHint() {
+            val missing = WifiStateAccess.status(requireContext()) != WifiStateAccess.Status.OK
+            val lines = LinesSummaryProvider(maxLines = 3)
+            for (key in listOf("wifi_ssid", "wifi_bssid")) {
+                findPreference<EditTextPreference>(key)?.summaryProvider =
+                    Preference.SummaryProvider<EditTextPreference> { p ->
+                        val summary = lines.provideSummary(p)
+                        if (missing) "$summary\n${getString(R.string.wifi_rule_needs_location)}" else summary
+                    }
+            }
+        }
+
         private fun summarize(items: List<String>, max: Int, separator: String = "\n"): String {
             if (items.isEmpty()) return getString(androidx.preference.R.string.not_set)
             val shown = items.take(max).joinToString(separator)
             return if (items.size > max) shown + separator + "…" else shown
         }
 
-        /** proxy, direct, block, then every server as "[group] name"; stored values outside that list stay selectable. */
+        /** proxy, direct, block, warp-bypass, then every server as "[group] name"; stored values outside that list stay selectable. */
         private fun setupOutbounds() {
             val pref = findPreference<SimpleMenuPreference>("outbound_id") ?: return
             val current = pref.value?.toLongOrNull() ?: OutboundIds.DIRECT
@@ -313,7 +341,7 @@ class RouteRuleActivity : ThemedActivity(R.layout.layout_config_settings), OnPre
             add(OutboundIds.toName(OutboundIds.PROXY), OutboundIds.PROXY)
             add(OutboundIds.toName(OutboundIds.DIRECT), OutboundIds.DIRECT)
             add(OutboundIds.toName(OutboundIds.BLOCK), OutboundIds.BLOCK)
-            if (current == OutboundIds.WARP_BYPASS) add(RouteTexts.WARP_BYPASS, OutboundIds.WARP_BYPASS)
+            add(RouteTexts.WARP_BYPASS, OutboundIds.WARP_BYPASS)
             if (current == OutboundIds.HIJACK_DNS) add("hijack-dns", OutboundIds.HIJACK_DNS)
             for ((id, label) in host.servers) add(label, id)
             if (current > 0 && host.servers.none { it.first == current }) {

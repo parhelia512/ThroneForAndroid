@@ -10,9 +10,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** xrayVless.h:7 */
-val xrayFlows = listOf("xtls-rprx-vision", "xtls-rprx-vision-udp443")
-
 /**
  * xrayVless (include/configs/outbounds/xrayVless.h, src/configs/outbounds/xrayVless.cpp): the Xray-core VLESS
  * outbound. Its JSON is the Xray outbound shape (`protocol`, `settings`, `streamSettings`, `mux`), never a

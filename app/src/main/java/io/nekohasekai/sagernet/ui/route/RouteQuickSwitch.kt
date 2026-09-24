@@ -9,17 +9,22 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.RouteManager
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.route.RouteProfile
+import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.ui.settings.WarpSettingsFragment
+import io.nekohasekai.sagernet.ui.warp.WarpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The routing-profile quick switch (the desktop Routing menu's profile list). */
+/** The routing-profile quick switch (the desktop Routing menu's profile list and its "Enable Warp" toggle). */
 object RouteQuickSwitch {
 
     /** A single-choice list of the route profiles; picking another one makes it current. */
     fun show(fragment: Fragment, onSwitched: ((RouteProfile) -> Unit)? = null) {
         fragment.lifecycleScope.launch {
-            val (profiles, currentId) = withContext(Dispatchers.IO) { RouteManager.all() to RouteManager.current().id }
+            val (profiles, currentId, warp) = withContext(Dispatchers.IO) {
+                Triple(RouteManager.usable(), RouteManager.current().id, DataStore.enableWarp)
+            }
             val context = fragment.context ?: return@launch
             val names = Array<CharSequence>(profiles.size) { profiles[it].name.ifBlank { "#" + profiles[it].id } }
             MaterialAlertDialogBuilder(context)
@@ -32,6 +37,9 @@ object RouteQuickSwitch {
                     fragment.snackbar(fragment.getString(R.string.route_switched, names[which])).show()
                     onSwitched?.invoke(picked)
                 }
+                .setNeutralButton(if (warp) R.string.warp_disable else R.string.warp_enable) { _, _ ->
+                    setWarpEnabled(fragment, !warp)
+                }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
@@ -41,5 +49,22 @@ object RouteQuickSwitch {
     fun switchTo(id: Long) {
         DataStore.currentRouteId = id
         if (DataStore.serviceState.started) SagerNet.reloadService()
+    }
+
+    /** "Enable Warp" (mainwindow_setup.cpp:893-903): saves enable_warp and reloads a running service. */
+    fun setWarpEnabled(fragment: Fragment, enabled: Boolean) {
+        DataStore.enableWarp = enabled
+        if (DataStore.serviceState.started) SagerNet.reloadService()
+        val activity = fragment.activity as? MainActivity
+        if (enabled && !WarpClient.isGenerated()) {
+            fragment.snackbar(fragment.getString(R.string.warp_not_generated)).apply {
+                if (activity != null) setAction(R.string.settings) {
+                    val screen = WarpSettingsFragment::class.java.name
+                    activity.openSettingsScreen(screen, activity.getString(R.string.warp_settings))
+                }
+            }.show()
+        } else {
+            fragment.snackbar(fragment.getString(if (enabled) R.string.warp_enabled else R.string.warp_disabled)).show()
+        }
     }
 }

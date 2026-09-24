@@ -20,15 +20,6 @@ class QuicFields {
     @JvmField var disable_path_mtu_discovery: Boolean = false
     @JvmField var disable_path_mtu_discovery_unspecified: Boolean = true
 
-    /** QUICFields.h:20-24 (0 = Keep Default, 1 = On, 2 = Off). */
-    fun getPathMtuState(): Int =
-        if (disable_path_mtu_discovery) 1 else if (disable_path_mtu_discovery_unspecified) 0 else 2
-
-    fun savePathMtuState(state: Int) {
-        disable_path_mtu_discovery = state == 1
-        disable_path_mtu_discovery_unspecified = state == 0
-    }
-
     fun parseFromLink(link: String): Boolean = parseFromLink(LinkParser.parse(link))
 
     /** QUICFields.cpp:6-26; a hysteria port-hopping link has an invalid port and is still read. */

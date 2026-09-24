@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
@@ -27,13 +28,11 @@ import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.widget.AlertDialogFragment
 import io.nekohasekai.sagernet.widget.Empty
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.QuickToggleShortcut
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
@@ -42,13 +41,13 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
-import io.nekohasekai.sagernet.ktx.toStringPretty
 import io.nekohasekai.sagernet.outbound.Outbound
 import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.ui.json.JsonEditorActivity
+import io.nekohasekai.sagernet.ui.json.ProfileJson
 import io.nekohasekai.sagernet.widget.ListListener
 import kotlinx.parcelize.Parcelize
-import org.json.JSONObject
 import kotlin.properties.Delegates
 
 /**
@@ -123,6 +122,7 @@ abstract class ProfileSettingsActivity<T : Outbound>(
             setDisplayHomeAsUpEnabled(true)
             setHomeAsUpIndicator(R.drawable.ic_navigation_close)
         }
+        onBackPressedDispatcher.addCallback(this, unsavedChangesCallback)
 
         if (savedInstanceState == null) {
             val editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
@@ -130,7 +130,7 @@ abstract class ProfileSettingsActivity<T : Outbound>(
             DataStore.editingId = editingId
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
-                    DataStore.editingGroup = DataStore.selectedGroupForImport()
+                    DataStore.editingGroup = DataStore.currentGroupId()
                     editingOutbound = createEntity()
                 } else {
                     val entity = proxyEntity
@@ -182,7 +182,7 @@ abstract class ProfileSettingsActivity<T : Outbound>(
             if (entity.id == DataStore.selectedProxy) {
                 SagerNet.stopService()
             }
-            ProfileManager.updateProfile(entity.putOutbound(outbound))
+            ProfileManager.updateOutbound(entity.putOutbound(outbound))
         }
         finish()
 
@@ -198,17 +198,18 @@ abstract class ProfileSettingsActivity<T : Outbound>(
     fun openRawJsonEditor() {
         val outbound = ensureEditingOutbound()
         outbound.serialize()
-        val text = try {
-            JSONObject(outbound.exportToJson().toCompact()).toStringPretty()
-        } catch (e: Exception) {
-            Logs.w(e)
-            outbound.exportToJson().toCompact()
-        }
+        val text = ProfileJson.text(outbound)
         DataStore.profileCacheStore.putString(KEY_RAW_JSON, text)
         rawJsonSynced = text
-        rawJsonEditor.launch(Intent(this, ConfigEditActivity::class.java).apply {
-            putExtra("key", KEY_RAW_JSON)
-        })
+        rawJsonEditor.launch(
+            JsonEditorActivity.intent(
+                this,
+                KEY_RAW_JSON,
+                schemaRoots = ProfileJson.schemaRoots(outbound),
+                relaxations = ProfileJson.relaxations(outbound),
+                title = getString(R.string.edit_as_json),
+            )
+        )
     }
 
     /** A changed JSON text replaces the outbound and the preference screen is rebuilt from it. */
@@ -240,9 +241,8 @@ abstract class ProfileSettingsActivity<T : Outbound>(
         menuInflater.inflate(R.menu.profile_config_menu, menu)
         menu.findItem(R.id.action_move)?.apply {
             if (DataStore.editingId != 0L // not new profile
-                && SagerDatabase.groupDao.getById(DataStore.editingGroup)?.type == GroupType.BASIC // not in subscription group
-                && SagerDatabase.groupDao.allGroups()
-                    .filter { it.type == GroupType.BASIC }.size > 1 // have other basic group
+                && SagerDatabase.groupDao.getById(DataStore.editingGroup)?.isSubscription == false
+                && SagerDatabase.groupDao.allGroups().count { !it.isSubscription } > 1 // have other basic group
             ) isVisible = true
         }
         menu.findItem(R.id.action_create_shortcut)?.apply {
@@ -256,9 +256,14 @@ abstract class ProfileSettingsActivity<T : Outbound>(
 
     override fun onOptionsItemSelected(item: MenuItem) = child.onOptionsItemSelected(item)
 
-    override fun onBackPressed() {
-        if (DataStore.dirty) UnsavedChangesDialogFragment().apply { key() }
-            .show(supportFragmentManager, null) else super.onBackPressed()
+    private val unsavedChangesCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (DataStore.dirty) {
+                UnsavedChangesDialogFragment().apply { key() }.show(supportFragmentManager, null)
+            } else {
+                finish()
+            }
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -378,7 +383,7 @@ abstract class ProfileSettingsActivity<T : Outbound>(
                     orientation = LinearLayout.VERTICAL
 
                     SagerDatabase.groupDao.allGroups()
-                        .filter { it.type == GroupType.BASIC && it.id != ent.groupId }
+                        .filter { !it.isSubscription && it.id != ent.groupId }
                         .forEach { group ->
                             LayoutGroupItemBinding.inflate(layoutInflater, this, true).apply {
                                 edit.isVisible = false
@@ -387,12 +392,8 @@ abstract class ProfileSettingsActivity<T : Outbound>(
                                 groupUpdate.text = getString(R.string.move)
                                 groupUpdate.setOnClickListener {
                                     runOnDefaultDispatcher {
-                                        val oldGroupId = ent.groupId
                                         val newGroupId = group.id
-                                        ent.groupId = newGroupId
-                                        ProfileManager.updateProfile(ent)
-                                        GroupManager.postUpdate(oldGroupId) // reload
-                                        GroupManager.postUpdate(newGroupId)
+                                        ProfileManager.moveToGroup(listOf(ent.id), newGroupId)
                                         DataStore.editingGroup = newGroupId // post switch animation
                                         runOnMainDispatcher {
                                             activity.finish()

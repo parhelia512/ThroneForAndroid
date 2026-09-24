@@ -12,9 +12,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** vless.h:9 */
-val vlessFlows = listOf("xtls-rprx-vision")
-
 /** vless, the sing-box one (include/configs/outbounds/vless.h, src/configs/outbounds/vless.cpp). */
 class Vless : Outbound("vless") {
     @JvmField var uuid: String = ""

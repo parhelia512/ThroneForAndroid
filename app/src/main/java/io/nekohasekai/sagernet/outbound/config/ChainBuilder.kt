@@ -21,16 +21,24 @@ internal class ChainRequest(
     val xrayFullConfigPort: Int = -1,
     /** Drops the user's own inbounds from a custom Xray full config (siblings would repeat the ports). */
     val soleXrayInbound: Boolean = false,
+    /** Hop 0 is the WARP hop: it becomes `proxy` dialing through hop 1, which becomes `warp-bypass`. */
+    val warpWrap: Boolean = false,
 )
 
-/** hopChainOptions (generate.cpp:1310-1319) without the WARP and auxiliary-endpoint members. */
+/** hopChainOptions (generate.cpp:1310-1319) without the auxiliary-endpoint members. */
 internal class HopChainOptions(
     val prefix: String,
     val includeProxy: Boolean = false,
     val link: Boolean = true,
     val startSuffix: Int = 0,
     val markIngress: Boolean = false,
+    val warpWrap: Boolean = false,
 )
+
+/** memberBridges (generate.cpp:1563-1574): the loopback bridges one auto-selector member chain will create. */
+internal class MemberBridges(val singToXray: Boolean, val xrayToSing: Boolean, val xrayFullConfig: Boolean) {
+    val count: Int get() = (if (singToXray) 1 else 0) + (if (xrayToSing) 1 else 0) + (if (xrayFullConfig) 1 else 0)
+}
 
 /** chainScan (generate.cpp:1204-1213). */
 private class ChainScan {
@@ -67,27 +75,51 @@ internal fun xraySocksInbound(tag: String, bridge: BridgeConfig): JsonObject = j
 )
 
 /**
- * The hop-list machinery of generate.cpp:1204-1560: the core-transition scan, the sing-box and Xray chain builders
- * and the loopback bridges between the two cores. WARP and auxiliary VPN endpoints are not part of phase 1.
+ * The hop-list machinery of generate.cpp:1204-1600: the core-transition scan, the sing-box and Xray chain builders,
+ * the loopback bridges between the two cores and the built-in WARP hop ([warp], resolved for [WarpHop.PROFILE_ID]).
+ * Auxiliary VPN endpoints are not generated on Android.
  */
 internal class ChainBuilder(
     private val profiles: ProfileProvider,
     private val ctx: BuildContext,
     private val state: BuildState,
+    private val warp: Outbound? = null,
 ) {
     /** usesXrayCore (generate.cpp:428-431). */
     fun usesXrayCore(outbound: Outbound): Boolean = outbound.isXray() || outbound.isXrayFullConfig()
 
-    /** proxyPathUsesXray (:434-454): a chain when any hop does, otherwise the profile itself. */
-    fun proxyPathUsesXray(outbound: Outbound): Boolean {
-        if (outbound.type == "chain") {
-            for (id in TypeAccess.chainHops(outbound)) {
-                val hop = profiles.get(id) ?: continue
-                if (usesXrayCore(hop)) return true
-            }
-            return false
+    /**
+     * proxyPathUsesXray (:434-454): a chain when any hop does, an auto-selector when any member of its build does
+     * ([selectorBuild], the plan's build list), otherwise the profile itself.
+     */
+    fun proxyPathUsesXray(outbound: Outbound, selectorBuild: List<Long> = emptyList()): Boolean {
+        val ids = when (outbound.type) {
+            "chain" -> TypeAccess.chainHops(outbound)
+            "autoselector" -> selectorBuild
+            else -> return usesXrayCore(outbound)
         }
-        return usesXrayCore(outbound)
+        for (id in ids) {
+            val hop = profiles.get(id) ?: continue
+            if (usesXrayCore(hop)) return true
+        }
+        return false
+    }
+
+    /** bridgesFor (:1576-1592), counted like [resolveHops] counts, so the pre-reserved ports line up with the chain. */
+    fun bridgesFor(hopIds: List<Long>): MemberBridges {
+        var singToXray = false
+        var xrayToSing = false
+        var xrayFullConfig = false
+        var inXray = false
+        for (id in hopIds) {
+            val hop = profiles.get(id) ?: continue
+            if (hop.isXrayFullConfig()) xrayFullConfig = true
+            val xray = hop.isXray()
+            if (xray && !inXray) singToXray = true
+            if (!xray && inXray) xrayToSing = true
+            inXray = xray
+        }
+        return MemberBridges(singToXray, xrayToSing, xrayFullConfig)
     }
 
     /** unwrapChain (:1296-1308): the hop ids exit first, i.e. the stored in -> out list reversed. */
@@ -128,6 +160,16 @@ internal class ChainBuilder(
         val scan = ChainScan()
         var inXray = false
         for (id in hopIds) {
+            if (id == WarpHop.PROFILE_ID) {
+                val warpHop = warp ?: return "Null proxy in chain, you may want to check your configs"
+                if (inXray) {
+                    state.xrayToSingTransitioned = true
+                    scan.coreTransitions++
+                }
+                inXray = false
+                hops.add(Hop(id, warpHop))
+                continue
+            }
             val outbound = profiles.get(id) ?: return "Null proxy in chain, you may want to check your configs"
             if (outbound.invalid) return "Profile $id has a type this build cannot use: ${outbound.type}"
             if (!inXray && outbound.isXray()) {
@@ -279,7 +321,7 @@ internal class ChainBuilder(
             state.xrayToSingBridges.add(xrayToSingBridge)
         }
 
-        val leadingOpts = HopChainOptions(req.prefix, req.includeProxy, req.link, req.startSuffix, markIngress = false)
+        val leadingOpts = HopChainOptions(req.prefix, req.includeProxy, req.link, req.startSuffix, markIngress = false, warpWrap = req.warpWrap)
         // The synthetic bridge socks hop counts, so the tailing numbering continues after it (D.8: proxy, config-1, config-2).
         val tailingStartSuffix = req.startSuffix + initialSingHops.size
         if (initialSingHops.isNotEmpty()) {
@@ -299,13 +341,15 @@ internal class ChainBuilder(
     /**
      * buildSingboxChain (:1321-1369). Hop idx gets `<prefix>-<startSuffix+idx>` (idx 0 is `proxy` for the main
      * chain) and, when linked, `detour` to the next tag: the exit is dialed through the next hop, and so on until the
-     * entry hop, which is dialed directly.
+     * entry hop, which is dialed directly. Under [HopChainOptions.warpWrap] idx 0 is WARP as `proxy` and idx 1 takes
+     * `warp-bypass`, the tag rules name to skip WARP.
      */
     private fun buildSingboxChain(hops: List<Hop>, opts: HopChainOptions) {
         for (idx in hops.indices) {
             var tag = hopTag(opts.prefix, opts.startSuffix + idx)
             val nextTag = if (idx < hops.size - 1) hopTag(opts.prefix, opts.startSuffix + idx + 1) else ""
             if (opts.includeProxy && idx == 0) tag = Tags.PROXY
+            if (opts.warpWrap && idx == 1) tag = Tags.WARP_BYPASS
             if (opts.markIngress && idx == 0) state.singIngressTags.add(tag)
             val hop = hops[idx]
             val result = hop.outbound.build(ctx)
@@ -318,6 +362,7 @@ internal class ChainBuilder(
             // Realm reads its STUN resolver off this key only; without it the hosts go through DNS rules (:1356-1358).
             if (TypeAccess.realmActive(hop.outbound)) obj["domain_resolver"] = jsonObjectOf("server" to Tags.DNS_DIRECT)
             if (nextTag.isNotEmpty() && opts.link) obj["detour"] = nextTag
+            if (opts.warpWrap && idx == 0) obj["detour"] = Tags.WARP_BYPASS
             if (hop.outbound.isEndpoint()) state.endpoints.add(obj) else state.outbounds.add(obj)
         }
     }

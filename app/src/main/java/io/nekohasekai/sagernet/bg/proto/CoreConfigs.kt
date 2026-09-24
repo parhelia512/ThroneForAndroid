@@ -46,11 +46,11 @@ object CoreConfigs {
         return generator().buildTest(candidates)
     }
 
-    /** (landingProxy, frontProxy) of a group, -1 when unset (ProxyGroup keeps -1 for "none"). */
+    /** (landing_proxy_id, front_proxy_id) of a group, -1 when unset (any id <= 0 is "none"). */
     private fun groupProxies(groupId: Long): Pair<Long, Long> {
         val group: ProxyGroup = (if (groupId > 0) SagerDatabase.groupDao.getById(groupId) else null) ?: return -1L to -1L
-        val landing = group.landingProxy.takeIf { it > 0 } ?: -1L
-        val front = group.frontProxy.takeIf { it > 0 } ?: -1L
+        val landing = group.landingProxyId.takeIf { it > 0 } ?: -1L
+        val front = group.frontProxyId.takeIf { it > 0 } ?: -1L
         return landing to front
     }
 }

@@ -10,12 +10,6 @@ import io.nekohasekai.sagernet.outbound.link.Hosts
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 import io.nekohasekai.sagernet.outbound.link.ParsedLink
 
-/** TLS.h:7 */
-val tlsFingerprints = listOf("", "chrome", "firefox", "edge", "safari", "360", "qq", "ios", "android", "random", "randomized")
-
-/** TLS.h:9 */
-val tlsSpoofMethods = listOf("", "wrong-sequence", "wrong-checksum", "wrong-ack", "wrong-md5", "wrong-timestamp")
-
 /** uTLS (TLS.h:11-25, TLS.cpp:11-65). */
 class UTls {
     @JvmField var supported: Boolean = true
@@ -257,22 +251,9 @@ class Tls {
     @JvmField var reality: Reality = Reality()
 
     /** TLS.h:95-99 (0 = Keep Default, 1 = On, 2 = Off). */
-    fun getFragmentState(): Int = if (fragment) 1 else if (fragment_unspecified) 0 else 2
     fun saveFragmentState(state: Int) {
         fragment = state == 1
         fragment_unspecified = state == 0
-    }
-
-    fun getSpoofState(): Int = if (spoof_enabled) 1 else if (spoof_unspecified) 0 else 2
-    fun saveSpoofState(state: Int) {
-        spoof_enabled = state == 1
-        spoof_unspecified = state == 0
-    }
-
-    fun getTlsTricksState(): Int = if (tls_tricks) 1 else if (tls_tricks_unspecified) 0 else 2
-    fun saveTlsTricksState(state: Int) {
-        tls_tricks = state == 1
-        tls_tricks_unspecified = state == 0
     }
 
     /** TLS.cpp:459-464. */

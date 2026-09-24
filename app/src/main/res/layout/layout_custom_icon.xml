@@ -9,7 +9,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- 规格说明与操作卡片 -->
+        <!-- Requirements and actions -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -71,7 +71,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 快捷方式图标预览卡片 -->
+        <!-- Shortcut icon preview -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -118,7 +118,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 快捷设置磁贴预览卡片 -->
+        <!-- Quick Settings tile preview -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -136,7 +136,7 @@
                     android:text="@string/custom_icon_preview_tile"
                     android:textAppearance="?attr/textAppearanceHeadline6" />
 
-                <!-- 模拟系统 Quick Settings Tile 的胶囊卡片 -->
+                <!-- Pill that mimics the system Quick Settings tile -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_simulated_tile"
                     android:layout_width="match_parent"
@@ -197,7 +197,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 应用此图标包按钮 -->
+        <!-- Apply the icon pack -->
         <Button
             android:id="@+id/btn_apply_pack"
             style="@style/Widget.SagerNet.Button"

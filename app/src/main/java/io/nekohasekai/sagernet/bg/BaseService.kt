@@ -8,18 +8,26 @@ import android.os.*
 import android.widget.Toast
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.BootReceiver
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
+import io.nekohasekai.sagernet.appwidget.Widgets
+import io.nekohasekai.sagernet.bg.autoselector.AutoSelectorRuntime
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
+import io.nekohasekai.sagernet.bg.proto.exitsThroughVpn
 import io.nekohasekai.sagernet.bg.proto.urlTestCurrent
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProfileOrder
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.outbound.json.jsonObjectOf
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
+import io.nekohasekai.sagernet.utils.PlatformNotifications
+import io.nekohasekai.sagernet.utils.WifiStateAccess
+import io.throneproj.mobile.Instance
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -46,22 +54,28 @@ class BaseService {
         var state = State.Stopped
         var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
+        var wifiMonitor: WifiStateAccess.Monitor? = null
+
+        // Pause and wake are JNI calls into the core: run them in order and off the main thread.
+        private val idleLock = Mutex()
+
+        @Volatile
+        private var pausedBox: Instance? = null
+
+        /** [box] is paused for device idle. */
+        fun idlePaused(box: Instance): Boolean = pausedBox === box
 
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
                 Action.RELOAD -> service.reload()
-                PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
-                    val box = proxy?.boxOrNull ?: return@broadcastReceiver
-                    if (SagerNet.power.isDeviceIdleMode) {
-                        box.pause()
-                    } else {
-                        box.wake()
-                        if (DataStore.wakeResetConnections) {
-                            box.resetNetwork()
-                        }
-                    }
-                }
+                Action.CLOSE -> service.stopRunner()
+                Action.SWITCH_NEXT -> service.switchRelative(1)
+                Action.SWITCH_PREVIOUS -> service.switchRelative(-1)
+                Action.SWITCH_PROFILE -> service.switchProfile(intent.getLongExtra(Action.EXTRA_PROFILE_ID, 0L))
+                Action.REFRESH_WIFI_STATE -> refreshWifiState(ctx)
+                Action.AUTO_SELECTOR_AUTOMATIC -> AutoSelectorRuntime.releasePin(intent.getLongExtra(Action.EXTRA_PROFILE_ID, 0L))
+                PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> applyIdleMode()
 
                 Action.RESET_UPSTREAM_CONNECTIONS -> runOnDefaultDispatcher {
                     proxy?.boxOrNull?.resetNetwork()
@@ -71,8 +85,6 @@ class BaseService {
                             .show()
                     }
                 }
-
-                else -> service.stopRunner()
             }
         }
         var closeReceiverRegistered = false
@@ -85,6 +97,35 @@ class BaseService {
             state = s
             DataStore.serviceState = s
             binder.stateChanged(s, msg)
+            Widgets.push(service as Context)
+        }
+
+        /** Reads the idle mode when the job runs, so the last of several quick events always wins. */
+        private fun applyIdleMode() = runOnDefaultDispatcher {
+            idleLock.withLock {
+                val box = proxy?.boxOrNull ?: return@withLock
+                if (SagerNet.power.isDeviceIdleMode) {
+                    if (pausedBox !== box) {
+                        box.pause()
+                        pausedBox = box
+                    }
+                } else if (pausedBox === box) {
+                    pausedBox = null
+                    box.wake()
+                    if (DataStore.configurationStore.getBoolean(Key.WAKE_RESET_CONNECTIONS, true)) {
+                        box.resetNetwork()
+                    }
+                }
+            }
+        }
+
+        private fun refreshWifiState(ctx: Context) = runOnDefaultDispatcher {
+            val box = proxy?.boxOrNull ?: return@runOnDefaultDispatcher
+            if (!box.needWIFIState()) return@runOnDefaultDispatcher
+            box.updateWIFIState()
+            if (WifiStateAccess.status(ctx) == WifiStateAccess.Status.OK) {
+                PlatformNotifications.cancelWifiRulesInactive(ctx)
+            }
         }
     }
 
@@ -149,7 +190,8 @@ class BaseService {
             try {
                 return runBlocking {
                     urlTestCurrent(
-                        proxy.box, proxy.core, DataStore.testUrl, DataStore.urlTestTimeoutMs
+                        proxy.box, proxy.core, DataStore.testUrl, DataStore.urlTestTimeoutMs,
+                        exitsThroughVpn(proxy.profile),
                     )
                 }
             } catch (e: Exception) {
@@ -176,6 +218,12 @@ class BaseService {
         private fun ruleSetUpdateJson(updated: Int, error: String): String =
             jsonObjectOf("updated" to updated, "error" to error).toCompact()
 
+        override fun autoSelectorStatus(withMembers: Boolean): String = AutoSelectorRuntime.statusJson(withMembers)
+
+        override fun autoSelectorRecheck() = AutoSelectorRuntime.recheck()
+
+        override fun autoSelectorSelect(memberProfileId: Long) = AutoSelectorRuntime.select(memberProfileId)
+
         fun stateChanged(s: State, msg: String?) = launch {
             val profileName = profileName
             broadcast { it.stateChanged(s.ordinal, profileName, msg) }
@@ -199,25 +247,34 @@ class BaseService {
         fun reload() {
             if (DataStore.selectedProxy == 0L) {
                 stopRunner(false, (this as Context).getString(R.string.profile_empty))
+                return
             }
             val s = data.state
             when {
                 s == State.Stopped -> startRunner()
-                s.canStop -> stopRunner(true)
+                s.canStop -> AutoSelectorRuntime.restart(this) { stopRunner(true) }
                 else -> Logs.w("Illegal state $s when invoking use")
             }
         }
 
-        fun onProxySelected(ent: ProxyEntity) {
-            data.proxy?.boxOrNull?.resetNetwork()
+        /** Runs [id] instead of the current profile, staying in the foreground; the running profile is left alone. */
+        fun switchProfile(id: Long) {
+            if (id <= 0L) return
+            DataStore.selectedProxy = id
+            val s = data.state
+            if (s.canStop && data.proxy?.profile?.id == id) return
             runOnDefaultDispatcher {
-                data.proxy?.apply {
-                    looper?.selectMain(ent.id)
-                    displayProfileName = ServiceNotification.genTitle(ent)
-                    data.notification?.postNotificationTitle(displayProfileName)
-                }
-                data.binder.broadcast { it.cbSelectorUpdate(ent.id) }
+                data.binder.broadcast { it.cbSelectorUpdate(id) }
             }
+            // While stopping, a restart in flight starts whatever is selected once the old core is gone.
+            if (s.canStop) AutoSelectorRuntime.restart(this) { stopRunner(true) } else Widgets.push(this as Context)
+        }
+
+        /** The neighbour [step] away in the group of the selected profile, wrapping around. */
+        fun switchRelative(step: Int) {
+            val current = DataStore.selectedProxy.takeIf { it > 0L } ?: data.proxy?.profile?.id ?: return
+            val target = ProfileOrder.neighbour(current, step) ?: return
+            switchProfile(target.id)
         }
 
         suspend fun startProcesses() {
@@ -252,6 +309,14 @@ class BaseService {
                     "profileId=${proxy?.profile?.id ?: -1L} stage=kill begin"
             )
             try {
+                data.wifiMonitor?.stop()
+            } catch (error: Throwable) {
+                recordCleanupFailure("wifi-monitor-stop", error)
+            } finally {
+                data.wifiMonitor = null
+            }
+
+            try {
                 proxy?.close()
                 Logs.i(
                     "ServiceLifecycleTrace serviceId=$serviceId proxyId=$proxyId " +
@@ -283,6 +348,10 @@ class BaseService {
             return cleanupError
         }
 
+        /**
+         * A restart keeps the service, its notification and the receiver: the new core starts in place, so a switch
+         * from the notification or a widget never needs another foreground-service start from the background.
+         */
         fun stopRunner(restart: Boolean = false, msg: String? = null) {
             DataStore.baseService = null
             DataStore.vpnService = null
@@ -334,12 +403,21 @@ class BaseService {
                     data.connectingJob = null
                 }
 
-                try {
-                    data.notification?.destroy()
-                } catch (error: Throwable) {
-                    recordCleanupFailure("notification-destroy", error)
-                } finally {
-                    data.notification = null
+                val keepNotification = restart && data.notification != null
+                if (keepNotification) {
+                    try {
+                        data.notification?.postNotificationTitle(getString(R.string.notification_switching))
+                    } catch (error: Throwable) {
+                        recordCleanupFailure("notification-title", error)
+                    }
+                } else {
+                    try {
+                        data.notification?.destroy()
+                    } catch (error: Throwable) {
+                        recordCleanupFailure("notification-destroy", error)
+                    } finally {
+                        data.notification = null
+                    }
                 }
 
                 try {
@@ -348,16 +426,19 @@ class BaseService {
                     recordCleanupFailure("process-cleanup-boundary", error)
                 }
 
-                try {
-                    if (data.closeReceiverRegistered) {
-                        unregisterReceiver(data.receiver)
+                if (!keepNotification) {
+                    try {
+                        if (data.closeReceiverRegistered) {
+                            unregisterReceiver(data.receiver)
+                        }
+                    } catch (error: Throwable) {
+                        recordCleanupFailure("receiver-unregister", error)
+                    } finally {
+                        data.closeReceiverRegistered = false
                     }
-                } catch (error: Throwable) {
-                    recordCleanupFailure("receiver-unregister", error)
-                } finally {
-                    data.closeReceiverRegistered = false
-                    data.proxy = null
+                    PlatformNotifications.cancelWifiRulesInactive(this@Interface)
                 }
+                data.proxy = null
 
                 cleanupError?.let { error ->
                     Logs.w(
@@ -379,12 +460,16 @@ class BaseService {
                 )
 
                 try {
-                    // stop the service if nothing has bound to it
-                    if (restart) startRunner() else {
-                        stopSelf()
+                    when {
+                        keepNotification -> startProxy()
+                        restart -> startRunner()
+                        else -> stopSelf() // stop the service if nothing has bound to it
                     }
                 } catch (error: Throwable) {
                     recordCleanupFailure("service-finish", error)
+                    if (keepNotification) {
+                        stopRunner(false, "${getString(R.string.service_failed)}: ${error.readableMessage}")
+                    }
                 }
             }
         }
@@ -430,18 +515,46 @@ class BaseService {
             }
         }
 
+        /** Wi-Fi rules (route, DNS or rule-set ones) need location access and a fresh Wi-Fi state on roaming. */
+        fun watchWifiRules(proxy: ProxyInstance) {
+            this as Context
+            val box = proxy.boxOrNull ?: return
+            if (!box.needWIFIState()) {
+                PlatformNotifications.cancelWifiRulesInactive(this)
+                return
+            }
+            data.wifiMonitor = WifiStateAccess.Monitor(this) { box.updateWIFIState() }.also { it.start() }
+            if (WifiStateAccess.status(this) == WifiStateAccess.Status.OK) {
+                PlatformNotifications.cancelWifiRulesInactive(this)
+            } else {
+                PlatformNotifications.wifiRulesInactive(this)
+            }
+        }
+
+        /** Always-on VPN starts the service by itself; without a profile it can only explain why nothing connects. */
+        fun onNoProfile() {}
+
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
             DataStore.baseService = this
 
-            val data = data
             if (data.state != State.Stopped) return Service.START_NOT_STICKY
+            startProxy()
+            return Service.START_NOT_STICKY
+        }
+
+        /** Starts the selected profile; the notification and the receiver of a restart are reused. */
+        fun startProxy() {
+            DataStore.baseService = this
+            val data = data
             val profile = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
             this as Context
             if (profile == null) { // gracefully shutdown: https://stackoverflow.com/q/47337857/2245107
-                data.notification = createNotification("")
+                if (data.notification == null) data.notification = createNotification("")
+                onNoProfile()
                 stopRunner(false, getString(R.string.profile_empty))
-                return Service.START_NOT_STICKY
+                return
             }
+            PlatformNotifications.cancelAlwaysOnNoProfile(this)
 
             val proxy = ProxyInstance(profile, this)
             data.proxy = proxy
@@ -453,6 +566,11 @@ class BaseService {
                     addAction(Action.CLOSE)
                     addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
                     addAction(Action.RESET_UPSTREAM_CONNECTIONS)
+                    addAction(Action.SWITCH_NEXT)
+                    addAction(Action.SWITCH_PREVIOUS)
+                    addAction(Action.SWITCH_PROFILE)
+                    addAction(Action.REFRESH_WIFI_STATE)
+                    addAction(Action.AUTO_SELECTOR_AUTOMATIC)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     registerReceiver(
@@ -474,16 +592,23 @@ class BaseService {
             }
 
             data.changeState(State.Connecting)
-            runOnMainDispatcher {
+            // startForeground before anything can stop the service (see the link above).
+            val title = ServiceNotification.genTitle(profile)
+            val notification = data.notification
+            if (notification == null) {
+                data.notification = createNotification(title)
+            } else {
+                runOnMainDispatcher { notification.refresh(title) }
+            }
+            data.connectingJob = CoroutineScope(Dispatchers.Main).launch {
                 try {
-                    data.notification = createNotification(ServiceNotification.genTitle(profile))
-
                     preInit()
                     proxy.init()
                     DataStore.currentProfile = profile.id
 
                     startProcesses()
                     data.changeState(State.Connected)
+                    runCatching { watchWifiRules(proxy) }.onFailure { Logs.w(it) }
 
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
@@ -503,7 +628,6 @@ class BaseService {
                     data.connectingJob = null
                 }
             }
-            return Service.START_NOT_STICKY
         }
     }
 

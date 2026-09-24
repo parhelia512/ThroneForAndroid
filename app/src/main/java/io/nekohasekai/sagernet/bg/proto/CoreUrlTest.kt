@@ -1,109 +1,72 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import io.nekohasekai.sagernet.bg.CoreRuntime
+import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.completeWith
-import io.nekohasekai.sagernet.ktx.readableMessage
+import io.nekohasekai.sagernet.outbound.types.Chain
 import io.throneproj.mobile.Instance
 import io.throneproj.mobile.Mobile
 import io.throneproj.mobile.TestRequest
 import io.throneproj.mobile.URLTestHandler
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * The URL test of a batch of profiles the desktop way: one test config with every candidate as a `proxy-<n>`
- * chain, one probe box, one batch over all its ingress tags. Candidates the generator skipped are reported as
- * errors, custom full sing-box configs run alone in a box of their own.
+ * The URL test through the running instance's `proxy` outbound (the stats bar's ISagerNetService.urlTest). With
+ * [vpnExit] a failure whose tunnel is up is [ProxyEntity.LATENCY_CONNECT_ONLY] (url_test_current,
+ * mainwindow_view.cpp:405-433).
  */
-class CoreUrlTest(
-    private val profileIds: List<Long>,
-    private val url: String,
-    private val timeoutMs: Int,
-    private val concurrency: Int,
-) {
-
-    suspend fun run(onResult: (profileId: Long, latencyMs: Int, error: String) -> Unit) {
-        val generated = CoreConfigs.buildTest(profileIds)
-        if (!generated.ok) {
-            val error = generated.error ?: "config generation failed"
-            for (id in profileIds) onResult(id, -1, error)
-            return
-        }
-        // Results land on Go threads while the batch runs; the bookkeeping must survive that.
-        val reported: MutableSet<Long> = ConcurrentHashMap.newKeySet()
-        for ((id, reason) in generated.skipped) {
-            reported.add(id)
-            onResult(id, -1, reason)
-        }
-
-        if (generated.outboundTags.isNotEmpty()) {
-            val request = TestRequest().apply {
-                CoreConfig.from(generated).applyTo(this)
-                this.url = this@CoreUrlTest.url
-                this.timeoutMs = this@CoreUrlTest.timeoutMs
-                maxConcurrency = concurrency.coerceAtLeast(1)
-            }
-            try {
-                awaitUrlTestBatch(null, request) { tag, latency, error ->
-                    val id = generated.tagToProfileId[tag] ?: return@awaitUrlTestBatch
-                    reported.add(id)
-                    onResult(id, latency, error)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                val error = e.readableMessage
-                for (id in generated.tagToProfileId.values) if (reported.add(id)) onResult(id, -1, error)
-            }
-        }
-
-        for ((id, config) in generated.fullConfigs) {
-            val request = TestRequest().apply {
-                coreConfig = config
-                useDefaultOutbound = true
-                this.url = this@CoreUrlTest.url
-                this.timeoutMs = this@CoreUrlTest.timeoutMs
-                maxConcurrency = 1
-            }
-            try {
-                awaitUrlTestBatch(null, request) { _, latency, error ->
-                    reported.add(id)
-                    onResult(id, latency, error)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (reported.add(id)) onResult(id, -1, e.readableMessage)
-            }
-        }
-
-        for (id in profileIds) if (reported.add(id)) onResult(id, -1, "no result")
-    }
-}
-
-/** The URL test through the running instance's `proxy` outbound. */
-suspend fun urlTestCurrent(instance: Instance, core: CoreConfig, url: String, timeoutMs: Int): Int {
+suspend fun urlTestCurrent(instance: Instance, core: CoreConfig, url: String, timeoutMs: Int, vpnExit: Boolean): Int {
     val request = TestRequest().apply {
         testCurrent = true
         this.url = url
         this.timeoutMs = timeoutMs
         maxConcurrency = 1
         core.outboundTags.forEach(::addOutboundTag)
+        if (vpnExit) addVPNEndpointTag(CoreConfig.TAG_PROXY)
     }
     val latency = AtomicInteger(-1)
     val failure = AtomicReference<String?>(null)
-    awaitUrlTestBatch(instance, request) { _, latencyMs, error ->
-        if (error.isEmpty()) latency.set(latencyMs) else failure.set(error)
+    val tunnelUp = AtomicBoolean(false)
+    suspendCancellableCoroutine<Unit> { continuation ->
+        Mobile.startURLTest(instance, CoreRuntime.platform, request, object : URLTestHandler {
+            override fun onResult(tag: String?, latencyMs: Int, error: String?) {
+                if (error.isNullOrEmpty()) latency.set(latencyMs) else failure.set(error)
+            }
+
+            override fun onVPNStatus(tag: String?, connected: Boolean, state: String?, err: String?) {
+                tunnelUp.set(connected)
+            }
+
+            override fun onDone() {
+                continuation.completeWith(Result.success(Unit))
+            }
+        })
     }
     val error = failure.get()
+    if (error != null && tunnelUp.get() && !ProxyEntity.isTestAborted(error)) return ProxyEntity.LATENCY_CONNECT_ONLY
     val result = latency.get()
     if (error != null || result < 0) throw IllegalStateException(error ?: "url test produced no result")
     return result
 }
 
+/**
+ * vpn_exit_endpoint (mainwindow_view.cpp:360-371): [profile] leaves through an OpenVPN or OpenConnect endpoint, a
+ * chain through its last hop, so a failed test of its running instance asks for the tunnel verdict of `proxy`.
+ */
+internal fun exitsThroughVpn(profile: ProxyEntity?): Boolean {
+    val exit = if (profile?.isChain() == true) {
+        (profile.outbound as? Chain)?.list?.lastOrNull()?.let(ProfileManager::getProfile)
+    } else {
+        profile
+    }
+    return exit?.isVpnProfile() == true
+}
+
+/** What a probe box is started with: the config, its Xray half and the tags to measure. */
 internal fun CoreConfig.applyTo(request: TestRequest) {
     request.coreConfig = coreConfig
     request.needXray = needXray
@@ -111,21 +74,4 @@ internal fun CoreConfig.applyTo(request: TestRequest) {
     request.xrayOutboundDNSStrategy = xrayDnsStrategy
     xrayFullConfigs.forEach(request::addXrayFullConfig)
     outboundTags.forEach(request::addOutboundTag)
-}
-
-// Results and the done signal arrive from Go goroutines; the batch resumes once the core reports done.
-private suspend fun awaitUrlTestBatch(
-    current: Instance?,
-    request: TestRequest,
-    onResult: (tag: String, latencyMs: Int, error: String) -> Unit,
-) = suspendCancellableCoroutine { continuation ->
-    Mobile.startURLTest(current, CoreRuntime.platform, request, object : URLTestHandler {
-        override fun onResult(tag: String?, latencyMs: Int, error: String?) {
-            onResult(tag.orEmpty(), latencyMs, error.orEmpty())
-        }
-
-        override fun onDone() {
-            continuation.completeWith(Result.success(Unit))
-        }
-    })
 }

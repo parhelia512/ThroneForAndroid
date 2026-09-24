@@ -15,6 +15,9 @@
 
 [GitHub Releases 下载](https://github.com/throneproj/ThroneForAndroid/releases)
 
+> 1.7.0 is signed with a new key and starts with a fresh database: uninstall older versions first, then add your subscriptions again.
+> 1.7.0 使用新的签名密钥，数据库也会重新开始：请先卸载旧版本，再重新添加订阅。
+
 ## 交流反馈 / Feedback
 
 https://github.com/throneproj/ThroneForAndroid/issues
@@ -23,15 +26,20 @@ https://github.com/throneproj/ThroneForAndroid/issues
 
 https://throneproj.github.io
 
-## 连接与速度测试 / Connection and Speed Tests
+## Features
 
-当前组菜单提供“URL 测试本组”和“速度测试本组”两个入口，不再提供批量直连 TCP/ICMP Ping。URL 延迟测试的新安装默认地址为 `http://cp.cloudflare.com/`，默认并发为 10。
-
-速度测试支持下载+上传、仅下载、仅上传和简单下载；节点会逐个测试，流量通过各自代理发送。默认模式为下载+上传，默认超时为 5000 ms，简单下载默认地址为 `http://cachefly.cachefly.net/1mb.test`。速度测试可能消耗大量流量，请按需选择模式或及时取消。升级不会覆盖已经保存的自定义测试设置。
-
-The current-group menu provides **URL test this group** and **Speed test this group**; direct batch TCP/ICMP Ping actions are no longer exposed. New installations use `http://cp.cloudflare.com/` with 10 URL-latency workers by default.
-
-Speed testing supports download + upload, download only, upload only, and simple download. Profiles are tested one at a time through their own proxy. The default mode is download + upload, the default timeout is 5000 ms, and the default simple-download URL is `http://cachefly.cachefly.net/1mb.test`. Speed tests may consume significant data. Existing custom test settings are preserved during upgrades.
+* Groups and subscriptions that work like Throne desktop: per-group subscription options (filters, clean-up,
+  URL test after an update), front / landing proxy, HWID headers, scheduled updates with change reports
+* Backups in the desktop's `.thrbackup` format, restorable on either side: save, share or sync over WebDAV
+* Auto selector profiles that keep the best server of a group ranked and switch automatically
+* Cloudflare WARP: registration (WireGuard or MASQUE identity) and a built-in WARP mode for routing
+* URL, IP / country and speed tests, with a bulk-test panel (live progress, latency histogram, fastest servers,
+  sort / remove unavailable / connect to fastest)
+* JSON editor with sing-box schema checking, completion and formatting
+* In-app updater for GitHub builds (stable or pre-release channel, verified downloads)
+* Home-screen widgets, and server switching from the notification
+* Route rules by Wi-Fi network (SSID / BSSID)
+* Android TV: launcher banner, D-pad navigation, previous / next server
 
 ## 支持的代理协议 / Supported Proxy Protocols
 
@@ -237,13 +245,9 @@ Android GUI:
 - [shadowsocks/shadowsocks-android](https://github.com/shadowsocks/shadowsocks-android)
 - [SagerNet/SagerNet](https://github.com/SagerNet/SagerNet)
 
-Web Dashboard:
-
-- [Yacd-meta](https://github.com/MetaCubeX/Yacd-meta)
-
 ## Star History
 
-<a href="https://www.star-history.com/?repos=dsfkjlweuyr%2FThroneForAndroid&type=date&legend=bottom-right">
+<a href="https://www.star-history.com/?repos=throneproj%2FThroneForAndroid&type=date&legend=bottom-right">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=throneproj/ThroneForAndroid&type=date&theme=dark&legend=bottom-right&sealed_token=vVh7Hn3UTnDoalet423u1x-LDNiIZQ2VfWY7GGmbMR8V-4feGR0yTT_IpVxBrxSTOwF7xFnsTcZjyHqNufLeTmdL5f-lw36iYWXcJSlXuJwapM1s8wChkg" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=throneproj/ThroneForAndroid&type=date&legend=bottom-right&sealed_token=vVh7Hn3UTnDoalet423u1x-LDNiIZQ2VfWY7GGmbMR8V-4feGR0yTT_IpVxBrxSTOwF7xFnsTcZjyHqNufLeTmdL5f-lw36iYWXcJSlXuJwapM1s8wChkg" />

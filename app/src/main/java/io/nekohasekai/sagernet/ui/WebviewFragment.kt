@@ -13,9 +13,8 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutWebviewBinding
+import io.nekohasekai.sagernet.widget.applyInsetMargin
 import moe.matsuri.nb4a.utils.WebViewUtil
-
-// Fragment必须有一个无参public的构造函数，否则在数据恢复的时候，会报crash
 
 class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenuItemClickListener {
 
@@ -35,6 +34,7 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         // webview
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         mWebView = binding.webview
+        mWebView.applyInsetMargin(bottom = true, horizontal = true, ime = true)
         mWebView.settings.domStorageEnabled = true
         mWebView.settings.javaScriptEnabled = true
         mWebView.webViewClient = object : WebViewClient() {

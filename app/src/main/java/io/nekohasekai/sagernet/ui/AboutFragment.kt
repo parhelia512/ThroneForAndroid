@@ -1,25 +1,11 @@
 package io.nekohasekai.sagernet.ui
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.text.util.Linkify
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.activity.result.component1
-import androidx.activity.result.component2
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
 import androidx.recyclerview.widget.RecyclerView
 import com.danielstone.materialaboutlibrary.MaterialAboutFragment
@@ -29,15 +15,13 @@ import com.danielstone.materialaboutlibrary.model.MaterialAboutList
 import com.google.android.material.card.MaterialCardView
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
-import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.utils.PackageCache
-import io.nekohasekai.sagernet.widget.ListListener
-import androidx.core.net.toUri
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
-import org.json.JSONObject
+import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
+import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.update.UpdateActivity
+import io.nekohasekai.sagernet.update.UpdateChecker
+import io.nekohasekai.sagernet.widget.applyListInsets
 
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
@@ -46,7 +30,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
         val binding = LayoutAboutBinding.bind(view)
 
-        ViewCompat.setOnApplyWindowInsetsListener(view, ListListener)
+        binding.aboutScroll.applyListInsets()
         toolbar?.setTitle(R.string.menu_about)
 
         binding.license.maxLines = LICENSE_COLLAPSED_MAX_LINES
@@ -84,16 +68,6 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
     class AboutContent : MaterialAboutFragment() {
 
-        val requestIgnoreBatteryOptimizations = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { (resultCode, _) ->
-            if (resultCode == Activity.RESULT_OK) {
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.about_fragment_holder, AboutContent())
-                    .commitAllowingStateLoss()
-            }
-        }
-
         override fun getMaterialAboutList(activityContext: Context): MaterialAboutList {
             return MaterialAboutList.Builder()
                 .addCard(
@@ -105,44 +79,25 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .text(R.string.app_version)
                                 .subText(SagerNet.appVersionNameForDisplay)
                                 .setOnClickAction {
-                                    requireContext().launchCustomTab(
-                                        "https://github.com/throneproj/ThroneForAndroid/releases"
-                                    )
+                                    requireContext().launchCustomTab(UpdateChecker.RELEASES_PAGE)
                                 }
                                 .build())
-                        .addItem(
-                            MaterialAboutActionItem.Builder()
-                                // Throne has no stable release yet: grey out the item
-                                .text(
-                                    SpannableString(getString(R.string.check_update_release)).apply {
-                                        setSpan(
-                                            ForegroundColorSpan(
-                                                ContextCompat.getColor(
-                                                    activityContext,
-                                                    android.R.color.darker_gray
-                                                )
-                                            ),
-                                            0,
-                                            length,
-                                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        .apply {
+                            if (BuildConfig.IN_APP_UPDATER) {
+                                addItem(
+                                    MaterialAboutActionItem.Builder()
+                                        .icon(R.drawable.ic_baseline_download_24)
+                                        .text(R.string.update_check)
+                                        .subText(
+                                            if (DataStore.allowBetaUpdate) R.string.update_channel_beta
+                                            else R.string.update_channel_stable
                                         )
-                                    }
-                                )
-                                .setOnClickAction {
-                                    Toast.makeText(
-                                        app,
-                                        R.string.release_not_available,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                                .build())
-                        .addItem(
-                            MaterialAboutActionItem.Builder()
-                                .text(R.string.check_update_preview)
-                                .setOnClickAction {
-                                    checkUpdate()
-                                }
-                                .build())
+                                        .setOnClickAction {
+                                            UpdateActivity.start(requireContext())
+                                        }
+                                        .build())
+                            }
+                        }
                         .addItem(
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_baseline_layers_24)
@@ -150,27 +105,6 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .subText(BuildConfig.THRONE_CORE_REF)
                                 .setOnClickAction { }
                                 .build())
-                        .apply {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                val pm = app.getSystemService(Context.POWER_SERVICE) as PowerManager
-                                if (!pm.isIgnoringBatteryOptimizations(app.packageName)) {
-                                    addItem(
-                                        MaterialAboutActionItem.Builder()
-                                            .icon(R.drawable.ic_baseline_running_with_errors_24)
-                                            .text(R.string.ignore_battery_optimizations)
-                                            .subText(R.string.ignore_battery_optimizations_sum)
-                                            .setOnClickAction {
-                                                requestIgnoreBatteryOptimizations.launch(
-                                                    Intent(
-                                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                                        "package:${app.packageName}".toUri()
-                                                    )
-                                                )
-                                            }
-                                            .build())
-                                }
-                            }
-                        }
                         .build())
                 .addCard(
                     MaterialAboutCard.Builder()
@@ -254,92 +188,6 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                 }
             }
         }
-
-        fun checkUpdate() {
-            runOnIoDispatcher {
-                try {
-                    val response =
-                        fetchText("https://api.github.com/repos/throneproj/ThroneForAndroid/releases/latest")
-                    val release = JSONObject(response.body)
-                    val releaseName = release.getString("name")
-                    val releaseUrl = release.getString("html_url")
-                    // Release name is the git tag, e.g. "v1.4.2-m20-10".
-                    // Compare it with the local version name segment by segment.
-                    val haveUpdate = releaseName.isNotBlank() &&
-                            compareVersionNames(releaseName, BuildConfig.VERSION_NAME) > 0
-                    runOnMainDispatcher {
-                        if (haveUpdate) {
-                            val context = requireContext()
-                            MaterialAlertDialogBuilder(context)
-                                .setTitle(R.string.update_dialog_title)
-                                .setMessage(
-                                    context.getString(
-                                        R.string.update_dialog_message,
-                                        SagerNet.appVersionNameForDisplay,
-                                        releaseName
-                                    )
-                                )
-                                .setPositiveButton(R.string.yes) { _, _ ->
-                                    val intent = Intent(Intent.ACTION_VIEW, releaseUrl.toUri())
-                                    context.startActivity(intent)
-                                }
-                                .setNegativeButton(R.string.no, null)
-                                .show()
-                        } else {
-                            Toast.makeText(app, R.string.check_update_no, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } catch (e: Exception) {
-                    Logs.w(e)
-                    runOnMainDispatcher {
-                        Toast.makeText(app, e.readableMessage, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
-
-        companion object {
-
-            private val numberRegex = Regex("\\d+")
-
-            /**
-             * Compares two version names segment by segment (split by "-").
-             * Each segment is compared by its numeric groups in order,
-             * and left segments dominate right ones, e.g.
-             * "v1.2.3-m21-1" > "v1.2.3-m20-100".
-             *
-             * Returns a positive value if [a] is newer than [b],
-             * a negative value if it is older, and 0 if they are equal.
-             */
-            fun compareVersionNames(a: String, b: String): Int {
-                val segmentsA = a.split("-")
-                val segmentsB = b.split("-")
-                for (i in 0 until maxOf(segmentsA.size, segmentsB.size)) {
-                    val segmentA = segmentsA.getOrNull(i).orEmpty()
-                    val segmentB = segmentsB.getOrNull(i).orEmpty()
-                    val numbersA = extractNumbers(segmentA)
-                    val numbersB = extractNumbers(segmentB)
-                    if (numbersA.isEmpty() && numbersB.isEmpty()) {
-                        val compared = segmentA.compareTo(segmentB)
-                        if (compared != 0) return compared
-                        continue
-                    }
-                    for (j in 0 until maxOf(numbersA.size, numbersB.size)) {
-                        val numberA = numbersA.getOrNull(j)
-                        val numberB = numbersB.getOrNull(j)
-                        if (numberA == null) return -1
-                        if (numberB == null) return 1
-                        if (numberA != numberB) return if (numberA < numberB) -1 else 1
-                    }
-                }
-                return 0
-            }
-
-            private fun extractNumbers(segment: String): List<Long> =
-                numberRegex.findAll(segment).mapNotNull { it.value.toLongOrNull() }.toList()
-
-        }
-
     }
 
 }

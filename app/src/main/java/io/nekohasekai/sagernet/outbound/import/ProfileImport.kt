@@ -6,20 +6,23 @@ import io.nekohasekai.sagernet.outbound.json.JsonArray
 import io.nekohasekai.sagernet.outbound.json.JsonInput
 import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.Base64Strict
+import io.nekohasekai.sagernet.outbound.link.LinkCodec
 import io.nekohasekai.sagernet.outbound.types.Custom
 import io.nekohasekai.sagernet.outbound.types.OpenConnect
 import io.nekohasekai.sagernet.outbound.types.OpenVpn
 import io.nekohasekai.sagernet.outbound.types.Shadowsocks
 import io.nekohasekai.sagernet.outbound.types.WireGuard
+import java.io.ByteArrayOutputStream
+import java.util.zip.Inflater
 
 /**
  * The desktop's subscription / clipboard / file parser (src/configs/sub/SubscriptionParser.cpp with the scanning
- * helpers of include/configs/sub/SubscriptionScan.hpp). [parseText] is ParseText: the whole body is base64-decoded
+ * helpers of include/configs/sub/SubscriptionScan.hpp). [parse] is ParseText: the whole body is base64-decoded
  * when it looks like one blob (standard, then a wrapped standard blob, then the url-safe alphabet), then the
  * document is classified in the desktop's order: JSON (Xray outbounds / configs, sing-box outbounds / endpoints,
  * SIP008), Clash YAML, a WireGuard INI file, an OpenVPN profile, an OpenConnect profile, and finally one item per
  * line (a line opening a bracket yields its balanced JSON block), each of which may itself be base64 or a share
- * link. [parseLine] is Parser::link for one share link.
+ * link.
  */
 object ProfileImport {
 
@@ -28,8 +31,8 @@ object ProfileImport {
 
     private const val MAX_DEPTH = 16
 
-    @JvmStatic
-    fun parseText(text: String): List<Outbound> = parse(text).outbounds
+    /** The size cap of a compressed vpn:// payload (SubscriptionParser.cpp:229). */
+    private const val MAX_VPN_PAYLOAD = 16L * 1024 * 1024
 
     @JvmStatic
     @JvmOverloads
@@ -47,12 +50,6 @@ object ProfileImport {
         parser.document(body, allowBase64 = false, needParse = true, depth = 0)
         return Result(parser.produced, parser.messages)
     }
-
-    /** Parser::link on one share link (comments, `vpn://` and unknown schemes give null). */
-    @JvmStatic
-    @JvmOverloads
-    fun parseLine(line: String, preference: OutboundFactory.XrayVlessPreference = OutboundFactory.DEFAULT_XRAY_VLESS_PREFERENCE): Outbound? =
-        OutboundFactory.parseLink(Scan.trim(line), preference)
 
     private enum class SingBoxSubType { OutboundInJson, OutboundJsonArray, OutboundObject, Invalid }
     private enum class XraySubType { OutboundInJson, OutboundJsonArray, OutboundObject, ConfigJsonArray, Invalid }
@@ -125,7 +122,7 @@ object ProfileImport {
                 return
             }
 
-            link(text)
+            link(text, depth)
         }
 
         /** Parser::json (SubscriptionParser.cpp:340-370): Xray first, its configs share the `outbounds` wrapper with sing-box. */
@@ -324,9 +321,95 @@ object ProfileImport {
             produce(openConnect)
         }
 
-        /** Parser::link (SubscriptionParser.cpp:527-554), minus the desktop-only `vpn://` credential links. */
-        private fun link(line: String) {
+        /** Parser::link (SubscriptionParser.cpp:510-537). */
+        private fun link(line: String, depth: Int) {
+            if (line.startsWith("vpn://", ignoreCase = true)) {
+                vpnLink(line, depth)
+                return
+            }
             produce(OutboundFactory.parseLink(line, preference))
+        }
+
+        /**
+         * Parser::vpnLink (SubscriptionParser.cpp:561-603), the AmneziaVPN share link: base64 (standard, then
+         * url-safe), optionally Qt-compressed, holding either the `containers` JSON (each protocol's `last_config`
+         * carries a config document) or a config document itself.
+         */
+        private fun vpnLink(line: String, depth: Int) {
+            var raw = line.substring(6)
+            val fragment = raw.indexOf('#')
+            if (fragment != -1) raw = raw.substring(0, fragment)
+            raw = LinkCodec.decodeFully(raw)
+            val decoded = Base64Strict.decode(raw)?.takeIf { it.isNotEmpty() }
+                ?: Base64Strict.decode(raw, urlSafe = true)?.takeIf { it.isNotEmpty() }
+            if (decoded == null) {
+                log("Failed to decode the vpn:// link.")
+                return
+            }
+            val data = uncompressVpnPayload(decoded) ?: decoded
+
+            val before = produced.size
+            val text = String(data, Charsets.UTF_8)
+            val trimmed = Scan.trim(text)
+            val doc = if (trimmed.startsWith("{") && Scan.matchingClose(trimmed, 0) == trimmed.length - 1) {
+                JsonInput.parseObjectOrNull(trimmed)
+            } else {
+                null
+            }
+            if (doc != null && doc.contains("containers")) {
+                for (container in doc.array("containers")) {
+                    val containerObj = container as? JsonObject ?: continue
+                    for (key in containerObj.keys()) {
+                        val protoObj = containerObj[key] as? JsonObject ?: continue
+                        val conf = when (val lastConfig = protoObj["last_config"]) {
+                            is String -> {
+                                val inner = JsonInput.parseObjectOrNull(lastConfig)
+                                if (inner != null && inner.contains("config")) inner.string("config") else lastConfig
+                            }
+
+                            is JsonObject -> lastConfig.string("config")
+                            else -> ""
+                        }
+                        if (conf.isEmpty()) continue
+                        document(conf, allowBase64 = false, needParse = true, depth = depth + 1)
+                    }
+                }
+            } else {
+                document(text, allowBase64 = false, needParse = true, depth = depth + 1)
+            }
+            if (produced.size == before) log("No importable profile found in the vpn:// link.")
+        }
+
+        /**
+         * uncompressVpnPayload (SubscriptionParser.cpp:227-236): qUncompress data (4-byte big-endian size, then a
+         * zlib stream) after validating the header; null when it is not such data.
+         */
+        private fun uncompressVpnPayload(data: ByteArray): ByteArray? {
+            if (data.size < 6) return null
+            val expected = ((data[0].toLong() and 0xFF) shl 24) or ((data[1].toLong() and 0xFF) shl 16) or
+                ((data[2].toLong() and 0xFF) shl 8) or (data[3].toLong() and 0xFF)
+            val cmf = data[4].toInt() and 0xFF
+            val flg = data[5].toInt() and 0xFF
+            if (expected == 0L || expected > MAX_VPN_PAYLOAD || (cmf and 0x0F) != 8 || ((cmf shl 8) or flg) % 31 != 0) {
+                return null
+            }
+            val inflater = Inflater()
+            return try {
+                inflater.setInput(data, 4, data.size - 4)
+                val out = ByteArrayOutputStream(minOf(expected, 1L shl 20).toInt())
+                val buffer = ByteArray(64 * 1024)
+                while (!inflater.finished()) {
+                    val n = inflater.inflate(buffer)
+                    if (n == 0 && !inflater.finished()) return null
+                    out.write(buffer, 0, n)
+                    if (out.size() > MAX_VPN_PAYLOAD) return null
+                }
+                out.toByteArray()
+            } catch (e: Exception) {
+                null
+            } finally {
+                inflater.end()
+            }
         }
 
         /** looksLikeOvpnConfig (SubscriptionParser.cpp:181-198). */
@@ -382,7 +465,7 @@ object ProfileImport {
     /** Subscription::scan (include/configs/sub/SubscriptionScan.hpp) on strings. */
     internal object Scan {
         private fun isSpace(c: Char): Boolean =
-            c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '' || c == ''
+            c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\u000B' || c == '\u000C'
 
         private fun isBase64Char(c: Char): Boolean =
             c in 'A'..'Z' || c in 'a'..'z' || c in '0'..'9' || c == '+' || c == '/' || c == '='
@@ -396,11 +479,11 @@ object ProfileImport {
             var end = s.length
             while (start < end) {
                 val c = s[start]
-                if (isSpace(c) || c == ' ' || c == '﻿') start++ else break
+                if (isSpace(c) || c == '\u00A0' || c == '\uFEFF') start++ else break
             }
             while (end > start) {
                 val c = s[end - 1]
-                if (isSpace(c) || c == ' ') end-- else break
+                if (isSpace(c) || c == '\u00A0') end-- else break
             }
             return s.substring(start, end)
         }

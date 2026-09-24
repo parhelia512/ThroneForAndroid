@@ -2,14 +2,12 @@ package io.nekohasekai.sagernet
 
 object Key {
 
-    const val DB_PUBLIC = "configuration.db"
     const val DB_PROFILE = "sager_net.db"
 
     const val CLEAR_CACHE = "clearCache"
 
     // Android-only keys of the configuration store; the desktop keys are in database.SettingsRegistry.
 
-    const val APP_EXPERT = "isExpert"
     const val APP_THEME = "appTheme"
     const val USE_SYSTEM_THEME = "useSystemTheme"
     const val NIGHT_THEME = "nightTheme"
@@ -27,6 +25,7 @@ object Key {
     const val SPEED_INTERVAL = "speedInterval"
     const val SHOW_DIRECT_SPEED = "showDirectSpeed"
     const val SHOW_GROUP_IN_NOTIFICATION = "showGroupInNotification"
+    const val NOTIFICATION_ACTIONS = "notificationActions"
 
     const val HTTP_PROXY_BYPASS = "httpProxyBypass"
 
@@ -52,49 +51,25 @@ object Key {
 
     const val GROUP_NAME = "groupName"
     const val GROUP_TYPE = "groupType"
-    const val GROUP_ORDER = "groupOrder"
-    const val GROUP_IS_SELECTOR = "groupIsSelector"
-    const val GROUP_FRONT_PROXY = "groupFrontProxy"
-    const val GROUP_LANDING_PROXY = "groupLandingProxy"
 
-    const val GROUP_SUBSCRIPTION = "groupSubscription"
     const val SUBSCRIPTION_LINK = "subscriptionLink"
-    const val SUBSCRIPTION_FORCE_RESOLVE = "subscriptionForceResolve"
-    const val SUBSCRIPTION_DEDUPLICATION = "subscriptionDeduplication"
-    const val SUBSCRIPTION_UPDATE = "subscriptionUpdate"
-    const val SUBSCRIPTION_UPDATE_WHEN_CONNECTED_ONLY = "subscriptionUpdateWhenConnectedOnly"
-    const val SUBSCRIPTION_USER_AGENT = "subscriptionUserAgent"
-    const val SUBSCRIPTION_AUTO_UPDATE = "subscriptionAutoUpdate"
-    const val SUBSCRIPTION_AUTO_UPDATE_DELAY = "subscriptionAutoUpdateDelay"
-    const val SUBSCRIPTION_FILTER_MODE = "subscriptionFilterMode"
-    const val SUBSCRIPTION_FILTER_REGEX = "subscriptionFilterRegex"
-    const val SUBSCRIPTION_SERVER_DNS = "subscriptionServerDns"
 
     //
 
     const val APP_TLS_VERSION = "appTLSVersion"
 
+    const val UPDATE_CHECK_AUTO = "updateCheckAuto"
+    const val UPDATE_SKIPPED_VERSION_CODE = "updateSkippedVersionCode"
+    const val RESUME_AFTER_UPDATE = "resumeAfterUpdate"
+    const val BATTERY_PROMPT_SHOWN = "batteryPromptShown"
+    const val LOG_EXPORT_REDACT = "logExportRedact"
+    const val HWID_FALLBACK = "hwidFallback"
+    const val WIFI_PERMISSION_ASKED = "wifiPermissionAsked"
+
     const val WEBDAV_SERVER = "webdavServer"
     const val WEBDAV_USERNAME = "webdavUsername"
     const val WEBDAV_PASSWORD = "webdavPassword"
     const val WEBDAV_PATH = "webdavPath"
-}
-
-object GroupType {
-    const val BASIC = 0
-    const val SUBSCRIPTION = 1
-}
-
-object GroupOrder {
-    const val ORIGIN = 0
-    const val BY_NAME = 1
-    const val BY_DELAY = 2
-}
-
-object SubscriptionFilterMode {
-    const val DISABLED = 0
-    const val INCLUDE = 1
-    const val EXCLUDE = 2
 }
 
 object Action {
@@ -104,4 +79,14 @@ object Action {
 
     // const val SWITCH_WAKE_LOCK = "io.nekohasekai.sagernet.SWITCH_WAKELOCK"
     const val RESET_UPSTREAM_CONNECTIONS = "io.nekohasekai.sagernet.RESET_UPSTREAM_CONNECTIONS"
+
+    // Every action of the service receiver needs its own branch there: its fallback does nothing.
+    const val SWITCH_NEXT = "io.nekohasekai.sagernet.SWITCH_NEXT"
+    const val SWITCH_PREVIOUS = "io.nekohasekai.sagernet.SWITCH_PREVIOUS"
+    const val SWITCH_PROFILE = "io.nekohasekai.sagernet.SWITCH_PROFILE"
+    const val REFRESH_WIFI_STATE = "io.nekohasekai.sagernet.REFRESH_WIFI_STATE"
+
+    /** The auto-selector [EXTRA_PROFILE_ID] goes back to automatic in the running core. */
+    const val AUTO_SELECTOR_AUTOMATIC = "io.nekohasekai.sagernet.AUTO_SELECTOR_AUTOMATIC"
+    const val EXTRA_PROFILE_ID = "profileId"
 }

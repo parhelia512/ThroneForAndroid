@@ -80,6 +80,8 @@
             app:title="@string/use_dns_object" />
         <moe.matsuri.nb4a.ui.EditConfigPreference
             app:icon="@drawable/ic_baseline_layers_24"
+            app:jsonAllowEmpty="true"
+            app:jsonSchema="#/$defs/DNS"
             app:key="dns_object"
             app:title="@string/dns_object" />
     </PreferenceCategory>

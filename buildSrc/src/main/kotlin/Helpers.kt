@@ -1,6 +1,7 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.AbstractAppExtension
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+import org.gradle.api.GradleException
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.plugins.ExtensionAware
@@ -8,35 +9,41 @@ import org.gradle.kotlin.dsl.getByName
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import java.util.Base64
 import java.util.Properties
-import kotlin.system.exitProcess
 
 private val Project.android get() = extensions.getByName<ApplicationExtension>("android")
 
-private lateinit var metadata: Properties
-private lateinit var localProperties: Properties
-
-fun Project.requireMetadata(): Properties {
-    if (!::metadata.isInitialized) {
-        metadata = Properties().apply {
-            load(rootProject.file("nb4a.properties").inputStream())
-        }
-    }
-    return metadata
+/** Read on every call: buildSrc statics live as long as the Gradle daemon, so a cache would keep old versions. */
+fun Project.requireMetadata(): Properties = Properties().apply {
+    rootProject.file("nb4a.properties").inputStream().use { load(it) }
 }
 
-fun Project.requireLocalProperties(): Properties {
-    if (!::localProperties.isInitialized) {
-        localProperties = Properties()
+/** A `-P<property>` Gradle property, else the [env] variable (CI), else null. */
+private fun Project.buildOption(property: String, env: String): String? =
+    (findProperty(property) as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: System.getenv(env)?.trim()?.takeIf { it.isNotEmpty() }
 
-        val base64 = System.getenv("LOCAL_PROPERTIES")
-        if (!base64.isNullOrBlank()) {
+/** `stable` (default) or `preview`: `-Pthrone.channel` / `THRONE_CHANNEL`. */
+fun Project.buildChannel(): String {
+    val channel = buildOption("throne.channel", "THRONE_CHANNEL") ?: "stable"
+    if (channel != "stable" && channel != "preview") throw GradleException("throne.channel must be stable or preview, got $channel")
+    return channel
+}
 
-            localProperties.load(Base64.getDecoder().decode(base64).inputStream())
-        } else if (project.rootProject.file("local.properties").exists()) {
-            localProperties.load(rootProject.file("local.properties").inputStream())
-        }
-    }
-    return localProperties
+/**
+ * The last three digits of versionCode: 999 for a stable tag build, the commit count since the last stable tag for a
+ * preview, 0 for a local build (`-Pthrone.build` / `THRONE_BUILD`).
+ */
+fun Project.buildNumber(): Int {
+    val raw = buildOption("throne.build", "THRONE_BUILD") ?: return 0
+    return raw.toIntOrNull()?.takeIf { it in 0..999 } ?: throw GradleException("throne.build must be 0..999, got $raw")
+}
+
+/** SHA-256 of the release signing certificate pinned by the in-app updater, "" = no pin (`UPDATE_SIGNER_SHA256`). */
+fun Project.updateSignerPin(): String {
+    val raw = buildOption("throne.updateSignerSha256", "UPDATE_SIGNER_SHA256") ?: return ""
+    val hex = raw.replace(":", "").lowercase()
+    if (!hex.matches(Regex("[0-9a-f]{64}"))) throw GradleException("UPDATE_SIGNER_SHA256 is not a SHA-256 hex digest")
+    return hex
 }
 
 fun Project.setupCommon() {
@@ -53,11 +60,11 @@ fun Project.setupCommon() {
             }
         }
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_1_8
-            targetCompatibility = JavaVersion.VERSION_1_8
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
         }
         (android as ExtensionAware).extensions.getByName<KotlinJvmOptions>("kotlinOptions").apply {
-            jvmTarget = JavaVersion.VERSION_1_8.toString()
+            jvmTarget = JavaVersion.VERSION_17.toString()
         }
         lint {
             showAll = true
@@ -99,59 +106,56 @@ fun Project.setupCommon() {
                     jniDebuggable(true)
                 }
             }
-            applicationVariants.forEach { variant ->
-                variant.outputs.forEach {
-                    it as BaseVariantOutputImpl
-                    it.outputFileName = it.outputFileName.replace(
-                        "app", "${project.name}-" + variant.versionName
-                    ).replace("-release", "").replace("-oss", "")
-                }
-            }
         }
     }
 }
 
+/**
+ * Release signing from the environment (CI secrets): SIGNING_KEYSTORE_B64 (base64 keystore), SIGNING_STORE_PASSWORD,
+ * SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD (defaults to the store password). Without them release builds stay unsigned;
+ * debug builds always use the SDK debug key.
+ */
 fun Project.setupAppCommon() {
     setupCommon()
 
-    val lp = requireLocalProperties()
-    val keystorePwd = lp.getProperty("KEYSTORE_PASS") ?: System.getenv("KEYSTORE_PASS")
-    val alias = lp.getProperty("ALIAS_NAME") ?: System.getenv("ALIAS_NAME")
-    val pwd = lp.getProperty("ALIAS_PASS") ?: System.getenv("ALIAS_PASS")
+    val keystoreB64 = System.getenv("SIGNING_KEYSTORE_B64")?.trim()
+    if (keystoreB64.isNullOrEmpty()) return
+    fun requireEnv(name: String) = System.getenv(name)?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException("SIGNING_KEYSTORE_B64 is set but $name is missing")
+    val storePass = requireEnv("SIGNING_STORE_PASSWORD")
+    val alias = requireEnv("SIGNING_KEY_ALIAS")
+    val keyPass = System.getenv("SIGNING_KEY_PASSWORD")?.takeIf { it.isNotEmpty() } ?: storePass
+    val keystore = layout.buildDirectory.file("signing/release.keystore").get().asFile
+    keystore.parentFile.mkdirs()
+    keystore.writeBytes(Base64.getMimeDecoder().decode(keystoreB64))
 
     android.apply {
-        if (keystorePwd != null) {
-            signingConfigs {
-                create("release") {
-                    storeFile = rootProject.file("release.keystore")
-                    storePassword = keystorePwd
-                    keyAlias = alias
-                    keyPassword = pwd
-                }
-            }
+        val release = signingConfigs.create("release").apply {
+            storeFile = keystore
+            storePassword = storePass
+            keyAlias = alias
+            keyPassword = keyPass
         }
-        buildTypes {
-            val key = signingConfigs.findByName("release")
-            if (key != null) {
-                getByName("release").signingConfig = key
-                getByName("debug").signingConfig = key
-            }
-        }
+        buildTypes.getByName("release").signingConfig = release
     }
 }
 
 fun Project.setupApp() {
-    val pkgName = requireMetadata().getProperty("PACKAGE_NAME")
-    val verName = requireMetadata().getProperty("VERSION_NAME")
-    val verCode = (requireMetadata().getProperty("VERSION_CODE").toInt()) * 5
-    val coreRef = requireMetadata().getProperty("THRONE_CORE_REF")
+    val metadata = requireMetadata()
+    val pkgName = metadata.getProperty("PACKAGE_NAME")
+    val baseVersion = metadata.getProperty("VERSION_NAME")
+    val versionIndex = metadata.getProperty("VERSION_CODE").toInt()
+    val coreRef = metadata.getProperty("THRONE_CORE_REF")
+    val preview = buildChannel() == "preview"
+    val build = buildNumber()
     android.apply {
         defaultConfig {
             applicationId = pkgName
-            versionCode = verCode
-            versionName = verName
-            buildConfigField("String", "PRE_VERSION_NAME", "\"\"")
+            versionCode = versionIndex * 1000 + build
+            versionName = if (preview) "$baseVersion-pre.$build" else baseVersion
             buildConfigField("String", "THRONE_CORE_REF", "\"$coreRef\"")
+            buildConfigField("boolean", "PREVIEW", preview.toString())
+            buildConfigField("String", "UPDATE_SIGNER_SHA256", "\"${updateSignerPin()}\"")
         }
     }
     setupAppCommon()
@@ -168,49 +172,39 @@ fun Project.setupApp() {
             }
         }
 
+        // ThroneCore is built for android/arm64, android/arm and android/amd64 only.
         splits.abi {
             reset()
             isEnable = true
             isUniversalApk = false
             include("armeabi-v7a")
             include("arm64-v8a")
-            include("x86")
             include("x86_64")
         }
 
         flavorDimensions += "vendor"
         productFlavors {
-            create("oss")
-            create("fdroid")
-            create("play")
-            create("preview") {
-                buildConfigField(
-                    "String",
-                    "PRE_VERSION_NAME",
-                    "\"${requireMetadata().getProperty("PRE_VERSION_NAME")}\""
-                )
+            create("oss") {
+                buildConfigField("boolean", "IN_APP_UPDATER", "true")
+            }
+            create("fdroid") {
+                buildConfigField("boolean", "IN_APP_UPDATER", "false")
             }
         }
 
+        // Throne-<versionName>[-<flavor>]-<abi>[-<buildType>][-unsigned].apk; oss release = Throne-<versionName>-<abi>.apk
         applicationVariants.all {
+            val variant = this
             outputs.all {
                 this as BaseVariantOutputImpl
-                val isPreview = outputFileName.contains("-preview")
-                outputFileName = if (isPreview) {
-                    outputFileName.replace(
-                        project.name,
-                        "Throne-" + requireMetadata().getProperty("PRE_VERSION_NAME")
-                    ).replace("-preview", "")
-                } else {
-                    outputFileName.replace(project.name, "Throne-$versionName")
-                        .replace("-release", "")
-                        .replace("-oss", "")
-                }
+                outputFileName = "Throne-${variant.versionName}" + outputFileName.removePrefix(project.name)
+                    .replace("-release", "")
+                    .replace("-oss", "")
             }
         }
 
-        for (abi in listOf("Arm64", "Arm", "X64", "X86")) {
-            tasks.create("assemble" + abi + "FdroidRelease") {
+        for (abi in listOf("Arm64", "Arm", "X64")) {
+            tasks.register("assemble" + abi + "FdroidRelease") {
                 dependsOn("assembleFdroidRelease")
             }
         }

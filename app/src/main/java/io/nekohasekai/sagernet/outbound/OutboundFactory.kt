@@ -38,9 +38,9 @@ object OutboundFactory {
     /** OutboundFactory.cpp:44 and the JSON alias of openvpn.cpp:157-158. */
     private val TYPE_ALIASES = mapOf("hysteria2" to "hysteria", "openvpn-client" to "openvpn")
 
-    /** Not ported in phase 1 (autoselector, tailscale) or desktop-only (extracore); always an [InvalidOutbound]. */
+    /** Not ported (tailscale) or desktop-only (extracore); always an [InvalidOutbound]. */
     @JvmField
-    val UNSUPPORTED_TYPES: Set<String> = setOf("autoselector", "tailscale", "extracore")
+    val UNSUPPORTED_TYPES: Set<String> = setOf("tailscale", "extracore")
 
     /** Factory string to the class expected in io.nekohasekai.sagernet.outbound.types for the types other packages add. */
     @JvmField
@@ -50,6 +50,7 @@ object OutboundFactory {
         "anytls" to "AnyTls", "mieru" to "Mieru", "snell" to "Snell", "shadowtls" to "ShadowTls",
         "wireguard" to "WireGuard", "masque" to "Masque", "openvpn" to "OpenVpn", "openconnect" to "OpenConnect",
         "ssh" to "Ssh", "custom" to "Custom", "naive" to "Naive", "direct" to "Direct", "chain" to "Chain",
+        "autoselector" to "AutoSelector",
     )
 
     private const val TYPES_PACKAGE = "io.nekohasekai.sagernet.outbound.types."
@@ -81,9 +82,6 @@ object OutboundFactory {
         }
         return InvalidOutbound(canonical)
     }
-
-    @JvmStatic
-    fun isImplemented(type: String): Boolean = newByType(type) !is InvalidOutbound
 
     private fun instantiateByName(className: String): Outbound? = try {
         Class.forName(TYPES_PACKAGE + className).getDeclaredConstructor().newInstance() as? Outbound

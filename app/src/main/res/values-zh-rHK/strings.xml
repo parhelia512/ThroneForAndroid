@@ -13,57 +13,28 @@
     <string name="amoled_theme_summary">夜間模式下使用純黑背景</string>
     <string name="document">文件</string>
     <string name="project">項目</string>
-    <string name="oss_licenses">開放源碼授權條款</string>
     <string name="menu_group">分組</string>
-    <string name="group_name">分組名稱</string>
-    <string name="group_status_empty_subscription">尚未更新</string>
-    <string name="group_no_difference">%s: 沒有變化</string>
-    <string name="group_updated">%s: 更新了 %d 個代理</string>
-    <string name="batch_update_summary">批量更新完成：%1$d 個成功，%2$d 個失敗</string>
-    <string name="group_added">已新增：
-\n%s</string>
-    <string name="group_changed">已更新：
-\n%s</string>
-    <string name="group_deleted">已移除：
-\n%s</string>
     <string name="connection_test_testing">測試中……</string>
     <string name="connection_test_available">連接成功: HTTPS 握手需時 %dms</string>
-    <string name="tls">使用 TLS</string>
     <string name="server_address">伺服器</string>
     <string name="server_port">伺服器端口</string>
     <string name="username">用户名稱</string>
     <string name="username_opt">用户名稱 （可選）</string>
-    <string name="key_opt">鑰匙（可選）</string>
     <string name="password">密碼</string>
     <string name="enc_method">加密方式</string>
     <string name="protocol">協議</string>
-    <string name="domain_strategy">域名解析策略</string>
     <string name="share_qr_nfc">二維碼</string>
     <string name="menu_tools">工具</string>
-    <string name="tools_network">網絡</string>
     <string name="backup">備份</string>
     <string name="auto_connect_summary">在開機或本程式更新後將自動重新啓用代理</string>
     <string name="delete">移除</string>
     <string name="enable">啟用</string>
-    <string name="route_bypass">繞過</string>
-    <string name="route_block">封鎖</string>
     <string name="add_profile_methods_scan_qr_code">掃描二維碼</string>
-    <string name="auto_update">自動更新</string>
     <string name="auto_connect">自動連接</string>
     <string name="disable">禁用</string>
     <string name="auto">自動</string>
-    <string name="action_scan_china_apps">尋找國產應用程式</string>
     <string name="apply">套用</string>
-    <string name="random">隨機</string>
     <string name="connection_test">連接測試</string>
-    <string name="group_create">創建分組</string>
-    <string name="group_delete_confirm_prompt">你確定要移除這個分組嗎？</string>
-    <string name="group_status_proxies">%d 個代理</string>
-    <string name="group_status_proxies_subscription">%d 個代理 | 於 %s 更新</string>
-    <string name="group_diff">變化 (%s)</string>
-    <string name="group_show_diff">變化</string>
-    <string name="group_duplicate">重複：
-\n%s</string>
     <string name="disable_mixed_inbound">停用混合傳入</string>
     <string name="disable_mixed_inbound_sum">純 TUN 傳入，不在本機監聽代理連接埠</string>
     <string name="mixed_inbound_disabled">已停用</string>
@@ -73,11 +44,9 @@
     <string name="connection_test_error">失敗：%s</string>
     <string name="connection_test_available_http">連接成功: HTTP 握手需時 %dms</string>
     <string name="password_opt">密碼（可選）</string>
-    <string name="start">開始</string>
     <string name="quick_toggle">切換</string>
     <string name="quick_enable">啟用</string>
     <string name="quick_disable">停用</string>
-    <string name="group_edit">編輯</string>
     <string name="cag_ws">WebSocket 設定</string>
     <string name="show_direct_speed">顯示直連速度</string>
     <string name="security_settings">安全設定</string>
@@ -85,19 +54,12 @@
 \n直連： %3$s↑ %4$s↓</string>
     <string name="direct_dns">直連 DNS</string>
     <string name="enable_dns_routing">啟用 DNS 路由</string>
-    <string name="transproxy_mode">透明代理模式</string>
     <string name="encryption">加密</string>
-    <string name="insecure">不安全</string>
-    <string name="sort_and_layout">排序與外觀</string>
     <string name="card_style">卡片</string>
     <string name="card_style_classic">經典</string>
     <string name="card_style_stroke">描邊</string>
     <string name="preview_hint_dont_show_again">不再顯示</string>
-    <string name="backup_not_throne_desktop">不是 Throne 電腦版備份檔案，預期 .thrbackup，但 %s</string>
-    <string name="action_import_throne_desktop">從 Throne 電腦版匯入</string>
-    <string name="backup_import_throne_desktop_summary">從 Throne 電腦版 .thrbackup 匯入設定檔、路由與設定（忽略自訂圖示）。勾選的類別將覆蓋本機現有資料。</string>
     <string name="connection_test_url">延遲測試 URL</string>
-    <string name="connection_test_url_test">URL 測試本組</string>
     <string name="speed_test_settings">速度測試</string>
     <string name="speed_test_mode">速度測試模式</string>
     <string name="speed_test_mode_download_upload">下載 + 上載</string>
@@ -108,22 +70,8 @@
     <string name="speed_test_timeout_invalid">請輸入大於零毫秒的逾時時間</string>
     <string name="simple_download_url">簡單下載 URL</string>
     <string name="speed_test_url_invalid">請輸入有效的 HTTP 或 HTTPS URL</string>
-    <string name="speed_test_group">速度測試本組</string>
     <string name="speed_test_confirm_title">執行速度測試？</string>
     <string name="speed_test_confirm_message">速度測試可能使用大量數據。各設定檔會依次透過其自身代理進行測試。</string>
-    <string name="speed_test_stage_pending">等候中</string>
-    <string name="speed_test_stage_discovery">正在尋找測試伺服器</string>
-    <string name="speed_test_stage_latency">正在測量伺服器延遲</string>
-    <string name="speed_test_stage_download">正在下載</string>
-    <string name="speed_test_stage_upload">正在上載</string>
-    <string name="speed_test_stage_complete">已完成</string>
-    <string name="speed_test_stage_cancelled">已取消</string>
-    <string name="speed_test_stage_error">失敗</string>
-    <string name="speed_test_latency_format">延遲：%1$d 毫秒</string>
-    <string name="speed_test_server_format">伺服器：%1$s</string>
-    <string name="speed_test_download_format">下載：%1$s（%2$s）</string>
-    <string name="speed_test_upload_format">上載：%1$s（%2$s）</string>
-    <string name="speed_test_rate_mbps">%1$.2f Mbps</string>
 
     <!-- Custom Icon Pack -->
     <string name="custom_icon">自訂圖示</string>

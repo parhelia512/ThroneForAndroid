@@ -9,8 +9,8 @@ import kotlin.reflect.KProperty
 
 /**
  * Every desktop settings key the app adopts (include/database/SettingsRepo.h, the maps of SettingsRepo.cpp) with its
- * desktop type and the Android default. The WARP keys, the log filters and the subscription-model keys are not
- * adopted yet. An entry is the DataStore property delegate of its key (property = lowerCamelCase of the key), gives
+ * desktop type and the Android default. The log filters are not adopted yet. An entry is the DataStore property
+ * delegate of its key (property = lowerCamelCase of the key), gives
  * the preference screens their default through [SettingsStore], and validates restored values ([Setting.decode]):
  * a stored value its entry rejects reads as the default.
  */
@@ -121,6 +121,9 @@ object SettingsRegistry {
     @JvmField
     val NTP_OUTBOUNDS = listOf("direct", "proxy")
 
+    @JvmField
+    val WARP_MODES = listOf("wireguard", "masque")
+
     /** defaultTunPrivateRanges (SettingsRepo.h:18-21). */
     @JvmField
     val DEFAULT_PRIVATE_RANGES = listOf(
@@ -141,6 +144,10 @@ object SettingsRegistry {
     /** Android "Auto connect" (decision D6). */
     @JvmField val REMEMBER_ENABLE = bool("remember_enable", false)
     @JvmField val SKIP_DELETE_CONFIRMATION = bool("skip_delete_confirmation", false)
+    /** The selected group tab; resolved through GroupRepo (0 or a missing group = the first group). */
+    @JvmField val CURRENT_GROUP = long("current_group", 0L) { it >= 0 }
+    @JvmField val SHOW_CONFIG_SECURITY = bool("show_config_security", false)
+    @JvmField val ALLOW_BETA_UPDATE = bool("allow_beta_update", false)
 
     // ------------------------------------------------------------------------------------------------ inbound
 
@@ -258,6 +265,36 @@ object SettingsRegistry {
     @JvmField val USER_AGENT2 = string("user_agent2", "")
     @JvmField val NET_USE_PROXY = bool("net_use_proxy", false)
     @JvmField val NET_INSECURE = bool("net_insecure", false)
+    /** Sign-encoded minutes like [ROUTE_AUTO_UPDATE]. */
+    @JvmField val SUB_AUTO_UPDATE = int("sub_auto_update", -30)
+    /** Epoch seconds. */
+    @JvmField val SUB_AUTO_UPDATE_LAST = long("sub_auto_update_last", 0L) { it >= 0 }
+    @JvmField val SUB_CLEAR = bool("sub_clear", false)
+    @JvmField val SUB_SHOW_CHANGE_POPUP = bool("sub_show_change_popup", true)
+    @JvmField val SUB_SEND_HWID = bool("sub_send_hwid", false)
+    /** `key=value` pairs separated by commas. */
+    @JvmField val SUB_CUSTOM_HWID_PARAMS = string("sub_custom_hwid_params", "")
+    @JvmField val ALLOW_STOPPING_ACTIVE_PROFILE = bool("allow_stopping_active_profile", false)
+
+    // ------------------------------------------------------------------------------------------------ warp
+
+    @JvmField val ENABLE_WARP = bool("enable_warp", false)
+    @JvmField val WARP_MODE = oneOf("warp_mode", "wireguard", WARP_MODES)
+    @JvmField val WARP_EP = string("warp_ep", "")
+    @JvmField val WARP_PRIVATE_KEY = string("warp_private_key", "")
+    @JvmField val WARP_PUBLIC_KEY = string("warp_public_key", "")
+    @JvmField val WARP_IFC_ADDRS = stringList("warp_ifc_addrs", emptyList())
+    @JvmField val WARP_RESERVED = stringList("warp_reserved", emptyList())
+    @JvmField val WARP_TOS_ACCEPTED = bool("warp_tos_accepted", false)
+    @JvmField val WARP_MASQUE_EP = string("warp_masque_ep", "")
+    @JvmField val WARP_MASQUE_PRIVATE_KEY = string("warp_masque_private_key", "")
+    @JvmField val WARP_MASQUE_PEER_PUBLIC_KEY = string("warp_masque_peer_public_key", "")
+    @JvmField val WARP_MASQUE_IFC_ADDRS = stringList("warp_masque_ifc_addrs", emptyList())
+    @JvmField val WARP_MASQUE_SNI = string("warp_masque_sni", "consumer-masque.cloudflareclient.com")
+    /** 0 HTTP/3 with fallback, 1 HTTP/3 only, 2 HTTP/2 (SettingsRepo.h:266). */
+    @JvmField val WARP_MASQUE_HTTP_MODE = int("warp_masque_http_mode", 0) { it in 0..2 }
+    /** Registration API hosts tried in order; empty = api.cloudflareclient.com. */
+    @JvmField val WARP_API_HOSTS = stringList("warp_api_hosts", emptyList())
 
     // ------------------------------------------------------------------------------------------------ core
 
@@ -288,12 +325,22 @@ object SettingsRegistry {
     val ANDROID_KEYS: Set<String> = setOf(
         Key.SERVICE_MODE, Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL, Key.HTTP_PROXY_BYPASS,
         Key.METERED_NETWORK, Key.ACQUIRE_WAKE_LOCK, Key.WAKE_RESET_CONNECTIONS, Key.NETWORK_CHANGE_RESET_CONNECTIONS,
-        Key.SPEED_INTERVAL, Key.SHOW_DIRECT_SPEED, Key.SHOW_GROUP_IN_NOTIFICATION,
+        Key.SPEED_INTERVAL, Key.SHOW_DIRECT_SPEED, Key.SHOW_GROUP_IN_NOTIFICATION, Key.NOTIFICATION_ACTIONS,
         Key.USE_SYSTEM_THEME, Key.APP_THEME, Key.NIGHT_THEME, Key.AMOLED_THEME, Key.APP_LANGUAGE,
         Key.SHOW_BOTTOM_BAR, Key.ALWAYS_SHOW_ADDRESS, Key.GROUP_LAYOUT_MODE, Key.PROFILE_CARD_STYLE,
         Key.HIDE_FROM_RECENT_APPS, Key.LOG_BUF_SIZE, Key.APP_TLS_VERSION, Key.YACD_URL,
         Key.WEBDAV_SERVER, Key.WEBDAV_USERNAME, Key.WEBDAV_PASSWORD, Key.WEBDAV_PATH,
-        Key.PROFILE_CURRENT, Key.PROFILE_ID, Key.PROFILE_GROUP, Key.PREVIEW_HINT_DISMISSED_VERSION, Key.APP_EXPERT,
+        Key.PROFILE_CURRENT, Key.PROFILE_ID, Key.PREVIEW_HINT_DISMISSED_VERSION,
+        Key.UPDATE_CHECK_AUTO, Key.UPDATE_SKIPPED_VERSION_CODE, Key.RESUME_AFTER_UPDATE, Key.BATTERY_PROMPT_SHOWN,
+        Key.LOG_EXPORT_REDACT, Key.HWID_FALLBACK, Key.WIFI_PERMISSION_ASKED,
+    )
+
+    /** Keys a backup never exports and a restore never overwrites (R10 §8.3). */
+    @JvmField
+    val DEVICE_LOCAL_KEYS: Set<String> = setOf(
+        Key.WEBDAV_SERVER, Key.WEBDAV_USERNAME, Key.WEBDAV_PASSWORD, Key.WEBDAV_PATH,
+        Key.BATTERY_PROMPT_SHOWN, Key.HWID_FALLBACK, Key.RESUME_AFTER_UPDATE, Key.UPDATE_SKIPPED_VERSION_CODE,
+        Key.WIFI_PERMISSION_ASKED,
     )
 
     // ------------------------------------------------------------------------------------------------ lookup

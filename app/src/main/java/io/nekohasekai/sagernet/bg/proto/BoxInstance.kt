@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.mkPort
+import io.nekohasekai.sagernet.outbound.config.AutoSelectorBuild
 import io.nekohasekai.sagernet.outbound.config.GeneratedConfig
 import io.throneproj.mobile.Instance
 import io.throneproj.mobile.Mobile
@@ -32,7 +33,7 @@ abstract class BoxInstance(
     }
 
     protected open suspend fun loadConfig() {
-        box = Mobile.newInstance(CoreRuntime.platform, core.toStartOptions())
+        box = Mobile.newInstance(CoreRuntime.platform, core.toStartOptions(config.autoSelector))
     }
 
     open suspend fun init() {
@@ -48,18 +49,27 @@ abstract class BoxInstance(
             Logs.w("box start failed for profile ${profile.id}: ${error.message}")
             throw error
         }
+        CoreRuntime.attachRunning(box, profile.id)
     }
 
     override fun close() {
+        boxOrNull?.let(CoreRuntime::detachRunning)
         boxOrNull?.close()
     }
 
 }
 
-internal fun CoreConfig.toStartOptions(): StartOptions = StartOptions().apply {
+internal fun CoreConfig.toStartOptions(autoSelector: AutoSelectorBuild? = null): StartOptions = StartOptions().apply {
     coreConfig = this@toStartOptions.coreConfig
     needXray = this@toStartOptions.needXray
     xrayConfig = this@toStartOptions.xrayConfig ?: ""
     xrayOutboundDNSStrategy = xrayDnsStrategy
     this@toStartOptions.xrayFullConfigs.forEach(::addXrayFullConfig)
+    // mainwindow_profile_lifecycle.cpp:231-239: the idle window must outlast the probe interval, or the sidecar
+    // restarts every round; full configs stay resident (0).
+    if (autoSelector != null && (needXray || this@toStartOptions.xrayFullConfigs.isNotEmpty())) {
+        xrayLazyStart = true
+        xrayIdleSeconds = maxOf(120, autoSelector.intervalSec * 2)
+        xrayFullIdleSeconds = 0
+    }
 }

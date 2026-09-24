@@ -71,6 +71,12 @@
             app:key="udp_timeout"
             app:title="@string/wireguard_udp_timeout"
             app:useSimpleSummaryProvider="true" />
+        <Preference
+            app:icon="@drawable/ic_file_cloud_queue"
+            app:key="warpGenerate"
+            app:persistent="false"
+            app:summary="@string/warp_generate_identity_wireguard_sum"
+            app:title="@string/warp_generate_identity" />
     </PreferenceCategory>
 
     <PreferenceCategory

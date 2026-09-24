@@ -18,7 +18,6 @@ import android.widget.Filterable
 import androidx.annotation.UiThread
 import androidx.core.util.contains
 import androidx.core.util.set
-import androidx.core.view.ViewCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
@@ -39,14 +38,20 @@ import io.nekohasekai.sagernet.ktx.crossFadeFrom
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.utils.PackageCache
-import io.nekohasekai.sagernet.widget.ListListener
+import io.nekohasekai.sagernet.widget.applyInsetPadding
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.NGUtil
 import kotlin.coroutines.coroutineContext
 
+/**
+ * Per-app proxy. Installed apps are selected by uid; stored packages the list cannot show (hidden, without INTERNET,
+ * not installed, restored from a backup) are kept as rows of their own and written back untouched.
+ */
 class AppManagerActivity : ThemedActivity() {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -59,14 +64,16 @@ class AppManagerActivity : ThemedActivity() {
             }
     }
 
+    /** [byName] rows stand for stored packages outside [cachedApps]: they are selected by name, not by uid. */
     private class ProxiedApp(
-        private val pm: PackageManager, private val appInfo: ApplicationInfo,
-        val packageName: String,
+        private val pm: PackageManager, private val appInfo: ApplicationInfo?,
+        val packageName: String, val byName: Boolean = false,
     ) {
-        val name: CharSequence = appInfo.loadLabel(pm)    // cached for sorting
-        val icon: Drawable get() = appInfo.loadIcon(pm)
-        val uid get() = appInfo.uid
-        val sys get() = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val name: CharSequence = appInfo?.loadLabel(pm) ?: packageName    // cached for sorting
+        val icon: Drawable get() = appInfo?.loadIcon(pm) ?: pm.defaultActivityIcon
+        val uid get() = appInfo?.uid ?: -1
+        val sys get() = appInfo != null && (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val installed get() = appInfo != null
     }
 
     private inner class AppViewHolder(val binding: LayoutAppsItemBinding) : RecyclerView.ViewHolder(
@@ -83,7 +90,11 @@ class AppManagerActivity : ThemedActivity() {
             item = app
             binding.itemicon.setImageDrawable(app.icon)
             binding.title.text = app.name
-            binding.desc.text = "${app.packageName} (${app.uid})"
+            binding.desc.text = if (app.installed) {
+                "${app.packageName} (${app.uid})"
+            } else {
+                getString(R.string.app_not_installed, app.packageName)
+            }
             binding.itemcheck.isChecked = isProxiedApp(app)
         }
 
@@ -92,9 +103,12 @@ class AppManagerActivity : ThemedActivity() {
         }
 
         override fun onClick(v: View?) {
-            if (isProxiedApp(item)) proxiedUids.delete(item.uid) else proxiedUids[item.uid] = true
-            DataStore.individual = apps.filter { isProxiedApp(it) }
-                .joinToString("\n") { it.packageName }
+            when {
+                item.byName -> if (!extraSelected.remove(item.packageName)) extraSelected.add(item.packageName)
+                isProxiedApp(item) -> proxiedUids.delete(item.uid)
+                else -> proxiedUids[item.uid] = true
+            }
+            saveSelection()
 
             appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
         }
@@ -107,10 +121,19 @@ class AppManagerActivity : ThemedActivity() {
 
         suspend fun reload() {
             PackageCache.reload()
-            apps = cachedApps.mapNotNull { (packageName, packageInfo) ->
+            if (!selectionLoaded) {
+                initProxiedUids()
+                selectionLoaded = true
+            }
+            val cached = cachedApps
+            val list = cached.mapNotNull { (packageName, packageInfo) ->
                 coroutineContext[Job]!!.ensureActive()
                 packageInfo.applicationInfo?.let { ProxiedApp(packageManager, it, packageName) }
-            }.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
+            }.toMutableList()
+            for (packageName in extraSelected) {
+                list.add(ProxiedApp(packageManager, PackageCache.installedApps[packageName], packageName, byName = true))
+            }
+            apps = sorted(list)
         }
 
         override fun onBindViewHolder(holder: AppViewHolder, position: Int) =
@@ -137,7 +160,7 @@ class AppManagerActivity : ThemedActivity() {
                         constraint, true
                     ) || it.uid.toString().contains(constraint)
                 }
-                if (!sysApps) filteredApps = filteredApps.filter { !it.sys }
+                if (!sysApps) filteredApps = filteredApps.filter { !it.sys || it.byName }
                 count = filteredApps.size
                 values = filteredApps
             }
@@ -161,30 +184,44 @@ class AppManagerActivity : ThemedActivity() {
 
     private lateinit var binding: LayoutAppsBinding
     private val proxiedUids = SparseBooleanArray()
+    private val extraSelected = LinkedHashSet<String>()
+    private var selectionLoaded = false
     private var loader: Job? = null
     private var apps = emptyList<ProxiedApp>()
     private val appsAdapter = AppsAdapter()
 
     private fun initProxiedUids(str: String = DataStore.individual) {
         proxiedUids.clear()
+        extraSelected.clear()
         val apps = cachedApps
-        for (line in str.lineSequence()) {
-            val app = (apps[line] ?: continue)
-            val uid = app.applicationInfo?.uid ?: continue
-            proxiedUids[uid] = true
+        for (line in str.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }) {
+            val uid = apps[line]?.applicationInfo?.uid
+            if (uid != null) proxiedUids[uid] = true else extraSelected.add(line)
         }
     }
 
-    private fun isProxiedApp(app: ProxiedApp) = proxiedUids[app.uid]
+    private fun isProxiedApp(app: ProxiedApp) =
+        if (app.byName) app.packageName in extraSelected else proxiedUids[app.uid]
+
+    /** Selected listed apps, then the selected rows the list only knows by name. */
+    private fun saveSelection() {
+        val listed = apps.filter { !it.byName && isProxiedApp(it) }.map { it.packageName }
+        DataStore.individual = (listed + extraSelected).distinct().joinToString("\n")
+    }
+
+    private fun sorted(list: List<ProxiedApp>) =
+        list.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
+
+    private fun refilter() = appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
 
     @UiThread
     private fun loadApps() {
         loader?.cancel()
-        loader = lifecycleScope.launchWhenCreated {
+        loader = lifecycleScope.launch {
             loading.crossFadeFrom(binding.list)
             val adapter = binding.list.adapter as AppsAdapter
             withContext(Dispatchers.IO) { adapter.reload() }
-            adapter.filter.filter(binding.search.text?.toString() ?: "")
+            refilter()
             if (apps.isEmpty()) {
                 binding.list.visibility = View.GONE
                 binding.appPlaceholder.root.crossFadeFrom(loading)
@@ -205,7 +242,11 @@ class AppManagerActivity : ThemedActivity() {
                 Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = android.net.Uri.fromParts("package", packageName, null)
                 }
-            startActivity(intent)
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
         }
 
         setSupportActionBar(binding.toolbar)
@@ -233,12 +274,13 @@ class AppManagerActivity : ThemedActivity() {
         }
         binding.autoSelectProxyApps.setOnClickListener { selectProxyApp() }
 
-        initProxiedUids()
         binding.list.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         binding.list.itemAnimator = DefaultItemAnimator()
         binding.list.adapter = appsAdapter
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
+        // the app bar fits system windows (status bar foreground); the list pads the navigation bar
+        binding.list.applyListInsets(ime = true, horizontal = false)
+        binding.collapsing.applyInsetPadding(horizontal = true)
 
         binding.search.addTextChangedListener {
             appsAdapter.filter.filter(it?.toString() ?: "")
@@ -247,7 +289,7 @@ class AppManagerActivity : ThemedActivity() {
         binding.showSystemApps.isChecked = sysApps
         binding.showSystemApps.setOnCheckedChangeListener { _, isChecked ->
             sysApps = isChecked
-            appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
+            refilter()
         }
 
         instance = this
@@ -267,17 +309,17 @@ class AppManagerActivity : ThemedActivity() {
                 runOnDefaultDispatcher {
                     val proxiedUidsOld = proxiedUids.clone()
                     for (app in apps) {
+                        if (app.byName) continue
                         if (proxiedUidsOld.contains(app.uid)) {
                             proxiedUids.delete(app.uid)
                         } else {
                             proxiedUids[app.uid] = true
                         }
                     }
-                    DataStore.individual = apps.filter { isProxiedApp(it) }
-                        .joinToString("\n") { it.packageName }
-                    apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
+                    saveSelection()
+                    apps = sorted(apps)
                     onMainDispatcher {
-                        appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
+                        refilter()
                     }
                 }
 
@@ -287,12 +329,18 @@ class AppManagerActivity : ThemedActivity() {
             R.id.action_clear_selections -> {
                 runOnDefaultDispatcher {
                     proxiedUids.clear()
+                    extraSelected.clear()
                     DataStore.individual = ""
-                    apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
                     onMainDispatcher {
-                        appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
+                        loadApps()
                     }
                 }
+                return true
+            }
+
+            R.id.action_add_package -> {
+                PackageNameInput.show(this) { names -> addPackages(names) }
+                return true
             }
 
             R.id.action_export_clipboard -> {
@@ -322,8 +370,8 @@ class AppManagerActivity : ThemedActivity() {
                         Snackbar.make(
                             binding.list, R.string.action_import_msg, Snackbar.LENGTH_LONG
                         ).show()
-                        initProxiedUids(apps)
-                        appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
+                        selectionLoaded = false
+                        loadApps()
                         return true
                     } catch (_: IllegalArgumentException) {
                     }
@@ -332,6 +380,17 @@ class AppManagerActivity : ThemedActivity() {
             }
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    /** Listed apps are selected by uid; any other name becomes a row of its own. */
+    private fun addPackages(names: List<String>) {
+        val listed = cachedApps
+        for (name in names) {
+            val uid = listed[name]?.applicationInfo?.uid
+            if (uid != null) proxiedUids[uid] = true else extraSelected.add(name)
+        }
+        saveSelection()
+        loadApps()
     }
 
     private fun selectProxyApp() {
@@ -360,10 +419,9 @@ class AppManagerActivity : ThemedActivity() {
                             }
                         }
                     }
-                    DataStore.individual =
-                        apps.filter { isProxiedApp(it) }.joinToString("\n") { it.packageName }
-                    apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
-                    appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
+                    saveSelection()
+                    apps = sorted(apps)
+                    refilter()
                 } catch (e: Exception) {
                     Logs.e(e)
                 }

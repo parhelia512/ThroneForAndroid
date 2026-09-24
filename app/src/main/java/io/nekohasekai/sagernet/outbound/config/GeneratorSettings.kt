@@ -129,6 +129,32 @@ data class GeneratorSettings(
     // ---- xray
     /** xray_log_level (SettingsRepo.h:300). */
     val xrayLogLevel: String = "warning",
+
+    // ---- tests (SettingsRepo.h:69-71): the auto-selector's probe URLs when its own are empty
+    /** test_url (the desktop member test_latency_url). */
+    val testUrl: String = "http://cp.cloudflare.com/",
+    /** direct_test_url: the selector's direct connectivity probe; "" omits it. */
+    val directTestUrl: String = "",
+
+    // ---- warp (SettingsRepo.h:252-267), the built-in WARP hop of WarpHop
+    /** enable_warp. */
+    val enableWarp: Boolean = false,
+    /** warp_mode: "wireguard" or "masque". */
+    val warpMode: String = "wireguard",
+    /** warp_ep, warp_private_key, warp_public_key, warp_ifc_addrs, warp_reserved (decimal strings). */
+    val warpEp: String = "",
+    val warpPrivateKey: String = "",
+    val warpPublicKey: String = "",
+    val warpIfcAddrs: List<String> = emptyList(),
+    val warpReserved: List<String> = emptyList(),
+    /** warp_masque_ep, warp_masque_private_key, warp_masque_peer_public_key, warp_masque_ifc_addrs, warp_masque_sni. */
+    val warpMasqueEp: String = "",
+    val warpMasquePrivateKey: String = "",
+    val warpMasquePeerPublicKey: String = "",
+    val warpMasqueIfcAddrs: List<String> = emptyList(),
+    val warpMasqueSni: String = "consumer-masque.cloudflareclient.com",
+    /** warp_masque_http_mode: 0 HTTP/3 falling back to HTTP/2, 1 HTTP/3 only, 2 HTTP/2. */
+    val warpMasqueHttpMode: Int = 0,
 ) {
     /** The mixed inbound's `listen`: inbound_address as stored. */
     val mixedListen: String get() = inboundAddress

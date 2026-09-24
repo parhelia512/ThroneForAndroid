@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.app
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
@@ -62,7 +63,7 @@ object CustomIconManager {
     }
 
     /**
-     * 重置恢复默认图标
+     * Restores the default icons.
      */
     fun reset(context: Context = app): Boolean {
         var success = true
@@ -75,12 +76,12 @@ object CustomIconManager {
     }
 
     /**
-     * 校验并解压安装 ZIP 图标包
+     * Validates and installs a ZIP icon pack.
      */
     fun importIconPack(inputStream: InputStream, context: Context = app): ImportResult {
         val tempDir = File(context.cacheDir, "temp_icon_pack_${System.currentTimeMillis()}")
         if (!tempDir.mkdirs()) {
-            return ImportResult.Error("无法创建临时缓存目录")
+            return ImportResult.Error(context.getString(R.string.icon_pack_temp_dir_failed))
         }
 
         try {
@@ -89,12 +90,12 @@ object CustomIconManager {
                 var entry: ZipEntry? = zis.nextEntry
                 while (entry != null) {
                     val entryName = entry.name
-                    // 安全校验：防止 Zip 路径穿越漏洞
+                    // Reject path traversal (zip slip)
                     if (entryName.contains("..") || entryName.startsWith("/") || entryName.startsWith("\\")) {
-                        return ImportResult.SecurityError("压缩包包含不安全的路径: $entryName")
+                        return ImportResult.SecurityError(context.getString(R.string.icon_pack_unsafe_path, entryName))
                     }
 
-                    // 规范化文件名，只接受根目录或单级文件中的 icon.png 与 tile.png
+                    // Only icon.png and tile.png, at the root or one directory down
                     val fileName = File(entryName).name.lowercase()
                     if (fileName == FILE_ICON || fileName == FILE_TILE) {
                         val targetFile = File(tempDir, fileName)
@@ -118,7 +119,7 @@ object CustomIconManager {
             val tempIcon = File(tempDir, FILE_ICON)
             val tempTile = File(tempDir, FILE_TILE)
 
-            // 尺寸与格式校验
+            // Size and format checks
             val iconDim = getPngDimensions(tempIcon) ?: return ImportResult.NotPng(FILE_ICON)
             if (iconDim.first != REQUIRED_WIDTH || iconDim.second != REQUIRED_HEIGHT) {
                 return ImportResult.InvalidDimension(FILE_ICON, iconDim.first, iconDim.second)
@@ -129,27 +130,62 @@ object CustomIconManager {
                 return ImportResult.InvalidDimension(FILE_TILE, tileDim.first, tileDim.second)
             }
 
-            // 全部校验成功，原子覆盖保存到应用私有目录
+            // All checks passed: replace the app's private copies atomically
             val targetIcon = getIconFile(context)
             val targetTile = getTileFile(context)
 
             tempIcon.copyTo(targetIcon, overwrite = true)
             tempTile.copyTo(targetTile, overwrite = true)
 
-            // 导入后仅在本地预览，不自动生效 tile，等待用户显式应用
+            // An import is only previewed; the tile changes once the user applies the pack
             setTileApplied(context, false)
 
             return ImportResult.Success
         } catch (e: Exception) {
-            return ImportResult.Error(e.message ?: "解压失败")
+            return ImportResult.Error(e.message ?: context.getString(R.string.icon_pack_extract_failed))
         } finally {
             tempDir.deleteRecursively()
         }
     }
 
+    /** The imported pack as backup entries ([FILE_ICON], [FILE_TILE]); null without a complete pack. */
+    fun exportIconPack(context: Context = app): Map<String, ByteArray>? {
+        if (!isCustomActive(context)) return null
+        return try {
+            mapOf(FILE_ICON to getIconFile(context).readBytes(), FILE_TILE to getTileFile(context).readBytes())
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Installs a pack from backup entries after the checks of [importIconPack]; the tile is not applied. */
+    fun restoreIconPack(entries: Map<String, ByteArray>, context: Context = app): ImportResult {
+        for (name in listOf(FILE_ICON, FILE_TILE)) {
+            val bytes = entries[name] ?: return ImportResult.MissingFile(name)
+            val dim = parsePngHeader(ByteArrayInputStream(bytes)) ?: return ImportResult.NotPng(name)
+            if (dim.first != REQUIRED_WIDTH || dim.second != REQUIRED_HEIGHT) {
+                return ImportResult.InvalidDimension(name, dim.first, dim.second)
+            }
+        }
+        return try {
+            for ((name, target) in listOf(FILE_ICON to getIconFile(context), FILE_TILE to getTileFile(context))) {
+                val tmp = File(target.parentFile, "$name.tmp")
+                tmp.writeBytes(entries.getValue(name))
+                if (!tmp.renameTo(target)) {
+                    tmp.delete()
+                    return ImportResult.Error("cannot write $name")
+                }
+            }
+            setTileApplied(context, false)
+            ImportResult.Success
+        } catch (e: Exception) {
+            ImportResult.Error(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
     /**
-     * 读取 PNG 文件头获取分辨率，避免完整载入非 512x512 大图造成内存抖动。
-     * 也保证在无 Android Runtime (如单元测试环境) 下正常运行。
+     * Reads the size from the PNG header, so an oversized image is never decoded.
+     * Also works without the Android runtime (unit tests).
      */
     fun getPngDimensions(file: File): Pair<Int, Int>? {
         if (!file.exists() || file.length() < 24) return null
@@ -170,7 +206,7 @@ object CustomIconManager {
         }
         if (readTotal < 24) return null
 
-        // 校验 PNG 魔数: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
+        // PNG signature: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
         val isPng = header[0] == 0x89.toByte() &&
                 header[1] == 0x50.toByte() &&
                 header[2] == 0x4E.toByte() &&
@@ -181,14 +217,14 @@ object CustomIconManager {
                 header[7] == 0x0A.toByte()
         if (!isPng) return null
 
-        // IHDR chunk: 12-15 字节是 "IHDR" (0x49 0x48 0x44 0x52)
+        // IHDR chunk: bytes 12-15 are "IHDR" (0x49 0x48 0x44 0x52)
         val isIhdr = header[12] == 0x49.toByte() &&
                 header[13] == 0x48.toByte() &&
                 header[14] == 0x44.toByte() &&
                 header[15] == 0x52.toByte()
         if (!isIhdr) return null
 
-        // 宽和高分别位于 16-19 与 20-23 (32 位大端整数)
+        // Width at 16-19, height at 20-23 (32-bit big endian)
         val dis = DataInputStream(ByteArrayInputStream(header, 16, 8))
         val width = dis.readInt()
         val height = dis.readInt()
@@ -196,7 +232,7 @@ object CustomIconManager {
     }
 
     /**
-     * 加载自定义应用图标全彩位图
+     * The custom app icon as a full-colour bitmap.
      */
     fun loadIconBitmap(context: Context = app): Bitmap? {
         val file = getIconFile(context)
@@ -209,7 +245,7 @@ object CustomIconManager {
     }
 
     /**
-     * 加载磁贴图标并提取单色 Alpha 蒙版（RGB 置为纯白，透明度保持不变）
+     * The tile icon as a single-colour alpha mask (white RGB, alpha kept).
      */
     fun loadTileAlphaBitmap(context: Context = app): Bitmap? {
         val file = getTileFile(context)
@@ -224,7 +260,7 @@ object CustomIconManager {
     }
 
     /**
-     * 仅提取 Alpha 通道，生成纯白 (0xFFFFFFFF) + 原透明度的 ARGB_8888 蒙版位图
+     * Keeps only the alpha channel: a white (0xFFFFFFFF) ARGB_8888 mask with the original alpha.
      */
     fun extractAlphaMask(source: Bitmap): Bitmap {
         val width = source.width

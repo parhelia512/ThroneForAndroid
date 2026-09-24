@@ -8,7 +8,8 @@ import androidx.room.Query
 
 /**
  * One row of the desktop's `settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)` table (SettingsRepo.cpp), the value
- * in the desktop encoding: "true"/"false", decimal integers, compact JSON arrays, raw text.
+ * in the desktop encoding: "true"/"false", decimal integers, compact JSON arrays, raw text. The table lives in
+ * SagerDatabase next to the profiles, as in the desktop's single database.
  */
 @Entity(tableName = "settings")
 class SettingEntry(

@@ -1,53 +1,76 @@
 package moe.matsuri.nb4a.ui
 
 import android.content.Context
-import android.content.Intent
 import android.util.AttributeSet
 import androidx.preference.Preference
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
+import io.nekohasekai.sagernet.ui.json.JsonEditorActivity
+import io.nekohasekai.sagernet.ui.json.JsonRelaxations
 
 /**
  * Opens the JSON editor on a profile-cache entry: the preference's own key by default (`serverConfig` when it has
- * none), or a configuration-store key through [useConfigStore]. The summary is the line count of that entry.
+ * none), or a configuration-store key through [useConfigStore]. `app:jsonSchema` (`|`-separated schema pointers, `#` =
+ * the whole config), `app:jsonAllowEmpty` and `app:jsonRequireObject` configure the editor; [schemaProvider] replaces
+ * the schema when it depends on other fields. The Intent is built at click time. The summary is the line count.
  */
 class EditConfigPreference : Preference {
 
     constructor(
         context: Context, attrs: AttributeSet?, defStyleAttr: Int, defStyleRes: Int
-    ) : super(context, attrs, defStyleAttr, defStyleRes)
+    ) : super(context, attrs, defStyleAttr, defStyleRes) {
+        readAttributes(context, attrs, defStyleAttr, defStyleRes)
+    }
 
-    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
-        context, attrs, defStyleAttr
-    )
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr) {
+        readAttributes(context, attrs, defStyleAttr, 0)
+    }
 
-    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+        readAttributes(context, attrs, 0, 0)
+    }
+
     constructor(context: Context) : super(context)
 
     var configKey = key ?: Key.SERVER_CONFIG
     var useConfigStore = false
+    var schemaRoots: List<String> = emptyList()
+    var schemaProvider: (() -> List<String>)? = null
+    var allowEmpty = false
+    var requireObject = true
+    var relaxations: JsonRelaxations? = null
 
-    init {
-        intent = Intent(context, ConfigEditActivity::class.java).apply {
-            putExtra("key", configKey)
+    private fun readAttributes(context: Context, attrs: AttributeSet?, defStyleAttr: Int, defStyleRes: Int) {
+        val array = context.obtainStyledAttributes(attrs, R.styleable.EditConfigPreference, defStyleAttr, defStyleRes)
+        try {
+            array.getString(R.styleable.EditConfigPreference_jsonSchema)?.let { schema ->
+                schemaRoots = schema.split('|').map { it.trim().removePrefix("#").let { root -> if (root.isEmpty()) "" else "#$root" } }
+            }
+            allowEmpty = array.getBoolean(R.styleable.EditConfigPreference_jsonAllowEmpty, false)
+            requireObject = array.getBoolean(R.styleable.EditConfigPreference_jsonRequireObject, true)
+        } finally {
+            array.recycle()
         }
     }
 
     fun useConfigStore(key: String) {
-        try {
-            this.configKey = key
-            useConfigStore = true
-            intent = intent!!.apply {
-                putExtra("useConfigStore", "1")
-                putExtra("key", key)
-            }
-        } catch (e: Exception) {
-            Logs.w(e)
-        }
+        configKey = key
+        useConfigStore = true
+    }
+
+    override fun onClick() {
+        intent = JsonEditorActivity.intent(
+            context,
+            configKey,
+            useConfigStore = useConfigStore,
+            schemaRoots = schemaProvider?.invoke() ?: schemaRoots,
+            allowEmpty = allowEmpty,
+            requireObject = requireObject,
+            relaxations = relaxations,
+            title = title,
+        )
     }
 
     override fun getSummary(): CharSequence {
@@ -55,7 +78,7 @@ class EditConfigPreference : Preference {
             (if (useConfigStore) DataStore.configurationStore.getString(configKey) else DataStore.profileCacheStore.getString(configKey))
                 ?: ""
         return if (config.isBlank()) {
-            return app.resources.getString(androidx.preference.R.string.not_set)
+            app.resources.getString(androidx.preference.R.string.not_set)
         } else {
             app.resources.getString(R.string.lines, config.split('\n').size)
         }

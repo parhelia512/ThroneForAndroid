@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <cache-path name="cache" path="/"/>
+    <!-- log exports (LogExport) and backup shares only, not the whole cache -->
+    <cache-path name="log" path="log/" />
+    <cache-path name="backup" path="backup/" />
 </paths>

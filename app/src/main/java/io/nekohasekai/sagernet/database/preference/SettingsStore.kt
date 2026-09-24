@@ -1,14 +1,16 @@
 package io.nekohasekai.sagernet.database.preference
 
 import androidx.preference.PreferenceDataStore
+import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.PreferenceProxy
 import io.nekohasekai.sagernet.outbound.json.JsonArray
 import io.nekohasekai.sagernet.outbound.json.JsonInput
 
 /**
- * The configuration store: a [PreferenceDataStore] over the `settings` table in the desktop's encodings
- * (SettingsRepo.cpp): booleans "true"/"false" (read back "true" or "1"), integers as decimal text, string lists and
- * string sets as compact JSON arrays, strings raw. The table is shared by both processes and read without a cache.
+ * The configuration store: a [PreferenceDataStore] over the `settings` table of [SagerDatabase] in the desktop's
+ * encodings (SettingsRepo.cpp): booleans "true"/"false" (read back "true" or "1"), integers as decimal text, string
+ * lists and string sets as compact JSON arrays, strings raw. The table is shared by both processes and read without a
+ * cache; the database is resolved on first use.
  *
  * The one-argument getters return what is stored (null when the row is missing or unparsable). The two-argument
  * [PreferenceDataStore] getters fall back to [defaults] (the encoded default of a registered key) before the
@@ -16,10 +18,11 @@ import io.nekohasekai.sagernet.outbound.json.JsonInput
  */
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 class SettingsStore(
-    private val database: PublicDatabase,
+    private val databaseProvider: () -> SagerDatabase,
     private val defaults: (String) -> String? = { null },
 ) : PreferenceDataStore() {
 
+    private val database get() = databaseProvider()
     private val dao get() = database.settingsDao()
 
     // ------------------------------------------------------------------------------------------------ raw access
@@ -36,14 +39,6 @@ class SettingsStore(
         if (values.isEmpty()) return
         database.runInTransaction {
             dao.putAll(values.map { (key, value) -> SettingEntry(key, value) })
-        }
-    }
-
-    /** Replaces the whole table with [values] in one transaction; listeners are not notified. */
-    fun replaceAll(values: Map<String, String>) {
-        database.runInTransaction {
-            dao.reset()
-            if (values.isNotEmpty()) dao.putAll(values.map { (key, value) -> SettingEntry(key, value) })
         }
     }
 

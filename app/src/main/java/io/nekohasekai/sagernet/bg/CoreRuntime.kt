@@ -3,6 +3,8 @@ package io.nekohasekai.sagernet.bg
 import android.app.Application
 import go.Seq
 import io.nekohasekai.sagernet.BuildConfig
+import io.nekohasekai.sagernet.bg.test.TestEngine
+import io.throneproj.mobile.Instance
 import io.throneproj.mobile.LogSink
 import io.throneproj.mobile.Mobile
 import io.throneproj.mobile.SetupOptions
@@ -17,9 +19,28 @@ object CoreRuntime {
 
     val platform: NativeInterface by lazy { NativeInterface() }
 
+    /** The started main instance and the profile it runs, from box start to close (test-current). */
+    class RunningCore(val instance: Instance, val profileId: Long)
+
+    @Volatile
+    var running: RunningCore? = null
+        private set
+
+    @Synchronized
+    fun attachRunning(instance: Instance, profileId: Long) {
+        running = RunningCore(instance, profileId)
+    }
+
+    fun detachRunning(instance: Instance) {
+        val detached = synchronized(this) {
+            (running?.instance === instance).also { if (it) running = null }
+        }
+        if (detached) TestEngine.onRunningClosed()
+    }
+
     fun setup(app: Application) {
         Seq.setContext(app)
-        CoreLog.clear()
+        CoreLog.newSession()
         Mobile.setup(SetupOptions().apply {
             basePath = app.filesDir.absolutePath
             workingPath = File(app.filesDir, "core").absolutePath
@@ -27,6 +48,7 @@ object CoreRuntime {
             logMaxLines = LOG_QUEUE_LINES
             debug = BuildConfig.DEBUG
         })
+        CoreLog.write("[Info] core: sing-box ${Mobile.version()}, xray ${Mobile.xrayVersion()}, ${Mobile.goVersion()}")
         Mobile.setLogSink(CoreLogSink)
     }
 

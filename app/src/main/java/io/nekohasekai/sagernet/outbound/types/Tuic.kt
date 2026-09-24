@@ -11,12 +11,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** tuic.h:8 */
-val ccAlgorithms = listOf("cubic", "new_reno", "bbr")
-
-/** tuic.h:9 */
-val udpRelayModes = listOf("", "native", "quic")
-
 /** tuic (include/configs/outbounds/tuic.h, src/configs/outbounds/tuic.cpp). */
 class Tuic : Outbound("tuic") {
     @JvmField var uuid: String = ""

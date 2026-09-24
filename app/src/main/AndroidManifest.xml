@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="internalOnly">
 
-    <uses-sdk tools:overrideLibrary="com.google.zxing.client.android, com.blacksquircle.ui.editorkit" />
+    <uses-sdk tools:overrideLibrary="com.google.zxing.client.android" />
 
     <permission
         android:name="${applicationId}.SERVICE"
@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -28,6 +29,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
@@ -40,12 +46,18 @@
     <uses-feature
         android:name="android.hardware.camera.autofocus"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.wifi"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location"
+        android:required="false" />
 
     <application
         android:name="io.nekohasekai.sagernet.SagerNet"
         android:allowBackup="true"
         android:autoRevokePermissions="allowed"
-        android:banner="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:dataExtractionRules="@xml/backup_rules"
         android:fullBackupContent="@xml/backup_descriptor"
         android:fullBackupOnly="true"
@@ -80,6 +92,51 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+
+            <!-- .thrbackup files (BackupEntry checks the "THRN" magic, so a mismatch is harmless) -->
+            <intent-filter android:label="@string/backup_open_label">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\..*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.thrbackup" />
+            </intent-filter>
+            <intent-filter android:label="@string/backup_open_label">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\..*\\.thrbackup" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.thrbackup" />
+            </intent-filter>
+            <intent-filter android:label="@string/backup_open_label">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter android:label="@string/backup_open_label">
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
             <intent-filter android:label="@string/subscription_import">
@@ -127,18 +184,15 @@
                 <data android:scheme="throne" />
                 <data android:scheme="json" />
             </intent-filter>
-
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
         </activity>
         <activity
             android:name="io.nekohasekai.sagernet.ui.VpnRequestActivity"
             android:excludeFromRecents="true"
             android:taskAffinity="" />
         <activity
-            android:name="io.nekohasekai.sagernet.ui.profile.ConfigEditActivity"
-            android:configChanges="uiMode" />
+            android:name="io.nekohasekai.sagernet.ui.json.JsonEditorActivity"
+            android:configChanges="uiMode|orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="io.nekohasekai.sagernet.ui.profile.SocksSettingsActivity"
             android:configChanges="uiMode" />
@@ -208,6 +262,13 @@
         <activity
             android:name="io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity"
             android:configChanges="uiMode" />
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.profile.AutoSelectorSettingsActivity"
+            android:configChanges="uiMode" />
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.AutoSelectorStatusActivity"
+            android:configChanges="uiMode"
+            android:parentActivityName="io.nekohasekai.sagernet.ui.MainActivity" />
         <activity
             android:name="io.nekohasekai.sagernet.ui.profile.CustomSettingsActivity"
             android:configChanges="uiMode" />
@@ -285,6 +346,11 @@
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"
             android:theme="@style/Theme.SagerNet.Dialog" />
+        <activity
+            android:name="io.nekohasekai.sagernet.update.UpdateActivity"
+            android:configChanges="uiMode"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.SagerNet.Dialog" />
 
         <activity
             android:name=".ui.WebDAVSettingsActivity"
@@ -316,6 +382,7 @@
         <service
             android:name="io.nekohasekai.sagernet.bg.CoreService"
             android:exported="false"
+            android:foregroundServiceType="dataSync"
             android:process=":bg" />
 
         <service
@@ -359,9 +426,51 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="io.nekohasekai.sagernet.PackageReplacedReceiver"
+            android:exported="false"
+            android:process=":bg">
+            <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name="io.nekohasekai.sagernet.update.UpdateReceiver"
+            android:exported="false" />
+
+        <!-- Widgets live in :bg, the only process that knows the service state. -->
+        <receiver
+            android:name="io.nekohasekai.sagernet.appwidget.ToggleWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_toggle_name"
+            android:process=":bg">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/appwidget_toggle" />
+        </receiver>
+        <receiver
+            android:name="io.nekohasekai.sagernet.appwidget.StatusWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_status_name"
+            android:process=":bg">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/appwidget_status" />
+        </receiver>
+        <receiver
+            android:name="io.nekohasekai.sagernet.appwidget.WidgetActionReceiver"
+            android:exported="false"
+            android:process=":bg" />
 
         <service
             android:name="androidx.room.MultiInstanceInvalidationService"

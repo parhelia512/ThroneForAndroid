@@ -21,6 +21,7 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
+import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.utils.CustomIconManager
 import io.nekohasekai.sagernet.utils.Theme
@@ -39,9 +40,9 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
                 val result = try {
                     requireContext().contentResolver.openInputStream(uri)?.use { stream ->
                         CustomIconManager.importIconPack(stream, requireContext())
-                    } ?: CustomIconManager.ImportResult.Error("无法打开所选文件流")
+                    } ?: CustomIconManager.ImportResult.Error(getString(R.string.icon_pack_open_failed))
                 } catch (e: Exception) {
-                    CustomIconManager.ImportResult.Error(e.message ?: "导入失败")
+                    CustomIconManager.ImportResult.Error(e.message ?: getString(R.string.icon_pack_import_failed))
                 }
 
                 onMainDispatcher {
@@ -83,8 +84,8 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
         binding = LayoutCustomIconBinding.bind(view)
 
         binding.btnImportPack.setOnClickListener {
-            // 采用通用选择器，并在代码中严格校验 ZIP
-            pickZipPack.launch("*/*")
+            // Generic picker; the ZIP is validated in code
+            startFilesForResult(pickZipPack, "*/*")
         }
 
         binding.btnResetDefault.setOnClickListener {
@@ -120,11 +121,11 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
             return
         }
 
-        // 1. 生效 tile.png，通知系统快捷设置磁贴更新
+        // 1. apply tile.png and ask the system to refresh the Quick Settings tile
         CustomIconManager.setTileApplied(context, true)
         notifyTileUpdate()
 
-        // 2. 用自定义 icon.png 创建桌面入口快捷方式（无需重启）
+        // 2. pin a launcher shortcut with the custom icon.png (no restart needed)
         val iconBitmap = CustomIconManager.loadIconBitmap(context)
         if (iconBitmap != null) {
             if (ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
@@ -164,7 +165,7 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
     private fun refreshPreview() {
         val context = requireContext()
 
-        // 1. 应用图标预览：直接显示原图
+        // 1. app icon preview: the image as is
         val customAppBitmap = CustomIconManager.loadIconBitmap(context)
         if (customAppBitmap != null) {
             binding.ivAppIconPreview.setImageBitmap(customAppBitmap)
@@ -172,7 +173,7 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
             binding.ivAppIconPreview.setImageResource(R.mipmap.ic_launcher)
         }
 
-        // 2. 磁贴图标加载（提取 Alpha 蒙版）
+        // 2. tile icon (alpha mask)
         val customTileBitmap = CustomIconManager.loadTileAlphaBitmap(context)
         if (customTileBitmap != null) {
             binding.ivSimulatedTileIcon.setImageBitmap(customTileBitmap)
@@ -180,7 +181,7 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
             binding.ivSimulatedTileIcon.setImageResource(R.drawable.ic_throne_tile)
         }
 
-        // 3. 刷新磁贴模拟状态表现
+        // 3. refresh the simulated tile states
         updateSimulatedTileUi(isTileActive)
     }
 
@@ -193,7 +194,7 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
         } catch (e: Throwable) {
             Color.parseColor("#1976D2")
         }
-        // 主色上的文字/图标色：多数主题为白色，纯白主题下为深色
+        // Text/icon colour on the primary colour: white in most themes, dark in the White theme
         val onPrimaryColor = try {
             context.getColorAttr(com.google.android.material.R.attr.colorOnPrimary)
         } catch (e: Throwable) {
@@ -201,9 +202,9 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
         }
 
         if (active) {
-            // 纯白主题下 colorPrimary 为纯白（#FFFFFF）、夜间回退叠加 OLED 后被压为纯黑，
-            // 两种极端底色都会导致激活态磁贴不可读（白底深字/黑底黑字），
-            // 此时改用深灰底 + 白字，与纯白主题压暗后的强调色保持一致
+            // In the White theme colorPrimary is pure white, and its night fallback with OLED turns it black;
+            // both make the active tile unreadable (dark on white, black on black),
+            // so use dark grey with white text, matching the White theme's dimmed accent
             val whiteTileOverride = DataStore.appTheme == Theme.WHITE && !Theme.usingMonetTheme() &&
                 (Theme.isWhiteTheme() || DataStore.amoledTheme)
             val activeBgColor = if (whiteTileOverride) Color.parseColor("#757575") else primaryColor
@@ -214,7 +215,7 @@ class CustomIconFragment : NamedFragment(R.layout.layout_custom_icon) {
             binding.tvSimulatedTileState.setText(R.string.custom_icon_tile_state_active)
             binding.ivSimulatedTileIcon.imageTintList = ColorStateList.valueOf(activeTextColor)
         } else {
-            // Inactive 状态：仿 Android 真实 QS Tile 关闭状态
+            // Inactive: mimics a real Quick Settings tile that is off
             val inactiveBgColor = if (isNight) Color.parseColor("#2D3038") else Color.parseColor("#E2E2E6")
             val titleTextColor = if (isNight) Color.parseColor("#E3E2E6") else Color.parseColor("#1A1C1E")
             val subtitleTextColor = if (isNight) Color.parseColor("#C4C6D0") else Color.parseColor("#44474E")

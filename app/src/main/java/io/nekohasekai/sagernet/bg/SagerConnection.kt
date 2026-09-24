@@ -12,7 +12,9 @@ import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
 import io.nekohasekai.sagernet.aidl.TrafficDataBatch
+import io.nekohasekai.sagernet.bg.autoselector.AutoSelectorClient
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 
 class SagerConnection(
@@ -33,6 +35,7 @@ class SagerConnection(
         const val CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND = 2
         const val CONNECTION_ID_MAIN_ACTIVITY_BACKGROUND = 3
         const val CONNECTION_ID_RESTART_BG = 4
+        const val CONNECTION_ID_AUTO_SELECTOR = 5
 
         var restartingApp = false
     }
@@ -43,6 +46,9 @@ class SagerConnection(
         fun cbSpeedUpdate(stats: SpeedDisplayData) {}
         suspend fun cbTrafficUpdate(data: TrafficDataBatch) {}
         fun cbSelectorUpdate(id: Long) {}
+
+        /** The auto-selector status changed; [AutoSelectorClient] already holds it. */
+        fun cbAutoSelectorUpdate(json: String) {}
 
         fun stateChanged(state: BaseService.State, profileName: String?, msg: String?)
 
@@ -91,6 +97,14 @@ class SagerConnection(
             }
         }
 
+        override fun cbAutoSelectorUpdate(json: String?) {
+            AutoSelectorClient.update(json)
+            val callback = callback ?: return
+            runOnMainDispatcher {
+                callback.cbAutoSelectorUpdate(json.orEmpty())
+            }
+        }
+
     }
 
     private var binder: IBinder? = null
@@ -118,11 +132,15 @@ class SagerConnection(
         } catch (e: RemoteException) {
             e.printStackTrace()
         }
+        runOnDefaultDispatcher {
+            runCatching { service.autoSelectorStatus(false) }.onSuccess(AutoSelectorClient::update)
+        }
         callback?.onServiceConnected(service)
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
         unregisterCallback()
+        AutoSelectorClient.reset()
         callback?.onServiceDisconnected()
         service = null
         binder = null
@@ -131,6 +149,7 @@ class SagerConnection(
     override fun binderDied() {
         service = null
         callbackRegistered = false
+        AutoSelectorClient.reset()
         if (!restartingApp) {
             callback?.also { runOnMainDispatcher { it.onBinderDied() } }
         }

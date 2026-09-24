@@ -1,7 +1,9 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.outbound.types.Naive
 
 class NaiveSettingsActivity : BindingSettingsActivity<Naive>() {
@@ -35,6 +37,13 @@ class NaiveSettingsActivity : BindingSettingsActivity<Naive>() {
         passwordSummary("password")
         multilineInput("extra_headers", "tls.certificate", "tls.ech.config")
         onSwitch("tls.ech.enabled") { setVisible(it, "tls.ech.config", "tls.ech.serverName") }
+        // limited TLS: only the custom (dialer-level) fragment reaches naive (dialog_edit_profile.cpp:765)
+        if (DataStore.fragmentImplementation == "custom") {
+            presetTriSummary("tls.fragment", DataStore.fragmentDefaultOn)
+        } else {
+            findPreference<Preference>("tls.fragment")?.isEnabled = false
+            fixedSummary("tls.fragment", R.string.preset_fragment_custom_only)
+        }
     }
 
 }

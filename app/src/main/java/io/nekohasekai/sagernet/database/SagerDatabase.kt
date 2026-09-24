@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.database
 
+import android.util.Log
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
@@ -7,32 +8,34 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import dev.matrix.roomigrant.GenerateRoomMigrations
 import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.database.preference.SettingEntry
 import java.io.File
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [ProxyGroup::class, ProxyEntity::class, RouteProfileEntity::class, RouteRuleEntity::class],
-    version = 11,
+    entities = [
+        ProxyGroup::class, ProxyEntity::class, RouteProfileEntity::class, RouteRuleEntity::class,
+        SettingEntry::class, MarkerEntity::class,
+    ],
+    version = 12,
     autoMigrations = [
-        AutoMigration(from = 3, to = 4),
-        AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7),
-        AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
     ]
 )
-@TypeConverters(value = [SubscriptionConverters::class])
-@GenerateRoomMigrations
+@TypeConverters(value = [SubscriptionOptions.Converter::class])
 abstract class SagerDatabase : RoomDatabase() {
 
     companion object {
+
+        private const val TAG = "SagerDatabase"
+
+        /** The settings database of v11 and older; its rows are not carried over. */
+        private const val LEGACY_SETTINGS_DB = "configuration.db"
 
         /** 9 -> 10: the profile table is rebuilt around (type, outboundJson); groups, rules and settings are untouched. */
         val MIGRATION_9_10: Migration = object : Migration(9, 10) {
@@ -94,10 +97,74 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 11 -> 12: the desktop's `groups` / `profiles` tables replace `proxy_groups` / `proxy_entities` (no data is
+         * carried over), `settings` moves in from configuration.db, `markers` is added and `route_profiles` gains the
+         * desktop's raw and endpoint columns. The Default group is created as on a fresh install.
+         */
+        val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `proxy_entities`")
+                db.execSQL("DROP TABLE IF EXISTS `proxy_groups`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `groups` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`archive` INTEGER NOT NULL DEFAULT 0, `skip_auto_update` INTEGER NOT NULL DEFAULT 0, " +
+                        "`name` TEXT NOT NULL DEFAULT '', `url` TEXT NOT NULL DEFAULT '', `info` TEXT NOT NULL DEFAULT '', " +
+                        "`sub_last_update` INTEGER NOT NULL DEFAULT 0, `front_proxy_id` INTEGER NOT NULL DEFAULT -1, " +
+                        "`landing_proxy_id` INTEGER NOT NULL DEFAULT -1, `column_width_json` TEXT NOT NULL DEFAULT '', " +
+                        "`scroll_last_profile` INTEGER NOT NULL DEFAULT -1, " +
+                        "`auto_clear_unavailable` INTEGER NOT NULL DEFAULT 0, `test_sort_by` INTEGER NOT NULL DEFAULT 0, " +
+                        "`traffic_sort_by` INTEGER NOT NULL DEFAULT 0, `test_items_to_show` INTEGER NOT NULL DEFAULT 0, " +
+                        "`type_sort_by` INTEGER NOT NULL DEFAULT 0, `sub_options_json` TEXT NOT NULL DEFAULT '{}', " +
+                        "`display_order` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `profiles` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`type` TEXT NOT NULL, `name` TEXT, `gid` INTEGER NOT NULL DEFAULT 0, " +
+                        "`user_order` INTEGER NOT NULL DEFAULT 0, `latency` INTEGER NOT NULL DEFAULT 0, " +
+                        "`latency_at` INTEGER NOT NULL DEFAULT 0, `dl_speed` TEXT, `ul_speed` TEXT, `test_country` TEXT, " +
+                        "`ip_out` TEXT, `outbound_json` TEXT NOT NULL, `traffic_dl` INTEGER NOT NULL DEFAULT 0, " +
+                        "`traffic_up` INTEGER NOT NULL DEFAULT 0, `test_error` TEXT, " +
+                        "FOREIGN KEY(`gid`) REFERENCES `groups`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_gid` ON `profiles` (`gid`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `settings` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `markers` (`key` TEXT NOT NULL, " +
+                        "`marked_at` INTEGER NOT NULL DEFAULT (strftime('%s','now')), PRIMARY KEY(`key`))"
+                )
+                db.execSQL("ALTER TABLE `route_profiles` ADD COLUMN `is_raw` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `route_profiles` ADD COLUMN `raw_route` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `route_profiles` ADD COLUMN `prevent_modifications` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `route_profiles` ADD COLUMN `endpoint_profile_ids` TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE `route_profiles` ADD COLUMN `inner_hop_endpoint_ids` TEXT NOT NULL DEFAULT '[]'")
+                insertDefaultGroup(db)
+            }
+        }
+
+        /** Configs.cpp:35-39: a new database starts with an ordinary group named "Default". */
+        private val callback = object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                insertDefaultGroup(db)
+            }
+        }
+
+        private fun insertDefaultGroup(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "INSERT INTO `groups` (`name`, `display_order`) SELECT ?, 1 WHERE NOT EXISTS (SELECT 1 FROM `groups`)",
+                arrayOf<Any?>(defaultGroupName())
+            )
+        }
+
+        fun defaultGroupName(): String = SagerNet.application.getString(R.string.group_default_name)
+
+        @OptIn(DelicateCoroutinesApi::class)
         private fun buildProfileDatabase(): SagerDatabase =
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_9_10, MIGRATION_10_11)
-//                .addMigrations(*SagerDatabase_Migrations.build())
+                .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addCallback(callback)
                 .setJournalMode(JournalMode.TRUNCATE)
                 .allowMainThreadQueries()
                 .enableMultiInstanceInvalidation()
@@ -106,29 +173,26 @@ abstract class SagerDatabase : RoomDatabase() {
                 .setQueryExecutor { GlobalScope.launch { it.run() } }
                 .build()
 
-        @OptIn(DelicateCoroutinesApi::class)
-        @Suppress("EXPERIMENTAL_API_USAGE")
+        // Failures are logged with android.util.Log: Logs reads the log level from the settings in this database.
         val instance by lazy {
             SagerNet.application.getDatabasePath(Key.DB_PROFILE).parentFile?.mkdirs()
             val db = buildProfileDatabase()
-            // 先试打开：数据库文件损坏时首次访问会抛异常，此时记录原始错误、
-            // 删除损坏文件并重建空库，让应用可以继续启动而不是陷入崩溃循环。
-            try {
+            // A corrupted file throws on first access: keep a copy, rebuild an empty database, keep the app starting.
+            val opened = try {
                 db.openHelper.writableDatabase
+                db
             } catch (e: Exception) {
-                Logs.e(e)
+                Log.e(TAG, "open failed", e)
                 runCatching { db.close() }
                 backupCorruptedDatabase()
                 SagerNet.application.deleteDatabase(Key.DB_PROFILE)
-                return@lazy buildProfileDatabase()
+                buildProfileDatabase()
             }
-            db
+            SagerNet.application.deleteDatabase(LEGACY_SETTINGS_DB)
+            opened
         }
 
-        /**
-         * 删库重建前将原库文件备份为同目录下带时间戳的副本，降低数据丢失面。
-         * 备份失败仅记录日志，不阻断删库重建流程。
-         */
+        /** Copies the database file next to itself with a timestamp before it is deleted and rebuilt. */
         private fun backupCorruptedDatabase() {
             runCatching {
                 val dbFile = SagerNet.application.getDatabasePath(Key.DB_PROFILE)
@@ -137,21 +201,25 @@ abstract class SagerDatabase : RoomDatabase() {
                         dbFile.parentFile, dbFile.name + ".bak_" + System.currentTimeMillis()
                     )
                     dbFile.copyTo(backupFile, overwrite = false)
-                    Logs.i("Corrupted database backed up as ${backupFile.name}")
+                    Log.i(TAG, "Corrupted database backed up as ${backupFile.name}")
                 }
             }.onFailure {
-                Logs.w("Failed to backup corrupted database before rebuild", it)
+                Log.w(TAG, "Failed to backup corrupted database before rebuild", it)
             }
         }
 
         val groupDao get() = instance.groupDao()
         val proxyDao get() = instance.proxyDao()
         val routeDao get() = instance.routeDao()
+        val settingsDao get() = instance.settingsDao()
+        val markerDao get() = instance.markerDao()
 
     }
 
     abstract fun groupDao(): ProxyGroup.Dao
     abstract fun proxyDao(): ProxyEntity.Dao
     abstract fun routeDao(): RouteDao
+    abstract fun settingsDao(): SettingEntry.Dao
+    abstract fun markerDao(): MarkerEntity.Dao
 
 }

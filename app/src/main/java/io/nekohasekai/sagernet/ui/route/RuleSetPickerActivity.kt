@@ -12,7 +12,6 @@ import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +30,8 @@ import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.route.RuleSetCatalog
 import io.nekohasekai.sagernet.route.RuleSets
 import io.nekohasekai.sagernet.ui.ThemedActivity
-import io.nekohasekai.sagernet.widget.ListListener
+import io.nekohasekai.sagernet.widget.applyInsetPadding
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,7 +84,9 @@ class RuleSetPickerActivity : ThemedActivity() {
 
         binding.list.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         binding.list.adapter = adapter
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
+        // the app bar fits system windows (status bar foreground); the list pads the navigation bar
+        binding.list.applyListInsets(ime = true, horizontal = false)
+        binding.collapsing.applyInsetPadding(horizontal = true)
         binding.search.addTextChangedListener { rebuild() }
         onBackPressedDispatcher.addCallback(this) { finishWithResult() }
 

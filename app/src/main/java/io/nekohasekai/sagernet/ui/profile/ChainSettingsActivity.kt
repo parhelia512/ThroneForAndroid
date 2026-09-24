@@ -27,6 +27,8 @@ import io.nekohasekai.sagernet.databinding.LayoutProfileBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.outbound.types.Chain
 import io.nekohasekai.sagernet.ui.ProfileSelectActivity
+import io.nekohasekai.sagernet.widget.applyInsetPadding
+import io.nekohasekai.sagernet.widget.applyListInsets
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 
@@ -71,6 +73,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<Chain>(R.layout.layout_cha
 
         supportActionBar!!.setTitle(R.string.chain_settings)
         configurationList = findViewById(R.id.configuration_list)
+        configurationList.applyListInsets()
         layoutManager = FixedLinearLayoutManager(configurationList)
         configurationList.layoutManager = layoutManager
         configurationAdapter = ProxiesAdapter()
@@ -114,6 +117,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<Chain>(R.layout.layout_cha
     }
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
+        // the profile list below takes the bottom inset
+        listView.applyInsetPadding(horizontal = true)
         view.rootView.findViewById<RecyclerView>(R.id.recycler_view).apply {
             (layoutParams ?: LinearLayout.LayoutParams(-1, -2)).apply {
                 height = -2

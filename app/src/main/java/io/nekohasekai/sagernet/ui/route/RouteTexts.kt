@@ -112,11 +112,15 @@ internal object RouteTexts {
 /** Server profiles as route targets. Both read the database: call them off the main thread. */
 internal object RouteServers {
 
-    /** Every server profile as (id, "[group] name"), groups and profiles in their list order. */
+    /**
+     * Every server profile as (id, "[group] name"), groups and profiles in their list order. Auto selectors are left
+     * out: they are not a fixed server, so a rule routing to one fails the build (generate.cpp:1281-1286).
+     */
     fun list(): List<Pair<Long, String>> {
         val out = ArrayList<Pair<Long, String>>()
         for (group in SagerDatabase.groupDao.allGroups()) {
             for (profile in SagerDatabase.proxyDao.getByGroup(group.id)) {
+                if (profile.type == "autoselector") continue
                 out.add(profile.id to "[" + group.displayName() + "] " + profile.displayName())
             }
         }

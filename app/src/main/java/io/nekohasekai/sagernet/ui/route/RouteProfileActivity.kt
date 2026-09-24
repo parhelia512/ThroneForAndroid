@@ -11,7 +11,6 @@ import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.ViewModel
@@ -25,6 +24,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.RouteManager
 import io.nekohasekai.sagernet.databinding.LayoutRouteAddRuleBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteProfileHeaderBinding
+import io.nekohasekai.sagernet.databinding.LayoutRouteRawBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteRuleItemBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteRulesTitleBinding
 import io.nekohasekai.sagernet.group.RemoteRouteUpdater
@@ -34,8 +34,8 @@ import io.nekohasekai.sagernet.route.RouteProfile
 import io.nekohasekai.sagernet.route.RouteRule
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.utils.PackageCache
-import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.applyListInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,6 +83,7 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
     private val titleAdapter = TitleAdapter()
     private val rulesAdapter = RulesAdapter()
     private val footerAdapter = FooterAdapter()
+    private val rawAdapter = RawAdapter()
     private lateinit var touchHelper: ItemTouchHelper
     private lateinit var undoManager: UndoSnackbarManager<RouteRule>
 
@@ -100,8 +101,8 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
         }
         list = findViewById(R.id.rule_list)
         list.layoutManager = FixedLinearLayoutManager(list)
-        list.adapter = ConcatAdapter(headerAdapter, titleAdapter, rulesAdapter, footerAdapter)
-        ViewCompat.setOnApplyWindowInsetsListener(list, ListListener)
+        list.adapter = ConcatAdapter(headerAdapter, rawAdapter, titleAdapter, rulesAdapter, footerAdapter)
+        list.applyListInsets(ime = true)
         undoManager = UndoSnackbarManager(this, rulesAdapter)
         touchHelper = ItemTouchHelper(TouchCallback()).also { it.attachToRecyclerView(list) }
         onBackPressedDispatcher.addCallback(this) { close() }
@@ -162,6 +163,8 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
         titleAdapter.notifyDataSetChanged()
         rulesAdapter.notifyDataSetChanged()
         footerAdapter.notifyDataSetChanged()
+        rawAdapter.notifyDataSetChanged()
+        invalidateOptionsMenu()
     }
 
     private fun markDirty() {
@@ -172,6 +175,10 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.route_profile_menu, menu)
+        if (model.profile?.is_raw == true) {
+            menu.removeItem(R.id.action_add_rule)
+            menu.removeItem(R.id.action_apply)
+        }
         return true
     }
 
@@ -213,6 +220,7 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
     /** RouteItem::accept (RouteItem.cpp:597-649): name, remote URL, then the empty-rule filter and check. */
     private fun save() {
         val p = model.profile ?: return
+        if (p.is_raw) return
         if (model.saving) return
         undoManager.flush()
         p.name = p.name.trim()
@@ -438,8 +446,6 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
             val p = model.profile ?: return
             updating = true
             if (binding.name.text?.toString() != p.name) binding.name.setText(p.name)
-            // warp-bypass is offered only to keep an existing value until WARP ships.
-            binding.outboundWarp.isVisible = p.default_outbound_id == OutboundIds.WARP_BYPASS
             val chip = chips.entries.firstOrNull { it.value == p.default_outbound_id }?.key ?: R.id.outbound_proxy
             binding.defaultOutbound.check(chip)
             binding.remoteGroup.isVisible = p.is_remote
@@ -447,6 +453,13 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
             binding.autoUpdate.isChecked = p.auto_update
             updating = false
             bindRemoteState()
+            bindReadOnly(p)
+        }
+
+        /** A desktop raw profile is shown, never edited. */
+        private fun bindReadOnly(p: RouteProfile) {
+            binding.name.isEnabled = !p.is_raw
+            for (i in 0 until binding.defaultOutbound.childCount) binding.defaultOutbound.getChildAt(i).isEnabled = !p.is_raw
         }
 
         fun bindRemoteState() {
@@ -463,8 +476,32 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
         }
     }
 
+    /** The desktop raw route, read-only, or a note on the desktop endpoints Android does not run. */
+    private inner class RawAdapter : RecyclerView.Adapter<RawHolder>() {
+        override fun getItemCount(): Int {
+            val p = model.profile ?: return 0
+            return if (p.is_raw || p.endpointCount() > 0) 1 else 0
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            RawHolder(LayoutRouteRawBinding.inflate(layoutInflater, parent, false))
+
+        override fun onBindViewHolder(holder: RawHolder, position: Int) {
+            val p = model.profile ?: return
+            holder.binding.notice.text = if (p.is_raw) {
+                getString(R.string.route_raw_notice)
+            } else {
+                resources.getQuantityString(R.plurals.route_endpoints_notice, p.endpointCount(), p.endpointCount())
+            }
+            holder.binding.rawScroll.isVisible = p.is_raw
+            holder.binding.rawRoute.text = if (p.is_raw) p.raw_route else ""
+        }
+    }
+
+    private class RawHolder(val binding: LayoutRouteRawBinding) : RecyclerView.ViewHolder(binding.root)
+
     private inner class TitleAdapter : RecyclerView.Adapter<TitleHolder>() {
-        override fun getItemCount() = if (model.profile == null) 0 else 1
+        override fun getItemCount() = if (model.profile == null || model.profile?.is_raw == true) 0 else 1
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
             TitleHolder(LayoutRouteRulesTitleBinding.inflate(layoutInflater, parent, false))
@@ -523,7 +560,7 @@ class RouteProfileActivity : ThemedActivity(R.layout.layout_route_profile) {
     }
 
     private inner class FooterAdapter : RecyclerView.Adapter<FooterHolder>() {
-        override fun getItemCount() = if (model.profile == null) 0 else 1
+        override fun getItemCount() = if (model.profile == null || model.profile?.is_raw == true) 0 else 1
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
             FooterHolder(LayoutRouteAddRuleBinding.inflate(layoutInflater, parent, false)).also { holder ->

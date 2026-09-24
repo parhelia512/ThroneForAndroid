@@ -15,10 +15,11 @@
             app:defaultValue="outbound"
             app:useSimpleSummaryProvider="true" />
 
+    <!-- the schema follows the subtype (CustomSettingsActivity) -->
     <moe.matsuri.nb4a.ui.EditConfigPreference
         app:icon="@drawable/ic_baseline_layers_24"
+        app:jsonRequireObject="true"
         app:key="serverConfig"
-        app:title="@string/custom_config"
-        app:useSimpleSummaryProvider="true" />
+        app:title="@string/custom_config" />
 
 </PreferenceScreen>

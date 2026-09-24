@@ -11,12 +11,6 @@ import io.nekohasekai.sagernet.outbound.json.JsonObject
 import io.nekohasekai.sagernet.outbound.link.LinkBuilder
 import io.nekohasekai.sagernet.outbound.link.LinkParser
 
-/** mieru.h:6 */
-val mieruTransports = listOf("TCP", "UDP")
-
-/** mieru.h:7 */
-val mieruMultiplexing = listOf("", "MULTIPLEXING_OFF", "MULTIPLEXING_LOW", "MULTIPLEXING_MIDDLE", "MULTIPLEXING_HIGH")
-
 /** mieru (include/configs/outbounds/mieru.h, src/configs/outbounds/mieru.cpp). */
 class Mieru : Outbound("mieru") {
     @JvmField var transport: String = "TCP"

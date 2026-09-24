@@ -14,20 +14,6 @@ class XrayMultiplex {
     @JvmField var concurrency: Int = 0
     @JvmField var xudpConcurrency: Int = 16
 
-    /** xrayMultiplex.h:12-16 (0 = Keep Default, 1 = On, 2 = Off). */
-    fun getMuxState(): Int = if (enabled) 1 else if (!useDefault) 2 else 0
-
-    /** xrayMultiplex.h:18-26. */
-    fun saveMuxState(state: Int) {
-        useDefault = false
-        if (state == 1) {
-            enabled = true
-            return
-        }
-        enabled = false
-        if (state == 0) useDefault = true
-    }
-
     fun parseFromLink(link: String): Boolean = parseFromLink(LinkParser.parse(link))
 
     /** xrayMultiplex.cpp:6-15. */

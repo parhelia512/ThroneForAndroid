@@ -18,11 +18,6 @@ fun PreferenceDataStore.int(
     defaultValue: () -> Int = { 0 },
 ) = PreferenceProxy(name, defaultValue, ::getInt, ::putInt)
 
-fun PreferenceDataStore.stringSet(
-    name: String,
-    defaultValue: () -> Set<String> = { setOf() },
-) = PreferenceProxy(name, defaultValue, ::getStringSet, ::putStringSet)
-
 fun PreferenceDataStore.stringToInt(
     name: String,
     defaultValue: () -> Int = { 0 },
@@ -30,24 +25,10 @@ fun PreferenceDataStore.stringToInt(
     getString(key, "$default")?.toIntOrNull() ?: default
 }, { key, value -> putString(key, "$value") })
 
-fun PreferenceDataStore.stringToIntIfExists(
-    name: String,
-    defaultValue: () -> Int = { 0 },
-) = PreferenceProxy(name, defaultValue, { key, default ->
-    getString(key, "$default")?.toIntOrNull() ?: default
-}, { key, value -> putString(key, value.takeIf { it > 0 }?.toString() ?: "") })
-
 fun PreferenceDataStore.long(
     name: String,
     defaultValue: () -> Long = { 0L },
 ) = PreferenceProxy(name, defaultValue, ::getLong, ::putLong)
-
-fun PreferenceDataStore.stringToLong(
-    name: String,
-    defaultValue: () -> Long = { 0L },
-) = PreferenceProxy(name, defaultValue, { key, default ->
-    getString(key, "$default")?.toLongOrNull() ?: default
-}, { key, value -> putString(key, "$value") })
 
 class PreferenceProxy<T>(
     val name: String,
