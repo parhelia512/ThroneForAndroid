@@ -26,23 +26,30 @@ def fail(message):
     sys.exit(1)
 
 
+def pinned_build_tools():
+    """The buildToolsVersion the Gradle build uses (buildSrc Helpers.kt): the runner may carry newer ones."""
+    found = re.search(r'buildToolsVersion = "([^"]+)"', (ROOT / "buildSrc/src/main/kotlin/Helpers.kt").read_text())
+    return found.group(1) if found else None
+
+
 def build_tool(name):
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or fail("ANDROID_HOME is not set")
     tools = []
     for d in Path(sdk, "build-tools").iterdir():
         tool = next((d / f for f in (name, name + ".exe", name + ".bat") if (d / f).exists()), None)
         if tool:
-            tools.append(([int(n) for n in re.findall(r"\d+", d.name)], tool))
+            tools.append(([int(n) for n in re.findall(r"\d+", d.name)], d.name, tool))
     if not tools:
         fail(f"{name} not found under {sdk}/build-tools")
-    return str(max(tools)[1])
+    pinned = pinned_build_tools()
+    return str(next((t for _, v, t in tools if v == pinned), None) or max(tools)[2])
 
 
-def run(*args):
+def run(*args, merge_stderr=False):
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
         fail(f"{' '.join(args[:3])} ... failed: {result.stderr.strip() or result.stdout.strip()}")
-    return result.stdout
+    return result.stdout + result.stderr if merge_stderr else result.stdout
 
 
 def core_ref():
@@ -53,11 +60,13 @@ def core_ref():
 
 
 def signer_sha256(apksigner, apk):
-    out = run(apksigner, "verify", "--print-certs", str(apk))
-    plain = re.findall(r"Signer #(\d+) certificate SHA-256 digest: ([0-9a-f]{64})", out)
-    if len(plain) != 1:
-        fail(f"{apk.name}: expected exactly one signer, apksigner printed {len(plain)}")
-    return plain[0][1]
+    out = run(apksigner, "verify", "--print-certs", str(apk), merge_stderr=True)
+    # "Signer #1 …" or, with a v3.1 rotation target, "Signer (minSdkVersion=…) …"; source stamps are not signers.
+    digests = {d.lower() for d in re.findall(r"^Signer\b.*? certificate SHA-256 digest: ([0-9a-fA-F]{64})\s*$", out, re.M)}
+    if len(digests) != 1:
+        print(out.strip())
+        fail(f"{apk.name}: expected exactly one signer, apksigner printed {len(digests)}")
+    return digests.pop()
 
 
 def badging(aapt2, apk):
